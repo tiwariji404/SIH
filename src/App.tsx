@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './store';
 import Login from './pages/Login';
 import Layout, { type PageId } from './components/Layout';
@@ -180,6 +180,12 @@ function AssignUser({ roleLabel, actionUrl }: { roleLabel: string; actionUrl: st
 function AppContent() {
   const { user } = useApp();
   const [page, setPage] = useState<PageId>('home');
+
+  useEffect(() => {
+    if (user) {
+      setPage('home');
+    }
+  }, [user]);
 
   if (!user) return <Login />;
 

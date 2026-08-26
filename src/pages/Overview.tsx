@@ -4,10 +4,7 @@ import {
   Cctv, Bell, Users, Car, Fence, Car as CarIcon, Activity,
   ShieldAlert, TrendingUp, ArrowUpRight, Radio,
 } from 'lucide-react';
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, PieChart, Pie, Cell, Legend,
-} from 'recharts';
+
 import type { PageId } from '../components/Layout';
 
 export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => void }) {
@@ -33,27 +30,7 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
     { label: 'System Health', value: `${avgHealth}%`, icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', page: 'health' },
   ];
 
-  // Chart data
-  const hourlyData = Array.from({ length: 24 }, (_, h) => ({
-    hour: `${String(h).padStart(2, '0')}:00`,
-    events: Math.floor(Math.abs(Math.sin(h / 3) * 15) + Math.random() * 8),
-    alerts: Math.floor(Math.abs(Math.sin(h / 4) * 5) + Math.random() * 3),
-  }));
-
-  const cameraData = cameras.slice(0, 8).map(c => ({
-    name: c.id,
-    events: c.detectionCount,
-  }));
-
-  const severityData = [
-    { name: 'LOW', value: events.filter(e => e.severity === 'LOW').length, color: '#10b981' },
-    { name: 'MEDIUM', value: events.filter(e => e.severity === 'MEDIUM').length, color: '#f59e0b' },
-    { name: 'HIGH', value: events.filter(e => e.severity === 'HIGH').length, color: '#f97316' },
-    { name: 'CRITICAL', value: events.filter(e => e.severity === 'CRITICAL').length, color: '#ef4444' },
-  ];
-
-  const recentAlerts = alerts.slice(0, 5);
-  const liveCameras = cameras.filter(c => c.status === 'ONLINE').slice(0, 4);
+  const activeAlertsList = alerts.filter(a => a.status !== 'RESOLVED');
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
@@ -90,95 +67,31 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
         })}
       </div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Events by hour */}
-        <div className="card p-4 lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Events by Hour</h3>
-            <TrendingUp className="h-4 w-4 text-slate-600" />
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={hourlyData}>
-              <defs>
-                <linearGradient id="eventGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#06b6d4" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="alertGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#ef4444" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="hour" stroke="#94a3b8" fontSize={9} interval={3} />
-              <YAxis stroke="#94a3b8" fontSize={10} />
-              <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#1e293b', borderRadius: '8px', fontSize: '11px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-              <Area type="monotone" dataKey="events" stroke="#06b6d4" strokeWidth={2} fill="url(#eventGrad)" />
-              <Area type="monotone" dataKey="alerts" stroke="#ef4444" strokeWidth={2} fill="url(#alertGrad)" />
-            </AreaChart>
-          </ResponsiveContainer>
+      {/* Active Alerts List */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Active Alerts</h3>
+          <button onClick={() => onNavigate('alerts')} className="text-[10px] text-orange-500 hover:text-orange-600 font-bold uppercase tracking-wider">
+            VIEW ALL →
+          </button>
         </div>
-
-        {/* Severity distribution */}
-        <div className="card p-4">
-          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide mb-4">Alert Severity Distribution</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={severityData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3}>
-                {severityData.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#1e293b', borderRadius: '8px', fontSize: '11px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-              <Legend wrapperStyle={{ fontSize: '10px' }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Live cameras + recent alerts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Live camera grid */}
-        <div className="card p-4 lg:col-span-2">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-              <Radio className="h-4 w-4 text-orange-500 animate-pulse" />
-              Live Camera Feeds
-            </h3>
-            <button onClick={() => onNavigate('live')} className="text-[10px] text-orange-500 hover:text-orange-600 font-bold uppercase tracking-wider">
-              VIEW ALL →
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {liveCameras.map(cam => (
-              <CameraFeed key={cam.id} camera={cam} compact />
-            ))}
-          </div>
-        </div>
-
-        {/* Recent alerts */}
-        <div className="card p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Recent Alerts</h3>
-            <button onClick={() => onNavigate('alerts')} className="text-[10px] text-orange-500 hover:text-orange-600 font-bold uppercase tracking-wider">
-              VIEW ALL →
-            </button>
-          </div>
-          <div className="space-y-2">
-            {recentAlerts.map(alert => (
-              <div key={alert.id} className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-100 hover:border-orange-200 hover:shadow-[0_2px_8px_rgba(234,88,12,0.1)] transition-all cursor-pointer" onClick={() => onNavigate('alerts')}>
-                <div className={`w-1 h-10 rounded-full ${alert.severity === 'CRITICAL' ? 'bg-red-500' : alert.severity === 'HIGH' ? 'bg-orange-500' : alert.severity === 'MEDIUM' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+        <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+          {activeAlertsList.length === 0 ? (
+            <p className="text-sm font-semibold text-slate-500 py-6 text-center">No active alerts at the moment.</p>
+          ) : (
+            activeAlertsList.map(alert => (
+              <div key={alert.id} className="flex items-center gap-3 p-3.5 rounded-lg bg-white border border-slate-200 hover:border-orange-300 hover:shadow-[0_4px_12px_rgba(234,88,12,0.1)] transition-all cursor-pointer" onClick={() => onNavigate('alerts')}>
+                <div className={`w-1.5 h-12 rounded-full flex-shrink-0 ${alert.severity === 'CRITICAL' ? 'bg-red-500' : alert.severity === 'HIGH' ? 'bg-orange-500' : alert.severity === 'MEDIUM' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-slate-800 truncate">{alert.title}</p>
-                  <p className="text-[10px] font-semibold text-slate-600">{alert.cameraId} • {alert.when}</p>
+                  <p className="text-sm font-extrabold text-slate-800 truncate">{alert.title}</p>
+                  <p className="text-xs font-semibold text-slate-600 mt-1 uppercase tracking-wider">{alert.cameraId} • {alert.when}</p>
                 </div>
-                <span className={`badge text-[9px] ${alert.status === 'NEW' ? 'bg-red-500/20 text-red-400' : alert.status === 'RESOLVED' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                <span className={`badge text-xs px-2.5 py-1 font-bold ${alert.status === 'NEW' ? 'bg-red-500/10 text-red-600 border border-red-500/20' : alert.status === 'RESOLVED' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'}`}>
                   {alert.status}
                 </span>
               </div>
-            ))}
-          </div>
+            ))
+          )}
         </div>
       </div>
       

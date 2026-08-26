@@ -53,7 +53,7 @@ export default function LiveSurveillance() {
 
   const visibleCameras = selectedCam
     ? cameras.filter(c => c.id === selectedCam)
-    : cameras.filter(c => c.status !== 'OFFLINE').slice(0, gridSize === '2x2' ? 4 : 9);
+    : cameras.filter(c => c.status !== 'OFFLINE');
 
   return (
     <div className="space-y-4 animate-fade-in">

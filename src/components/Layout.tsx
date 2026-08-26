@@ -138,10 +138,10 @@ export default function Layout({ current, onNavigate, children }: Props) {
   const SECONDARY_NAV = secondaryNavIds.map(id => NAV_ITEMS[id]);
 
   return (
-    <div className="min-h-screen bg-tactical text-slate-800 font-sans relative overflow-hidden">
-      <div className="flex min-h-screen">
+    <div className="h-screen bg-tactical text-slate-800 font-sans relative overflow-hidden">
+      <div className="flex h-screen overflow-hidden">
         <aside
-          className={`fixed inset-y-0 left-0 z-40 w-72 transform border-r border-slate-200 bg-white px-4 py-5 transition-transform duration-200 lg:static lg:translate-x-0 shadow-xl ${
+          className={`fixed inset-y-0 left-0 z-40 w-72 transform border-r border-slate-200 bg-white px-4 py-5 transition-transform duration-200 lg:static lg:translate-x-0 shadow-xl overflow-y-auto ${
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
@@ -233,7 +233,7 @@ export default function Layout({ current, onNavigate, children }: Props) {
           />
         )}
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+        <div className="flex h-full min-w-0 flex-1 flex-col overflow-y-auto bg-slate-50">
           <header className="sticky top-0 z-20 border-b border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 bg-slate-50/50">
               <div className="flex items-center gap-3">

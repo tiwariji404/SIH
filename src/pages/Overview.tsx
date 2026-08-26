@@ -22,15 +22,15 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
   const suspiciousActivities = events.filter(e => e.eventType.includes('Suspicious') || e.eventType.includes('Loitering')).length;
   const avgHealth = Math.round(cameras.reduce((s, c) => s + c.health, 0) / (cameras.length || 1));
 
-  const kpis = [
-    { label: 'Cameras Online', value: `${onlineCameras} / ${cameras.length}`, icon: Cctv, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-    { label: 'Active Alerts', value: activeAlerts, icon: Bell, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20' },
-    { label: 'People Detected', value: peopleDetected, icon: Users, color: 'text-accent-400', bg: 'bg-accent-500/10', border: 'border-accent-500/20' },
-    { label: 'Vehicles Detected', value: vehiclesDetected, icon: Car, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
-    { label: 'Intrusions Today', value: intrusionsToday, icon: Fence, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
-    { label: 'ANPR Events', value: anprEvents, icon: CarIcon, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
-    { label: 'Suspicious Activities', value: suspiciousActivities, icon: ShieldAlert, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
-    { label: 'System Health', value: `${avgHealth}%`, icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+  const kpis: { label: string; value: number | string; icon: any; color: string; bg: string; border: string; page: PageId }[] = [
+    { label: 'Cameras Online', value: `${onlineCameras} / ${cameras.length}`, icon: Cctv, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', page: 'live' },
+    { label: 'Active Alerts', value: activeAlerts, icon: Bell, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', page: 'alerts' },
+    { label: 'People Detected', value: peopleDetected, icon: Users, color: 'text-accent-400', bg: 'bg-accent-500/10', border: 'border-accent-500/20', page: 'tracking' },
+    { label: 'Vehicles Detected', value: vehiclesDetected, icon: Car, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', page: 'anpr' },
+    { label: 'Intrusions Today', value: intrusionsToday, icon: Fence, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', page: 'events' },
+    { label: 'ANPR Events', value: anprEvents, icon: CarIcon, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', page: 'anpr' },
+    { label: 'Suspicious Activities', value: suspiciousActivities, icon: ShieldAlert, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', page: 'tracking' },
+    { label: 'System Health', value: `${avgHealth}%`, icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', page: 'health' },
   ];
 
   // Chart data
@@ -76,7 +76,7 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
         {kpis.map(kpi => {
           const Icon = kpi.icon;
           return (
-            <div key={kpi.label} className={`card card-hover p-4 border ${kpi.border}`}>
+            <div key={kpi.label} onClick={() => onNavigate(kpi.page)} className={`card card-hover p-4 border cursor-pointer ${kpi.border}`}>
               <div className="flex items-start justify-between mb-3">
                 <div className={`p-2 rounded-lg ${kpi.bg}`}>
                   <Icon className={`h-5 w-5 ${kpi.color}`} />

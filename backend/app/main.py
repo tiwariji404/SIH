@@ -1,10 +1,16 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import json
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routers import auth, users, stream
+from app.api.routers import auth, users, stream, cameras, alerts, zones, analytics
 from app.core.config import settings
 from app.db.firebase import init_firebase
 from app.ws_manager import manager
+from app.db.session import engine, Base
+import app.models.core_models
+import app.models.user
+
+# Create all tables in sqlite
+Base.metadata.create_all(bind=engine)
 import logging
 
 try:
@@ -28,6 +34,10 @@ app.add_middleware(
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
 app.include_router(stream.router, prefix=f"{settings.API_V1_STR}/stream", tags=["stream"])
+app.include_router(cameras.router, prefix=f"{settings.API_V1_STR}/cameras", tags=["cameras"])
+app.include_router(alerts.router, prefix=f"{settings.API_V1_STR}/alerts", tags=["alerts"])
+app.include_router(zones.router, prefix=f"{settings.API_V1_STR}/zones", tags=["zones"])
+app.include_router(analytics.router, prefix=f"{settings.API_V1_STR}/analytics", tags=["analytics"])
 
 @app.get("/")
 def read_root():

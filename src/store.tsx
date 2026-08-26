@@ -80,6 +80,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [watchlistPlates, setWatchlistPlates] = useState<string[]>([]);
   const demoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    if (!demoMode) {
+      Promise.all([
+        fetch('http://localhost:8000/api/v1/cameras').then(res => res.json()),
+        fetch('http://localhost:8000/api/v1/alerts/events').then(res => res.json()),
+        fetch('http://localhost:8000/api/v1/alerts').then(res => res.json()),
+        fetch('http://localhost:8000/api/v1/zones').then(res => res.json()),
+        fetch('http://localhost:8000/api/v1/analytics/vehicles').then(res => res.json()),
+        fetch('http://localhost:8000/api/v1/analytics/audit-logs').then(res => res.json()),
+        fetch('http://localhost:8000/api/v1/analytics/detections').then(res => res.json())
+      ]).then(([cams, evts, alts, zns, veh, logs, dets]) => {
+        setCameras(cams);
+        setEvents(evts);
+        setAlerts(alts);
+        setZones(zns);
+        setVehicles(veh);
+        setAuditLogs(logs);
+        setDetections(dets);
+      }).catch(err => console.error("Error fetching backend data:", err));
+    } else {
+      // Revert to demo state if toggled back
+      setCameras(initialCamerasRef.current);
+      setEvents(initialEventsRef.current);
+      // We don't fully reset the others to avoid losing state, but cameras and events are back
+    }
+  }, [demoMode]);
+
+
   const showToast = useCallback((msg: ToastMsg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 5000);

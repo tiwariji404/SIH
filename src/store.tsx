@@ -39,6 +39,8 @@ interface AppState {
   triggerCameraOffline: (cameraId: string) => void;
   toast: ToastMsg | null;
   showToast: (msg: ToastMsg) => void;
+  activeAlarm: Alert | null;
+  setActiveAlarm: (alarm: Alert | null) => void;
 }
 
 export interface ToastMsg {
@@ -72,6 +74,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [detections, setDetections] = useState<Detection[]>(() => generateDetections(initialCamerasRef.current, 30));
   const [liveDemoRunning, setLiveDemoRunning] = useState(false);
   const [toast, setToast] = useState<ToastMsg | null>(null);
+  const [activeAlarm, setActiveAlarm] = useState<Alert | null>(null);
   const demoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback((msg: ToastMsg) => {
@@ -479,7 +482,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // WebSocket for Real-time AI Detections
   useEffect(() => {
     if (!user) return;
-    const ws = new WebSocket('ws://localhost:8000/ws/detections');
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket('ws://localhost:8000/ws/detections');
+    } catch (e) {
+      console.warn("WebSocket could not connect", e);
+      return;
+    }
     
     ws.onmessage = (event) => {
       try {
@@ -488,9 +497,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setVehicles(prev => [data.vehicle, ...prev]);
           if (data.vehicle.status === 'WATCHLIST') {
             showToast({ type: 'alert', title: 'WATCHLIST MATCH', message: `Watchlist vehicle ${data.vehicle.plateNumber} detected!` });
+            const alarm: Alert = {
+              id: `A-${Date.now()}`,
+              eventId: `EVT-${Date.now()}`,
+              severity: 'CRITICAL',
+              riskScore: 99,
+              reason: 'Watchlist Vehicle Detected',
+              reasons: ['Watchlist match'],
+              status: 'NEW',
+              createdAt: new Date().toISOString(),
+              acknowledgedAt: null,
+              resolvedAt: null,
+              cameraId: data.vehicle.cameraId,
+              trackingId: data.vehicle.id,
+              title: 'WANTED VEHICLE DETECTED',
+              what: `Vehicle matched plate: ${data.vehicle.plateNumber}`,
+              where: data.vehicle.cameraId,
+              when: new Date().toLocaleTimeString('en-IN'),
+              object: data.vehicle.vehicleType,
+              why: 'ANPR Database Match',
+              confidence: data.vehicle.confidence,
+            };
+            setActiveAlarm(alarm);
           } else {
             showToast({ type: 'info', title: 'Vehicle Detected', message: `Plate ${data.vehicle.plateNumber} detected.` });
           }
+        } else if (data.type === 'intrusion') {
+            const alarm: Alert = {
+              id: `A-${Date.now()}`,
+              eventId: `EVT-${Date.now()}`,
+              severity: 'CRITICAL',
+              riskScore: 95,
+              reason: 'Border / Virtual Fence Intrusion',
+              reasons: ['Virtual fence crossed'],
+              status: 'NEW',
+              createdAt: new Date().toISOString(),
+              acknowledgedAt: null,
+              resolvedAt: null,
+              cameraId: data.camera || 'CAM-Unknown',
+              trackingId: `TRK-${Date.now()}`,
+              title: 'BORDER INTRUSION',
+              what: 'Human entered restricted zone',
+              where: data.camera || 'CAM-Unknown',
+              when: new Date().toLocaleTimeString('en-IN'),
+              object: 'Person',
+              why: 'Virtual Fence Rule Violated',
+              confidence: 90,
+            };
+            setActiveAlarm(alarm);
         }
       } catch (e) {
         console.error('Error parsing WS message', e);
@@ -498,7 +552,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     return () => {
-      ws.close();
+      if(ws) ws.close();
     };
   }, [user, showToast]);
 
@@ -508,6 +562,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     liveDemoRunning, startLiveDemo, stopLiveDemo,
     setCameraScenario, acknowledgeAlert, escalateAlert, resolveAlert,
     addZone, deleteZone, addAuditLog, addAlert, triggerCameraOffline, toast, showToast,
+    activeAlarm, setActiveAlarm,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../store';
 import { AlertStatus, riskColor, statusColor } from '../types';
-import { Bell, Search, Filter, Eye, CheckCircle, ArrowUpCircle, Check, X } from 'lucide-react';
+import { Bell, Search, Filter, Eye, CheckCircle, ArrowUpCircle, Check, X, AlertTriangle } from 'lucide-react';
 
 export default function Alerts() {
   const { alerts, acknowledgeAlert, escalateAlert, resolveAlert } = useApp();
@@ -54,11 +54,16 @@ export default function Alerts() {
             <div key={alert.id} className={`card p-4 border-l-4 ${alert.severity === 'CRITICAL' ? 'border-l-red-500' : alert.severity === 'HIGH' ? 'border-l-orange-500' : alert.severity === 'MEDIUM' ? 'border-l-amber-500' : 'border-l-emerald-500'} ${alert.status === 'NEW' ? 'animate-alert-pulse' : ''}`}>
               <div className="flex items-start gap-3">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className={`badge ${riskColor[alert.severity]}`}>{alert.severity}</span>
                     <span className={`badge ${statusColor[alert.status]}`}>{alert.status}</span>
                     <span className="text-[10px] font-mono text-slate-600">{alert.id}</span>
                     <span className="text-[10px] font-mono text-accent-400">Risk: {alert.riskScore}/100</span>
+                    {alert.status === 'INVESTIGATING' && (
+                       <span className="badge bg-red-600 text-white font-bold ml-auto border border-red-700 animate-pulse">
+                         🚨 ESCALATED BY SYSTEM: OPERATOR INACTIVE
+                       </span>
+                    )}
                   </div>
                   <h3 className="text-sm font-semibold text-slate-900">{alert.title}</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-[11px]">
@@ -112,6 +117,18 @@ export default function Alerts() {
               <DetailRow label="CONFIDENCE" value={`${selectedAlert.confidence}%`} />
               <DetailRow label="RISK SCORE" value={`${selectedAlert.riskScore} / 100`} color="text-red-400" />
             </div>
+            
+            {/* ESCALATION BLOCK */}
+            {selectedAlert.status === 'INVESTIGATING' && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                 <h3 className="text-sm font-black text-red-700 uppercase tracking-widest mb-1 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" /> Escalation Report
+                 </h3>
+                 <p className="text-xs text-red-600 font-medium">This alert was automatically escalated because the assigned Operator did not acknowledge the warning within the 30-second timeout window.</p>
+                 <p className="text-[10px] font-mono mt-2 text-red-800">Operator ID: UNKNOWN (Auto-esc) | Auto-Escalation Protocol Triggered</p>
+              </div>
+            )}
+            
             <div className="mt-4 pt-4 border-t border-slate-200">
               <p className="text-[10px] font-mono uppercase text-slate-600 mb-2">Risk Factors</p>
               <div className="flex flex-wrap gap-1.5">

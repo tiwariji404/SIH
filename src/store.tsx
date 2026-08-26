@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import type {
   Camera, EventItem, Alert, VehicleRecord, Zone, TrackRecord, AuditLog, FaceRecord,
-  Detection, User, AlertStatus, ScenarioType,
+  Detection, User, AlertStatus, ScenarioType, Role,
 } from './types';
 import {
   DEMO_USERS, generateCameras, generateEvents, generateAlerts, generateVehicles,

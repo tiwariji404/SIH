@@ -95,46 +95,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
     try {
-      const formData = new URLSearchParams();
-      formData.append('username', username);
-      formData.append('password', password);
+      // Bypass password / backend check for instant demo login
+      const lowerUser = username.toLowerCase();
+      let role: Role = 'operator';
+      
+      if (lowerUser.includes('sub')) {
+        role = 'sub_admin';
+      } else if (lowerUser.includes('admin')) {
+        role = 'admin';
+      }
 
-      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formData
-      });
-      
-      if (!response.ok) return false;
-      const data = await response.json();
-      const t = data.access_token;
-      
-      const userResponse = await fetch('http://localhost:8000/api/v1/users/me', {
-        headers: { 'Authorization': `Bearer ${t}` }
-      });
-      if (!userResponse.ok) return false;
-      const u = await userResponse.json();
-      
-      setToken(t);
-      localStorage.setItem('token', t);
-      
-      // Update local dummy user to match the real user
       const loggedUser = {
-        id: u.id.toString(),
-        name: u.username,
-        email: `${u.username}@ssb.gov.in`,
-        role: u.role,
-        username: u.username,
-        password: '', // Do not store password
+        id: `U-${Date.now()}`,
+        name: username,
+        email: `${username}@ssb.gov.in`,
+        role: role,
+        username: username,
+        password: '',
         avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=256'
       };
       
+      setToken('dummy-token-12345');
+      localStorage.setItem('token', 'dummy-token-12345');
       setUser(loggedUser);
       
       const log: AuditLog = {
         id: `LOG-${Date.now()}`,
         user: loggedUser.name,
-        action: 'logged in via backend',
+        action: 'logged in directly (Backend bypassed)',
         timestamp: new Date().toISOString(),
         details: `Role: ${loggedUser.role}`,
         result: 'SUCCESS',

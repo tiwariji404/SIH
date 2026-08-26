@@ -40,7 +40,9 @@ export type PageId =
   | 'demo'
   | 'settings'
   | 'innovation'
-  | 'faces';
+  | 'faces'
+  | 'assign_sub_admin'
+  | 'assign_operator';
 
 interface Props {
   current: PageId;
@@ -55,28 +57,27 @@ interface NavItem {
   accent?: string;
 }
 
-const PRIMARY_NAV: NavItem[] = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'live', label: 'Live Surveillance', icon: Radio, accent: 'text-red-400' },
-  { id: 'cameras', label: 'Cameras', icon: Camera },
-  { id: 'alerts', label: 'Alerts', icon: Bell },
-  { id: 'events', label: 'Events', icon: FileText },
-  { id: 'map', label: 'Border Map', icon: Map },
-  { id: 'anpr', label: 'ANPR', icon: TrafficCone },
-  { id: 'tracking', label: 'Tracking', icon: Target },
-  { id: 'fences', label: 'Virtual Fences', icon: Shield },
-];
-
-const SECONDARY_NAV: NavItem[] = [
-  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-  { id: 'health', label: 'System Health', icon: Activity },
-  { id: 'audit', label: 'Audit Logs', icon: FileClock },
-  { id: 'reports', label: 'Reports', icon: FileText },
-  { id: 'demo', label: 'Demo Center', icon: FlaskConical },
-  { id: 'innovation', label: 'Innovation', icon: BrainCircuit },
-  { id: 'faces', label: 'Face Detection', icon: ScanFace },
-  { id: 'settings', label: 'Settings', icon: Settings2 },
-];
+const NAV_ITEMS: Record<string, NavItem> = {
+  assign_sub_admin: { id: 'assign_sub_admin', label: 'Assign Sub-Admin', icon: Shield, accent: 'text-blue-500' },
+  assign_operator: { id: 'assign_operator', label: 'Assign Operator', icon: Target, accent: 'text-blue-500' },
+  overview: { id: 'overview', label: 'Overview Dashboard', icon: LayoutDashboard },
+  live: { id: 'live', label: 'Live Surveillance', icon: Radio, accent: 'text-red-500' },
+  cameras: { id: 'cameras', label: 'Recorded Video', icon: Camera },
+  alerts: { id: 'alerts', label: 'Alerts', icon: Bell },
+  events: { id: 'events', label: 'Events History', icon: FileText },
+  map: { id: 'map', label: 'Border Map', icon: Map },
+  anpr: { id: 'anpr', label: 'Vehicle Detection', icon: TrafficCone },
+  tracking: { id: 'tracking', label: 'Tracking', icon: Target },
+  fences: { id: 'fences', label: 'Fencing', icon: Shield },
+  analytics: { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+  health: { id: 'health', label: 'System Health', icon: Activity },
+  audit: { id: 'audit', label: 'Audit Log', icon: FileClock },
+  reports: { id: 'reports', label: 'Reports', icon: FileText },
+  demo: { id: 'demo', label: 'Demo Center', icon: FlaskConical },
+  innovation: { id: 'innovation', label: 'Innovation', icon: BrainCircuit },
+  faces: { id: 'faces', label: 'Face Detection', icon: ScanFace },
+  settings: { id: 'settings', label: 'Settings', icon: Settings2 },
+};
 
 function NavButton({
   item,
@@ -112,25 +113,46 @@ export default function Layout({ current, onNavigate, children }: Props) {
     setMobileOpen(false);
     onNavigate(page);
   };
+  
+  const role = user?.role || 'operator';
+  
+  let primaryNavIds: PageId[] = [];
+  let secondaryNavIds: PageId[] = [];
+  
+  if (role === 'admin') {
+    primaryNavIds = ['assign_sub_admin', 'events', 'map', 'tracking', 'fences'];
+    secondaryNavIds = ['settings'];
+  } else if (role === 'sub_admin') {
+    primaryNavIds = ['overview', 'assign_operator', 'live', 'cameras', 'map', 'fences'];
+    secondaryNavIds = ['audit'];
+  } else {
+    // operator
+    primaryNavIds = ['live', 'cameras', 'alerts', 'map', 'anpr', 'fences'];
+    secondaryNavIds = ['audit'];
+  }
+
+  const PRIMARY_NAV = primaryNavIds.map(id => NAV_ITEMS[id]);
+  const SECONDARY_NAV = secondaryNavIds.map(id => NAV_ITEMS[id]);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(6,182,212,0.12),_transparent_28%),linear-gradient(180deg,_#020617_0%,_#07111f_100%)] text-slate-200">
+    <div className="min-h-screen bg-tactical text-slate-200 font-sans relative overflow-hidden">
       <div className="flex min-h-screen">
         <aside
-          className={`fixed inset-y-0 left-0 z-40 w-72 transform border-r border-white/5 bg-ink-950/95 px-4 py-5 backdrop-blur-xl transition-transform duration-200 lg:static lg:translate-x-0 ${
+          className={`fixed inset-y-0 left-0 z-40 w-72 transform border-r border-slate-800 bg-slate-950/95 px-4 py-5 backdrop-blur-xl transition-transform duration-200 lg:static lg:translate-x-0 shadow-2xl ${
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
-          <div className="flex items-start justify-between gap-3 border-b border-white/5 pb-4">
+          <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-4 relative">
+            <div className="absolute top-[-20px] left-[-16px] right-[-16px] h-1 bg-gradient-to-r from-orange-500 via-white to-green-600"></div>
             <div>
-              <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-accent-300">
+              <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-orange-500 font-bold">
                 IBVAP
               </p>
-              <h1 className="mt-1 text-lg font-semibold text-slate-100">
-                Command Console
+              <h1 className="mt-1 text-lg font-extrabold text-white tracking-tight uppercase">
+                {role === 'admin' ? 'Admin Console' : role === 'sub_admin' ? 'Sub-Admin Console' : 'Operator Console'}
               </h1>
-              <p className="text-xs text-slate-500">
-                Intelligent Border Video Analytics Platform
+              <p className="text-xs font-medium text-slate-400 mt-1 uppercase tracking-wider">
+                Border Security Force
               </p>
             </div>
             <button
@@ -143,13 +165,13 @@ export default function Layout({ current, onNavigate, children }: Props) {
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-xl border border-red-500/15 bg-red-500/5 p-3">
-              <p className="text-[10px] font-mono uppercase text-red-300">Active Alerts</p>
-              <p className="mt-1 text-xl font-semibold text-slate-100">{activeAlerts}</p>
+            <div className="rounded-xl border border-red-500/30 bg-red-950/40 p-3 shadow-inner">
+              <p className="text-[10px] font-mono uppercase text-red-400 font-bold">Active Alerts</p>
+              <p className="mt-1 text-xl font-bold text-white">{activeAlerts}</p>
             </div>
-            <div className="rounded-xl border border-amber-500/15 bg-amber-500/5 p-3">
-              <p className="text-[10px] font-mono uppercase text-amber-300">Offline Cams</p>
-              <p className="mt-1 text-xl font-semibold text-slate-100">{offlineCameras}</p>
+            <div className="rounded-xl border border-orange-500/30 bg-orange-950/40 p-3 shadow-inner">
+              <p className="text-[10px] font-mono uppercase text-orange-400 font-bold">Offline Nodes</p>
+              <p className="mt-1 text-xl font-bold text-white">{offlineCameras}</p>
             </div>
           </div>
 
@@ -164,8 +186,8 @@ export default function Layout({ current, onNavigate, children }: Props) {
             ))}
           </nav>
 
-          <div className="mt-6 border-t border-white/5 pt-5">
-            <p className="mb-2 px-3 text-[10px] font-mono uppercase tracking-[0.25em] text-slate-500">
+          <div className="mt-6 border-t border-slate-800 pt-5">
+            <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">
               Operations
             </p>
             <nav className="space-y-1">
@@ -181,15 +203,15 @@ export default function Layout({ current, onNavigate, children }: Props) {
           </div>
 
           {user && (
-            <div className="mt-6 rounded-2xl border border-white/5 bg-white/[0.03] p-4">
+            <div className="mt-6 rounded-2xl border border-slate-700/50 bg-slate-900/50 p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-100">{user.name}</p>
-                  <p className="text-[10px] font-mono uppercase text-slate-500">{user.role}</p>
+                  <p className="truncate text-sm font-bold text-slate-200">{user.name}</p>
+                  <p className="text-[10px] font-mono uppercase text-orange-500">{user.role}</p>
                 </div>
                 <button
                   type="button"
-                  className="btn-ghost px-2 py-1 text-[10px]"
+                  className="btn-ghost px-2 py-1 text-[10px] hover:text-red-400"
                   onClick={logout}
                 >
                   <LogOut className="h-3.5 w-3.5" />
@@ -209,33 +231,33 @@ export default function Layout({ current, onNavigate, children }: Props) {
         )}
 
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 border-b border-white/5 bg-ink-950/70 backdrop-blur-xl">
-            <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/70 backdrop-blur-xl shadow-lg">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 border-b border-orange-500/20 bg-slate-900/40">
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  className="rounded-lg border border-white/10 p-2 text-slate-400 hover:bg-white/5 hover:text-slate-200 lg:hidden"
+                  className="rounded-lg border border-slate-700/50 p-2 text-slate-400 hover:bg-slate-800 hover:text-slate-200 lg:hidden"
                   onClick={() => setMobileOpen(true)}
                 >
                   <Menu className="h-4 w-4" />
                 </button>
                 <div>
-                  <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-slate-500">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-400">
                     Unified Operations
                   </p>
-                  <p className="text-sm text-slate-300">
-                    Monitor detection, response, and infrastructure health from one place.
+                  <p className="text-sm font-medium text-slate-400">
+                    {role === 'admin' ? 'Strategic monitoring' : 'Tactical command'} and infrastructure health from one place.
                   </p>
                 </div>
               </div>
 
               <div className="hidden items-center gap-2 sm:flex">
-                <span className="badge border border-emerald-500/20 bg-emerald-500/10 text-emerald-300">
-                  <span className="status-dot animate-pulse bg-emerald-400" />
-                  System Online
+                <span className="badge border border-green-500/20 bg-green-500/10 text-green-400">
+                  <span className="status-dot animate-pulse bg-green-500" />
+                  System Secure
                 </span>
-                <span className="badge border border-white/10 bg-white/5 text-slate-300">
-                  {cameras.length} cameras
+                <span className="badge border border-slate-700 bg-slate-900/50 text-slate-400">
+                  {cameras.length} active streams
                 </span>
               </div>
             </div>

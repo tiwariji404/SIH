@@ -1,32 +1,31 @@
 import { useState, useEffect, useRef } from 'react';
-import { useApp } from '../store';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { Radio, ScanFace, Clock, AlertTriangle, ShieldCheck, X, Camera } from 'lucide-react';
+import { Radio, ScanFace, Clock, AlertTriangle, ShieldCheck, Camera } from 'lucide-react';
 
 interface FaceLog {
   id: string;
   name: string;
   status: 'Known' | 'Unknown';
   cameraId: string;
-  timestamp: any;
+  timestamp: unknown;
   imageUrl: string;
 }
 
 export default function Tracking() {
-  const { cameras } = useApp();
   const [logs, setLogs] = useState<FaceLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<FaceLog | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
+    const currentVideo = videoRef.current;
     async function startCam() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+        if (currentVideo) {
+          currentVideo.srcObject = stream;
         }
       } catch (err) {
         console.error("Camera access denied or unavailable", err);
@@ -35,8 +34,8 @@ export default function Tracking() {
     startCam();
 
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+      if (currentVideo && currentVideo.srcObject) {
+        const tracks = (currentVideo.srcObject as MediaStream).getTracks();
         tracks.forEach(t => t.stop());
       }
     };
@@ -65,7 +64,7 @@ export default function Tracking() {
       });
 
       return () => unsubscribe();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setError("Error setting up Firestore listener.");
       setLoading(false);
@@ -140,7 +139,8 @@ export default function Tracking() {
               ) : (
                 logs.map((log) => {
                   const isKnown = log.status === 'Known';
-                  const logDate = log.timestamp?.toDate ? log.timestamp.toDate() : new Date();
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const logDate = (log.timestamp as any)?.toDate ? (log.timestamp as any).toDate() : new Date();
 
                   return (
                     <div 
@@ -212,7 +212,8 @@ export default function Tracking() {
                   <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Time of Entry</p>
                     <p className="text-sm font-semibold text-slate-800 font-mono">
-                      {selectedLog.timestamp?.toDate ? selectedLog.timestamp.toDate().toLocaleString('en-IN') : 'Unknown'}
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      {(selectedLog.timestamp as any)?.toDate ? (selectedLog.timestamp as any).toDate().toLocaleString('en-IN') : 'Unknown'}
                     </p>
                   </div>
                   <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">

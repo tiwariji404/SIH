@@ -22,8 +22,9 @@ export default function Login() {
       if (!ok) {
         setError('Invalid credentials.');
       }
-    } catch (err: any) {
-      setError('Invalid credentials.');
+    } catch (err: unknown) {
+      console.error(err);
+      setError('Invalid credentials');
     } finally {
       setLoading(false);
     }

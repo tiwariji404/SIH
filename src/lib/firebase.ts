@@ -13,13 +13,14 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase (safely wrapped for demo)
-export let app: any;
-export let db: any;
+export let app: unknown;
+export let db: unknown;
 try {
   app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
-} catch (e) {
-  console.warn("Firebase config not set, using mock telemetry.");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db = getFirestore(app as any); // cast for now to avoid other ts errors
+} catch (error) {
+  console.warn("Firebase config not set, using mock telemetry.", error);
 }
 
 export type TelemetryEvent = {

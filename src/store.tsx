@@ -12,7 +12,7 @@ import {
 interface AppState {
   user: User | null;
   token: string | null;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, _password: string) => Promise<boolean>;
   logout: () => void;
   demoMode: boolean;
   setDemoMode: (on: boolean) => void;
@@ -104,7 +104,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAuditLogs(prev => [log, ...prev]);
   }, [user]);
 
-  const login = useCallback(async (username: string, password: string): Promise<boolean> => {
+  const login = useCallback(async (username: string): Promise<boolean> => {
     try {
       // Bypass password / backend check for instant demo login
       const lowerUser = username.toLowerCase();

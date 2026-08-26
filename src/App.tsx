@@ -29,9 +29,9 @@ let globalMockUsers = [
   { id: '4', name: 'Anita Das', username: 'anita_op', location: 'Punjab Border', role: 'Operator', date: '2026-08-26' }
 ];
 
-function AssignUser({ roleLabel, actionUrl }: { roleLabel: string; actionUrl: string }) {
+function AssignUser({ roleLabel }: { roleLabel: string }) {
   const [formData, setFormData] = useState({ name: '', username: '', password: '', location: '', role: roleLabel });
-  const [users, setUsers] = useState<any[]>(globalMockUsers);
+  const [users, setUsers] = useState<unknown[]>(globalMockUsers);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,14 +201,8 @@ function AppContent() {
 
   if (!user) return <Login />;
 
-  // Restrict access based on role (Admin, sub_admin, operator)
-  const isOperator = user.role === 'operator';
-  const isSubAdmin = user.role === 'sub_admin';
-
-  let activePage = page;
-
   const renderPage = () => {
-    switch (activePage) {
+    switch (page) {
       case 'home':
         return <Home />;
       case 'overview': 
@@ -228,8 +222,8 @@ function AppContent() {
       case 'settings': return <Settings />;
       case 'innovation': return <Innovation />;
       case 'faces': return <FaceDetection />;
-      case 'assign_sub_admin': return <AssignUser roleLabel="Sub-Admin" actionUrl="/api/v1/users" />;
-      case 'assign_operator': return <AssignUser roleLabel="Operator" actionUrl="/api/v1/users" />;
+      case 'assign_sub_admin': return <AssignUser roleLabel="Sub-Admin" />;
+      case 'assign_operator': return <AssignUser roleLabel="Operator" />;
       default: return <Home />;
     }
   };

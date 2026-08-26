@@ -11,7 +11,6 @@ import {
   Home,
   LayoutDashboard,
   LogOut,
-  Map,
   Menu,
   Radio,
   ScanFace,

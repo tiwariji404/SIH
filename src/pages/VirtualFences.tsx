@@ -1,6 +1,6 @@
-import { useState, useRef, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useApp } from '../store';
-import { Fence, Plus, Trash2, Shield, MapPin, Search } from 'lucide-react';
+import { Fence, Plus, Trash2, Shield, MapPin } from 'lucide-react';
 import type { Zone, RiskLevel, Camera } from '../types';
 import { GoogleMap, useJsApiLoader, Polygon, Marker } from '@react-google-maps/api';
 
@@ -17,7 +17,7 @@ export default function VirtualFences() {
   const [severity, setSeverity] = useState<RiskLevel>('HIGH');
   const [selectedCameraIds, setSelectedCameraIds] = useState<string[]>([]);
   
-  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [, setMap] = useState<google.maps.Map | null>(null);
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -90,7 +90,7 @@ export default function VirtualFences() {
       {/* Existing zones */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 border-t border-slate-200 mt-4 pt-4">
         {zones.map(zone => {
-          const camArray = zone.cameraIds || ((zone as any).cameraId ? [(zone as any).cameraId] : []);
+          const camArray = zone.cameraIds || ((zone as unknown as {cameraId: string}).cameraId ? [(zone as unknown as {cameraId: string}).cameraId] : []);
           return (
             <div 
                key={zone.id} 

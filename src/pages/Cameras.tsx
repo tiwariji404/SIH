@@ -16,7 +16,7 @@ const generatePastDays = (days: number) => {
 const PAST_DAYS = generatePastDays(7);
 
 // Mock video clips for a selected camera and day
-const generateMockClips = (cameraId: string, date: Date) => {
+const generateMockClips = () => {
   return [
     { id: 'clip-1', time: '08:00 AM - 12:00 PM', size: '2.4 GB', events: 12 },
     { id: 'clip-2', time: '12:00 PM - 04:00 PM', size: '2.6 GB', events: 5 },
@@ -140,7 +140,7 @@ export default function Cameras() {
               {/* Clips List */}
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-3">Recorded Segments</h3>
               <div className="space-y-2">
-                {generateMockClips(selectedCam, selectedDate).map(clip => (
+                {generateMockClips().map(clip => (
                   <div key={clip.id} className="flex items-center justify-between p-3 rounded-lg bg-white border border-slate-200 hover:bg-slate-100/50 transition-colors group cursor-pointer">
                     <div className="flex items-center gap-4">
                       <div className="h-8 w-8 rounded bg-accent-500/10 flex items-center justify-center border border-accent-500/20 text-accent-400">

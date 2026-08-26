@@ -1,8 +1,7 @@
 import { useApp } from '../store';
-import CameraFeed from '../components/CameraFeed';
 import {
   Cctv, Bell, Users, Car, Fence, Car as CarIcon, Activity,
-  ShieldAlert, TrendingUp, ArrowUpRight, Radio,
+  ShieldAlert, ArrowUpRight
 } from 'lucide-react';
 
 import type { PageId } from '../components/Layout';
@@ -19,7 +18,7 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
   const suspiciousActivities = events.filter(e => e.eventType.includes('Suspicious') || e.eventType.includes('Loitering')).length;
   const avgHealth = Math.round(cameras.reduce((s, c) => s + c.health, 0) / (cameras.length || 1));
 
-  const kpis: { label: string; value: number | string; icon: any; color: string; bg: string; border: string; page: PageId }[] = [
+  const kpis: { label: string; value: number | string; icon: React.ElementType; color: string; bg: string; border: string; page: PageId }[] = [
     { label: 'Cameras Online', value: `${onlineCameras} / ${cameras.length}`, icon: Cctv, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', page: 'live' },
     { label: 'Active Alerts', value: activeAlerts, icon: Bell, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', page: 'alerts' },
     { label: 'People Detected', value: peopleDetected, icon: Users, color: 'text-accent-400', bg: 'bg-accent-500/10', border: 'border-accent-500/20', page: 'tracking' },

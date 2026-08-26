@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useApp } from '../store';
 import CameraFeed from '../components/CameraFeed';
-import { Radio, Grid3x3, Cctv, Smartphone, X, RefreshCw, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Radio, Grid3x3, Cctv, Smartphone, X, RefreshCw } from 'lucide-react';
 import type { ScenarioType } from '../types';
 
 const SCENARIOS: { value: ScenarioType; label: string; color: string }[] = [
@@ -57,7 +57,7 @@ export default function LiveSurveillance() {
     } finally {
       setConnecting(false);
     }
-  }, [cameras]);
+  }, []);
 
   const disconnectPhoneCamera = useCallback(() => {
     if (streamRef.current) {

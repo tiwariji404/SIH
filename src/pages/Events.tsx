@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../store';
 import { riskColor, statusColor } from '../types';
-import { Search, List, Bell, Send } from 'lucide-react';
+import { Search, List, Bell } from 'lucide-react';
 
 export default function Events() {
   const { events, cameras } = useApp();

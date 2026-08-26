@@ -41,6 +41,8 @@ interface AppState {
   showToast: (msg: ToastMsg) => void;
   activeAlarm: Alert | null;
   setActiveAlarm: (alarm: Alert | null) => void;
+  watchlistPlates: string[];
+  addToWatchlist: (plate: string) => void;
 }
 
 export interface ToastMsg {
@@ -75,11 +77,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [liveDemoRunning, setLiveDemoRunning] = useState(false);
   const [toast, setToast] = useState<ToastMsg | null>(null);
   const [activeAlarm, setActiveAlarm] = useState<Alert | null>(null);
+  const [watchlistPlates, setWatchlistPlates] = useState<string[]>([]);
   const demoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback((msg: ToastMsg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 5000);
+  }, []);
+
+  const addToWatchlist = useCallback((plate: string) => {
+    setWatchlistPlates(prev => [...prev, plate.toUpperCase().trim()]);
+    // Log indirectly or just rely on state change for now to avoid circular dependency before addAuditLog
   }, []);
 
   const addAuditLog = useCallback((action: string, details = 'Session active') => {
@@ -101,7 +109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Bypass password / backend check for instant demo login
       const lowerUser = username.toLowerCase();
       let role: Role = 'operator';
-      
+
       if (lowerUser.includes('sub')) {
         role = 'sub_admin';
       } else if (lowerUser.includes('admin')) {
@@ -117,11 +125,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         password: '',
         avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=256'
       };
-      
+
       setToken('dummy-token-12345');
       localStorage.setItem('token', 'dummy-token-12345');
       setUser(loggedUser);
-      
+
       const log: AuditLog = {
         id: `LOG-${Date.now()}`,
         user: loggedUser.name,
@@ -196,7 +204,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addZone = useCallback((zone: Zone) => {
     setZones(prev => [...prev, zone]);
-    addAuditLog(`created zone ${zone.name}`, `Camera: ${zone.cameraId}, Severity: ${zone.severity}`);
+    addAuditLog(`created zone ${zone.name}`, `Cameras: ${zone.cameraIds.join(', ')}, Severity: ${zone.severity}`);
     showToast({ type: 'success', title: 'Zone Created', message: `Virtual fence "${zone.name}" saved.` });
   }, [addAuditLog, showToast]);
 
@@ -489,12 +497,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.warn("WebSocket could not connect", e);
       return;
     }
-    
+
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'vehicle' && data.vehicle) {
+
+          // DEMO OVERRIDE: Check if it's in our local registered watchlist!
+          const plateText = (data.vehicle.plateNumber || "").toUpperCase();
+          const isWanted = watchlistPlates.some(w => plateText.includes(w) || w.includes(plateText));
+          if (isWanted && data.vehicle.status !== 'WATCHLIST') {
+            data.vehicle.status = 'WATCHLIST';
+          }
+
           setVehicles(prev => [data.vehicle, ...prev]);
+
           if (data.vehicle.status === 'WATCHLIST') {
             showToast({ type: 'alert', title: 'WATCHLIST MATCH', message: `Watchlist vehicle ${data.vehicle.plateNumber} detected!` });
             const alarm: Alert = {
@@ -523,28 +540,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
             showToast({ type: 'info', title: 'Vehicle Detected', message: `Plate ${data.vehicle.plateNumber} detected.` });
           }
         } else if (data.type === 'intrusion') {
-            const alarm: Alert = {
-              id: `A-${Date.now()}`,
-              eventId: `EVT-${Date.now()}`,
-              severity: 'CRITICAL',
-              riskScore: 95,
-              reason: 'Border / Virtual Fence Intrusion',
-              reasons: ['Virtual fence crossed'],
-              status: 'NEW',
-              createdAt: new Date().toISOString(),
-              acknowledgedAt: null,
-              resolvedAt: null,
-              cameraId: data.camera || 'CAM-Unknown',
-              trackingId: `TRK-${Date.now()}`,
-              title: 'BORDER INTRUSION',
-              what: 'Human entered restricted zone',
-              where: data.camera || 'CAM-Unknown',
-              when: new Date().toLocaleTimeString('en-IN'),
-              object: 'Person',
-              why: 'Virtual Fence Rule Violated',
-              confidence: 90,
-            };
-            setActiveAlarm(alarm);
+          const camId = data.camera || 'CAM-Unknown';
+          const matchedZone = zones.find(z => z.cameraIds.includes(camId));
+          const zoneTitle = matchedZone ? `BREACH: ${matchedZone.name.toUpperCase()}` : 'BORDER INTRUSION';
+
+          const alarm: Alert = {
+            id: `A-${Date.now()}`,
+            eventId: `EVT-${Date.now()}`,
+            severity: matchedZone ? matchedZone.severity : 'CRITICAL',
+            riskScore: matchedZone ? (matchedZone.severity === 'CRITICAL' ? 95 : 80) : 95,
+            reason: matchedZone ? matchedZone.rule : 'Border / Virtual Fence Intrusion',
+            reasons: ['Virtual fence crossed', ...(matchedZone ? ['Zone security breached'] : [])],
+            status: 'NEW',
+            createdAt: new Date().toISOString(),
+            acknowledgedAt: null,
+            resolvedAt: null,
+            cameraId: camId,
+            trackingId: `TRK-${Date.now()}`,
+            title: zoneTitle,
+            what: 'Human entered restricted zone',
+            where: matchedZone ? `${matchedZone.name} (${camId})` : camId,
+            when: new Date().toLocaleTimeString('en-IN'),
+            object: 'Person',
+            why: 'Virtual Fence Rule Violated',
+            confidence: 90,
+          };
+          setActiveAlarm(alarm);
         }
       } catch (e) {
         console.error('Error parsing WS message', e);
@@ -552,17 +573,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     return () => {
-      if(ws) ws.close();
+      if (ws) ws.close();
     };
-  }, [user, showToast]);
-
+  }, [user, showToast, watchlistPlates, setActiveAlarm, zones]);
   const value: AppState = {
     user, token, login, logout, demoMode, setDemoMode,
     cameras, events, alerts, vehicles, zones, tracks, auditLogs, faces, detections,
     liveDemoRunning, startLiveDemo, stopLiveDemo,
     setCameraScenario, acknowledgeAlert, escalateAlert, resolveAlert,
     addZone, deleteZone, addAuditLog, addAlert, triggerCameraOffline, toast, showToast,
-    activeAlarm, setActiveAlarm,
+    activeAlarm, setActiveAlarm, watchlistPlates, addToWatchlist,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

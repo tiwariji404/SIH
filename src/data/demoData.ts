@@ -30,17 +30,18 @@ const CAMERA_NAMES = [
 ];
 
 const LOCATIONS = [
-  'Sector 1 — Indo-Nepal Border', 'Sector 2 — Indo-Bhutan Border',
-  'Sector 3 — Riverine Crossing', 'Sector 4 — Forest Corridor',
+  'Punjab Border — Atari Sector 1', 'Punjab Border — Atari Sector 2',
+  'Punjab Border — Wagah Approach', 'Sector 4 — Forest Corridor',
   'Sector 5 — Check Post Area', 'Sector 6 — Hill Approach',
   'Sector 7 — Village Perimeter', 'Sector 8 — Open Field',
 ];
 
 const MAP_COORDS = [
-  { lat: 28.05, lng: 81.12 }, { lat: 27.92, lng: 81.38 },
-  { lat: 27.45, lng: 81.67 }, { lat: 26.88, lng: 81.95 },
-  { lat: 26.42, lng: 82.21 }, { lat: 25.98, lng: 82.55 },
-  { lat: 25.51, lng: 82.88 }, { lat: 25.07, lng: 83.12 },
+  // Punjab / Amritsar Wagah Border approximate coordinates
+  { lat: 31.605, lng: 74.580 }, { lat: 31.608, lng: 74.582 },
+  { lat: 31.600, lng: 74.585 }, { lat: 31.595, lng: 74.590 },
+  { lat: 31.602, lng: 74.575 }, { lat: 31.610, lng: 74.570 },
+  { lat: 31.615, lng: 74.565 }, { lat: 31.620, lng: 74.560 },
 ];
 
 const SCENARIOS: ScenarioType[] = [
@@ -200,25 +201,25 @@ export function generateVehicles(cameras: Camera[], count: number): VehicleRecor
 export function generateZones(): Zone[] {
   return [
     {
-      id: 'Z-01', cameraId: 'BOP-04', name: 'Restricted Border Sector A',
+      id: 'Z-01', cameraIds: ['BOP-04'], name: 'Restricted Border Sector A',
       zoneType: 'Virtual Fence', severity: 'CRITICAL',
       coordinates: [{ x: 20, y: 30 }, { x: 80, y: 30 }, { x: 80, y: 40 }, { x: 20, y: 40 }],
       rule: 'Person crossing → Critical alert',
     },
     {
-      id: 'Z-02', cameraId: 'BOP-06', name: 'Forest Corridor Watch',
+      id: 'Z-02', cameraIds: ['BOP-06', 'BOP-07'], name: 'Forest Corridor Watch',
       zoneType: 'Loitering Zone', severity: 'HIGH',
       coordinates: [{ x: 30, y: 50 }, { x: 70, y: 50 }, { x: 70, y: 80 }, { x: 30, y: 80 }],
       rule: 'Loitering > 60 sec → High alert',
     },
     {
-      id: 'Z-03', cameraId: 'BOP-02', name: 'Border Road Check',
+      id: 'Z-03', cameraIds: ['BOP-02'], name: 'Border Road Check',
       zoneType: 'Tripwire', severity: 'HIGH',
       coordinates: [{ x: 10, y: 60 }, { x: 90, y: 60 }],
       rule: 'Vehicle crossing → High alert',
     },
     {
-      id: 'Z-04', cameraId: 'BOP-07', name: 'River Crossing Zone',
+      id: 'Z-04', cameraIds: ['BOP-07', 'BOP-08', 'BOP-09'], name: 'River Crossing Zone',
       zoneType: 'Virtual Fence', severity: 'CRITICAL',
       coordinates: [{ x: 25, y: 35 }, { x: 75, y: 35 }, { x: 75, y: 50 }, { x: 25, y: 50 }],
       rule: 'Any movement → Critical alert',

@@ -20,13 +20,14 @@ import DemoCenter from './pages/DemoCenter';
 import Settings from './pages/Settings';
 import Innovation from './pages/Innovation';
 import FaceDetection from './pages/FaceDetection';
+import GlobalAlarm from './components/GlobalAlarm';
 import { Shield, Target, MapPin, Key, UserIcon, CheckCircle2 } from 'lucide-react';
 
 let globalMockUsers = [
-  { id: '1', name: 'Alok Singh', username: 'alok_admin', location: 'Raipur HQ', role: 'Sub-Admin', date: '2026-08-25' },
-  { id: '2', name: 'Priya Sharma', username: 'priya_04', location: 'Delhi Control', role: 'Sub-Admin', date: '2026-08-26' },
-  { id: '3', name: 'Raj Kumar', username: 'raj_op', location: 'Jammu Sector', role: 'Operator', date: '2026-08-25' },
-  { id: '4', name: 'Anita Das', username: 'anita_op', location: 'Kashmir Sector', role: 'Operator', date: '2026-08-26' }
+  { id: '1', name: 'Alok Singh', username: 'alok_admin', location: 'Punjab Border HQ', role: 'Sub-Admin', date: '2026-08-25' },
+  { id: '2', name: 'Priya Sharma', username: 'priya_04', location: 'Punjab Border Watch', role: 'Sub-Admin', date: '2026-08-26' },
+  { id: '3', name: 'Raj Kumar', username: 'raj_op', location: 'Punjab Border', role: 'Operator', date: '2026-08-25' },
+  { id: '4', name: 'Anita Das', username: 'anita_op', location: 'Punjab Border', role: 'Operator', date: '2026-08-26' }
 ];
 
 function AssignUser({ roleLabel, actionUrl }: { roleLabel: string; actionUrl: string }) {
@@ -98,7 +99,7 @@ function AssignUser({ roleLabel, actionUrl }: { roleLabel: string; actionUrl: st
                   <input 
                     type="text" 
                     className="input pl-10"
-                    placeholder="e.g. Raipur, Sector 4"
+                    placeholder="e.g. Punjab Border, Atari Sector"
                     value={formData.location}
                     onChange={e => setFormData({...formData, location: e.target.value})}
                     required
@@ -187,6 +188,18 @@ function AppContent() {
     }
   }, [user]);
 
+  // Deep linking receiver
+  useEffect(() => {
+    const handleNav = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.page) {
+        setPage(customEvent.detail.page as PageId);
+      }
+    };
+    window.addEventListener('appNavigate', handleNav);
+    return () => window.removeEventListener('appNavigate', handleNav);
+  }, []);
+
   if (!user) return <Login />;
 
   // Restrict access based on role (Admin, sub_admin, operator)
@@ -224,9 +237,12 @@ function AppContent() {
   };
 
   return (
-    <Layout current={page} onNavigate={setPage}>
-      {renderPage()}
-    </Layout>
+    <>
+      <GlobalAlarm />
+      <Layout current={page} onNavigate={setPage}>
+        {renderPage()}
+      </Layout>
+    </>
   );
 }
 

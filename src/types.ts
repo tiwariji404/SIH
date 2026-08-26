@@ -102,7 +102,7 @@ export interface VehicleRecord {
 
 export interface Zone {
   id: string;
-  cameraId: string;
+  cameraIds: string[];
   name: string;
   zoneType: string;
   severity: RiskLevel;

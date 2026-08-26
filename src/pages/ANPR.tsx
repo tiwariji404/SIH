@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useApp } from '../store';
 import { Search, ShieldAlert, CheckCircle, HelpCircle, Plus, Camera, Car } from 'lucide-react';
 
 export default function ANPR() {
-  const { vehicles, showToast } = useApp();
+  const { vehicles, showToast, addToWatchlist } = useApp();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Registration Form State
   const [regPlate, setRegPlate] = useState('');
@@ -14,6 +15,9 @@ export default function ANPR() {
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     if (!regPlate) return;
+    
+    addToWatchlist(regPlate);
+    
     // In production, this pushes to Firebase / FastAPI DB
     showToast({ type: 'success', title: 'Vehicle Registered', message: `Plate ${regPlate} added to Watchlist.` });
     setRegPlate('');
@@ -83,10 +87,14 @@ export default function ANPR() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Reference Image (Optional)</label>
-                  <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-accent-400 transition-colors cursor-pointer">
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-300 rounded-lg p-6 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-accent-400 transition-colors cursor-pointer"
+                  >
                     <Camera className="h-6 w-6 mb-2" />
                     <span className="text-xs font-semibold">Click to upload photo</span>
                   </div>
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={() => showToast({type: 'success', title: 'Image Added', message: 'Reference image attached.'})} />
                 </div>
                 <button type="submit" className="btn-primary w-full p-3 uppercase tracking-widest font-bold">Register Vehicle</button>
              </form>

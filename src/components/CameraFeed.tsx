@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Camera, Detection } from '../types';
+import { useApp } from '../store';
 
 interface Props {
   camera: Camera;
@@ -20,6 +21,7 @@ const scenarioLabels: Record<string, string> = {
 };
 
 export default function CameraFeed({ camera, detections = [], showOverlay = true, compact = false, liveStream = null }: Props) {
+  const { zones } = useApp();
   const [time, setTime] = useState(new Date());
   const [scanY, setScanY] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -46,6 +48,7 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
   const isNight = camera.scenario === 'night';
   const camDetections = detections.filter(d => d.cameraId === camera.id);
   const hasLive = !!liveStream;
+  const camZones = zones.filter(z => z.cameraId === camera.id);
 
   return (
     <div className={`relative overflow-hidden rounded-lg border bg-black ${isOffline ? 'border-red-500/30' : hasLive ? 'border-emerald-500/40' : 'border-white/10'}`}>
@@ -87,6 +90,22 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
                   </div>
                 ) : null}
               </div>
+            )}
+
+            {/* Virtual Fences Overlay */}
+            {camZones.length > 0 && (
+              <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                {camZones.map(zone => (
+                  <polygon
+                    key={zone.id}
+                    points={zone.coordinates.map(p => `${p.x},${p.y}`).join(' ')}
+                    fill="rgba(239,68,68,0.1)"
+                    stroke={zone.severity === 'CRITICAL' ? '#ef4444' : '#f97316'}
+                    strokeWidth="0.5"
+                    strokeDasharray="2 1"
+                  />
+                ))}
+              </svg>
             )}
 
             {/* Detection boxes */}

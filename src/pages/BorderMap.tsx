@@ -1,159 +1,310 @@
-import { useState } from 'react';
-import { useApp } from '../store';
-import { MapPin, Radio, X, Cctv, Bell, List } from 'lucide-react';
-import type { Camera } from '../types';
+import { useState, useRef, useMemo, useCallback } from 'react';
+import { GoogleMap, useJsApiLoader, Polygon, Marker } from '@react-google-maps/api';
+import { useFirebaseTelemetry } from '../lib/firebase';
+import { Shield, Radio, Activity, AlertTriangle, Crosshair, MapPin, Search } from 'lucide-react';
+import './BorderMap.css';
+
+// Replace with real Google Maps API Key. If left empty, it will load with a watermark.
+const GOOGLE_MAPS_API_KEY = "YOUR_GOOGLE_MAPS_API_KEY";
+
+const containerStyle = {
+  width: '100%',
+  height: '100%'
+};
+
+const SECTORS: Record<string, { lat: number; lng: number; zoom: number; description: string }> = {
+  'Sector Alpha': { lng: 77.2090, lat: 28.6139, zoom: 15, description: 'Northern Border Approach' },
+  'Sector Bravo': { lng: 77.2100, lat: 28.6250, zoom: 16, description: 'Eastern Checkpoint' },
+  'Sector Charlie': { lng: 77.2205, lat: 28.6105, zoom: 15, description: 'Valley Passage' },
+};
 
 export default function BorderMap() {
-  const { cameras, alerts, events } = useApp();
-  const [selectedBop, setSelectedBop] = useState<string | null>(null);
+  const telemetryEvents = useFirebaseTelemetry();
+  const [selectedSector, setSelectedSector] = useState<string>('Sector Alpha');
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const [center, setCenter] = useState({ 
+    lat: SECTORS['Sector Alpha'].lat, 
+    lng: SECTORS['Sector Alpha'].lng 
+  });
+  
+  const [zoom, setZoom] = useState(SECTORS['Sector Alpha'].zoom);
 
-  // Group cameras by BOP
-  const bopGroups: Record<string, Camera[]> = {};
-  cameras.forEach(c => {
-    if (!bopGroups[c.bop]) bopGroups[c.bop] = [];
-    bopGroups[c.bop].push(c);
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY || ''
   });
 
-  const getBopStatus = (bop: string): 'normal' | 'warning' | 'critical' => {
-    const cams = bopGroups[bop];
-    const hasOffline = cams.some(c => c.status === 'OFFLINE');
-    const hasCritical = alerts.some(a => a.severity === 'CRITICAL' && a.status !== 'RESOLVED' && cams.some(c => c.id === a.cameraId));
-    if (hasCritical) return 'critical';
-    if (hasOffline || alerts.some(a => a.severity === 'HIGH' && a.status !== 'RESOLVED' && cams.some(c => c.id === a.cameraId))) return 'warning';
-    return 'normal';
+  const onLoad = useCallback(function callback(mapInstance: google.maps.Map) {
+    setMap(mapInstance);
+  }, []);
+
+  const onUnmount = useCallback(function callback() {
+    setMap(null);
+  }, []);
+
+  const handleFlyToSector = (sectorName: string) => {
+    setSelectedSector(sectorName);
+    const data = SECTORS[sectorName];
+    setCenter({ lat: data.lat, lng: data.lng });
+    setZoom(data.zoom);
+    if (map) {
+      map.panTo({ lat: data.lat, lng: data.lng });
+      map.setZoom(data.zoom);
+    }
   };
 
-  const bopNames = Object.keys(bopGroups);
-  const selectedCams = selectedBop ? bopGroups[selectedBop] : [];
-  const selectedAlerts = selectedBop ? alerts.filter(a => selectedCams.some(c => c.id === a.cameraId)) : [];
-  const selectedEvents = selectedBop ? events.filter(e => selectedCams.some(c => c.id === e.cameraId)) : [];
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    
+    try {
+      // Using openstreetmap for geocoding so it works even without a valid Google Geocoding API key
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const result = data[0];
+        const newLat = parseFloat(result.lat);
+        const newLng = parseFloat(result.lon);
+        
+        setSelectedSector('Custom Search');
+        setCenter({ lat: newLat, lng: newLng });
+        setZoom(15);
+        if (map) {
+          map.panTo({ lat: newLat, lng: newLng });
+          map.setZoom(15);
+        }
+      } else {
+        alert("Location not found. Try a different search term.");
+      }
+    } catch (err) {
+      console.error("Geocoding failed", err);
+    }
+  };
+
+  // Google Maps Polygon format
+  const restrictedZonePaths = useMemo(() => [
+    { lat: 28.615, lng: 77.205 },
+    { lat: 28.615, lng: 77.215 },
+    { lat: 28.618, lng: 77.215 },
+    { lat: 28.618, lng: 77.205 }
+  ], []);
+
+  const bufferZonePaths = useMemo(() => [
+    { lat: 28.610, lng: 77.200 },
+    { lat: 28.610, lng: 77.210 },
+    { lat: 28.613, lng: 77.210 },
+    { lat: 28.613, lng: 77.200 }
+  ], []);
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div>
-        <h1 className="text-xl font-bold text-slate-100">Border Map</h1>
-        <p className="text-xs text-slate-500">BOP locations and camera status overview • Fictional demo coordinates</p>
+    <div className="space-y-4 animate-fade-in flex flex-col h-[calc(100vh-100px)]">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-100">Tactical GIS & Telemetry</h1>
+          <p className="text-xs text-slate-500">Pure Google Maps integration with live Firestore telemetry.</p>
+        </div>
+        
+        {/* Custom Location Search */}
+        <form onSubmit={handleSearch} className="flex gap-2 relative w-64">
+          <input 
+            type="text" 
+            placeholder="Search custom location..." 
+            className="input text-sm py-1.5 px-3 pr-10 w-full"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+          <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+             <Search className="h-4 w-4" />
+          </button>
+        </form>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Map */}
-        <div className="card p-4 lg:col-span-2">
-          <div className="relative h-[500px] rounded-lg overflow-hidden bg-gradient-to-b from-slate-900 via-slate-850 to-ink-950 border border-white/5">
-            {/* Grid overlay */}
-            <div className="absolute inset-0 grid-overlay opacity-20" />
-
-            {/* Simulated terrain features */}
-            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-              {/* Border line */}
-              <line x1="5" y1="10" x2="95" y2="90" stroke="#06b6d4" strokeWidth="0.3" strokeDasharray="2 1" opacity="0.4" />
-              <text x="50" y="50" fontSize="2" fill="#475569" textAnchor="middle" transform="rotate(40 50 50)">— INTERNATIONAL BORDER —</text>
-              {/* River */}
-              <path d="M 0,60 Q 30,55 50,65 T 100,70" stroke="#1e40af" strokeWidth="0.8" fill="none" opacity="0.3" />
-              {/* Forest area */}
-              <path d="M 20,20 Q 35,25 40,40 Q 30,45 20,40 Z" fill="#064e3b" opacity="0.15" />
-            </svg>
-
-            {/* BOP markers */}
-            {bopNames.map((bop, i) => {
-              const status = getBopStatus(bop);
-              const cams = bopGroups[bop];
-              const x = 15 + (i % 4) * 22 + (i % 2) * 5;
-              const y = 15 + Math.floor(i / 4) * 35 + (i % 2) * 8;
-              const color = status === 'critical' ? '#ef4444' : status === 'warning' ? '#f59e0b' : '#10b981';
-
+      {/* 3-Column Systematic Architecture */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 min-h-0">
+        
+        {/* LEFT COLUMN: Navigation Console */}
+        <div className="card p-4 overflow-y-auto hidden lg:flex flex-col border-r border-white/5">
+          <h3 className="text-xs font-bold text-slate-400 mb-4 uppercase tracking-widest flex items-center gap-2">
+            <Crosshair className="h-4 w-4" /> Targeting & Sectors
+          </h3>
+          <div className="space-y-2">
+            {Object.entries(SECTORS).map(([name, data]) => {
+              const isSelected = selectedSector === name;
               return (
                 <button
-                  key={bop}
-                  onClick={() => setSelectedBop(bop)}
-                  className="absolute group"
-                  style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
+                  key={name}
+                  onClick={() => handleFlyToSector(name)}
+                  className={`w-full text-left p-3 rounded border transition-colors ${
+                    isSelected 
+                     ? 'bg-slate-800 border-accent-500/50 text-accent-300' 
+                     : 'bg-white/5 border-white/5 hover:bg-white/10 text-slate-300'
+                  }`}
                 >
-                  {/* Pulse ring */}
-                  <span className="absolute inset-0 rounded-full animate-ping-slow" style={{ backgroundColor: color, opacity: 0.3 }} />
-                  <div className="relative flex items-center justify-center w-8 h-8 rounded-full border-2" style={{ borderColor: color, backgroundColor: '#0a0e17' }}>
-                    <MapPin className="h-4 w-4" style={{ color }} />
+                  <div className="font-bold text-sm tracking-wide">{name}</div>
+                  <div className="text-[10px] text-slate-500 mt-1 uppercase font-mono">
+                    {data.description}
                   </div>
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-0.5 rounded bg-ink-900/90 border border-white/10 text-[9px] font-mono text-slate-300 whitespace-nowrap">
-                    {bop} ({cams.length})
+                  <div className="text-[9px] font-mono text-slate-600 mt-2">
+                    LNG: {data.lng.toFixed(4)} | LAT: {data.lat.toFixed(4)}
                   </div>
                 </button>
-              );
+              )
             })}
-
-            {/* Legend */}
-            <div className="absolute bottom-3 left-3 card p-2 space-y-1">
-              <div className="flex items-center gap-2 text-[10px]"><span className="status-dot bg-emerald-400" /> Normal</div>
-              <div className="flex items-center gap-2 text-[10px]"><span className="status-dot bg-amber-400" /> Warning</div>
-              <div className="flex items-center gap-2 text-[10px]"><span className="status-dot bg-red-400" /> Critical</div>
-            </div>
+          </div>
+          
+          <div className="mt-auto pt-4 border-t border-white/5">
+             <h4 className="text-[10px] font-bold text-slate-400 mb-2 uppercase">Map Legend</h4>
+             <div className="space-y-2">
+               <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
+                 <div className="w-3 h-3 bg-red-500/30 border border-red-500 rounded-sm"></div>
+                 Restricted Zone
+               </div>
+               <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
+                 <div className="w-3 h-3 bg-emerald-500/30 border border-emerald-500 rounded-sm"></div>
+                 Buffer / Accessible
+               </div>
+             </div>
           </div>
         </div>
 
-        {/* BOP detail panel */}
-        <div className="card p-4">
-          {selectedBop ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-100">{selectedBop}</h3>
-                <button onClick={() => setSelectedBop(null)} className="text-slate-500 hover:text-slate-300"><X className="h-4 w-4" /></button>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="card p-2 text-center">
-                  <Cctv className="h-4 w-4 text-accent-400 mx-auto mb-0.5" />
-                  <p className="text-sm font-bold text-slate-100">{selectedCams.length}</p>
-                  <p className="text-[9px] text-slate-500">Cameras</p>
-                </div>
-                <div className="card p-2 text-center">
-                  <Bell className="h-4 w-4 text-red-400 mx-auto mb-0.5" />
-                  <p className="text-sm font-bold text-slate-100">{selectedAlerts.length}</p>
-                  <p className="text-[9px] text-slate-500">Alerts</p>
-                </div>
-                <div className="card p-2 text-center">
-                  <List className="h-4 w-4 text-amber-400 mx-auto mb-0.5" />
-                  <p className="text-sm font-bold text-slate-100">{selectedEvents.length}</p>
-                  <p className="text-[9px] text-slate-500">Events</p>
-                </div>
-              </div>
+        {/* CENTER COLUMN: Google Map Engine */}
+        <div className="card lg:col-span-2 overflow-hidden relative border border-white/10">
+          {isLoaded ? (
+            <GoogleMap
+              mapContainerStyle={containerStyle}
+              center={center}
+              zoom={zoom}
+              onLoad={onLoad}
+              onUnmount={onUnmount}
+              options={{
+                mapTypeId: 'satellite',
+                disableDefaultUI: false, // Keep basic controls
+                zoomControl: true,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: true
+              }}
+            >
+              {/* Restricted Zone Polygon */}
+              <Polygon
+                paths={restrictedZonePaths}
+                options={{
+                  fillColor: "#ef4444",
+                  fillOpacity: 0.2,
+                  strokeColor: "#ef4444",
+                  strokeOpacity: 0.8,
+                  strokeWeight: 2,
+                }}
+              />
 
-              <div>
-                <p className="text-[10px] font-mono uppercase text-slate-600 mb-1.5">Camera Status</p>
-                <div className="space-y-1">
-                  {selectedCams.map(c => (
-                    <div key={c.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5">
-                      <div className="flex items-center gap-2">
-                        <span className={`status-dot ${c.status === 'ONLINE' ? 'bg-emerald-400' : c.status === 'DEGRADED' ? 'bg-amber-400' : 'bg-red-500'}`} />
-                        <span className="text-xs font-mono text-slate-300">{c.id}</span>
-                        <span className="text-[10px] text-slate-500">{c.name}</span>
-                      </div>
-                      <span className="text-[10px] text-slate-500">{c.fps} FPS</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* Buffer Zone Polygon */}
+              <Polygon
+                paths={bufferZonePaths}
+                options={{
+                  fillColor: "#10b981",
+                  fillOpacity: 0.15,
+                  strokeColor: "#10b981",
+                  strokeOpacity: 0.8,
+                  strokeWeight: 1,
+                }}
+              />
 
-              {selectedAlerts.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-mono uppercase text-slate-600 mb-1.5">Active Alerts</p>
-                  <div className="space-y-1">
-                    {selectedAlerts.slice(0, 5).map(a => (
-                      <div key={a.id} className="flex items-center gap-2 p-2 rounded-lg bg-red-500/5 border border-red-500/10">
-                        <span className={`status-dot ${a.severity === 'CRITICAL' ? 'bg-red-500' : 'bg-amber-400'}`} />
-                        <span className="text-xs text-slate-300 truncate">{a.title}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+              {/* Telemetry Markers */}
+              {telemetryEvents.map(evt => {
+                const isIntrusion = evt.type === 'INTRUSION';
+                const isOffline = evt.type === 'OFFLINE';
+                
+                // Using standard Google Map markers since custom HTML markers require advanced OverlayViews
+                // We'll use color-coded marker URLs
+                let iconUrl = "http://maps.google.com/mapfiles/ms/icons/green-dot.png";
+                if (isIntrusion) iconUrl = "http://maps.google.com/mapfiles/ms/icons/red-dot.png";
+                if (isOffline) iconUrl = "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png";
+
+                return (
+                  <Marker
+                    key={evt.id}
+                    position={{ lat: evt.coordinates[1], lng: evt.coordinates[0] }}
+                    icon={{ url: iconUrl }}
+                    title={evt.type}
+                  />
+                );
+              })}
+            </GoogleMap>
           ) : (
-            <div className="h-full flex items-center justify-center text-center">
-              <div>
-                <Radio className="h-8 w-8 text-slate-600 mx-auto mb-2" />
-                <p className="text-sm text-slate-500">Select a BOP marker to view details</p>
-              </div>
+            <div className="flex items-center justify-center w-full h-full bg-slate-900">
+               <p className="text-slate-500 animate-pulse">Loading Google Maps API...</p>
             </div>
           )}
+
+          {/* Map Overlay Status */}
+          <div className="absolute top-4 left-4 z-10 pointer-events-none flex gap-2">
+            <span className="badge bg-slate-900/80 border border-white/10 backdrop-blur-md text-slate-300 font-mono text-[10px]">
+              <Radio className="inline h-3 w-3 mr-1 text-accent-400" /> SATCOM LINK
+            </span>
+            <span className="badge bg-slate-900/80 border border-white/10 backdrop-blur-md text-slate-300 font-mono text-[10px]">
+              <Shield className="inline h-3 w-3 mr-1 text-accent-400" /> {selectedSector}
+            </span>
+          </div>
         </div>
+
+        {/* RIGHT COLUMN: Live Telemetry Logs */}
+        <div className="card p-4 overflow-y-auto hidden lg:flex flex-col border-l border-white/5">
+          <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
+             <h3 className="text-xs font-bold text-slate-100 uppercase tracking-widest flex items-center gap-2">
+               <Activity className="h-4 w-4 text-emerald-400 animate-pulse" /> Telemetry Logs
+             </h3>
+             <span className="badge bg-emerald-500/20 text-emerald-400 text-[9px] uppercase border border-emerald-500/30">Live Sync</span>
+          </div>
+          
+          <div className="space-y-3">
+            {telemetryEvents.map(evt => (
+              <div 
+                key={evt.id} 
+                className={`p-3 rounded-md border ${
+                  evt.type === 'INTRUSION' ? 'bg-red-500/10 border-red-500/30' : 
+                  evt.type === 'OFFLINE' ? 'bg-amber-500/10 border-amber-500/30' : 
+                  'bg-emerald-500/5 border-emerald-500/20'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                   <div className="flex items-center gap-1.5">
+                     {evt.type === 'INTRUSION' && <AlertTriangle className="h-3.5 w-3.5 text-red-400" />}
+                     {evt.type === 'OFFLINE' && <Radio className="h-3.5 w-3.5 text-amber-400" />}
+                     {evt.type === 'ACTIVE' && <Shield className="h-3.5 w-3.5 text-emerald-400" />}
+                     <span className={`text-[10px] font-bold tracking-wider ${
+                        evt.type === 'INTRUSION' ? 'text-red-400' : 
+                        evt.type === 'OFFLINE' ? 'text-amber-400' : 
+                        'text-emerald-400'
+                     }`}>{evt.type}</span>
+                   </div>
+                   <span className="text-[9px] font-mono text-slate-500">
+                     {new Date(evt.timestamp).toLocaleTimeString()}
+                   </span>
+                </div>
+                
+                <p className="text-xs text-slate-200 mb-2 leading-relaxed">
+                  {evt.message}
+                </p>
+                
+                <div className="flex items-center gap-2 text-[9px] font-mono text-slate-400 bg-black/30 rounded p-1.5 border border-white/5">
+                  <MapPin className="h-3 w-3 text-slate-500" />
+                  <span>{evt.sector}</span>
+                  <span className="text-slate-600">|</span>
+                  <span>[{evt.coordinates[0].toFixed(3)}, {evt.coordinates[1].toFixed(3)}]</span>
+                </div>
+              </div>
+            ))}
+            
+            {telemetryEvents.length === 0 && (
+               <div className="text-center text-xs text-slate-500 py-10 font-mono italic">
+                 Awaiting telemetry data...
+               </div>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );

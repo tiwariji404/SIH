@@ -120,15 +120,15 @@ export default function Layout({ current, onNavigate, children }: Props) {
   let secondaryNavIds: PageId[] = [];
   
   if (role === 'admin') {
-    primaryNavIds = ['assign_sub_admin', 'events', 'map', 'tracking', 'fences'];
-    secondaryNavIds = ['settings'];
+    primaryNavIds = ['assign_sub_admin', 'events', 'map', 'fences'];
+    secondaryNavIds = ['settings', 'audit'];
   } else if (role === 'sub_admin') {
     primaryNavIds = ['overview', 'assign_operator', 'live', 'cameras', 'map', 'fences'];
     secondaryNavIds = ['audit'];
   } else {
     // operator
     primaryNavIds = ['live', 'cameras', 'alerts', 'map', 'anpr', 'fences'];
-    secondaryNavIds = ['audit'];
+    secondaryNavIds = ['tracking'];
   }
 
   const PRIMARY_NAV = primaryNavIds.map(id => NAV_ITEMS[id]);

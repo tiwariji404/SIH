@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import json
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routers import auth, users, stream
 from app.core.config import settings
 from app.db.firebase import init_firebase
+from app.ws_manager import manager
 import logging
 
 try:
@@ -34,3 +36,12 @@ def read_root():
 @app.get("/healthz")
 def healthcheck() -> dict:
     return {"ok": True}
+
+@app.websocket("/ws/detections")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)

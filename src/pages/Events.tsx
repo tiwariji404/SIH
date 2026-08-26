@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../store';
 import { riskColor, statusColor } from '../types';
-import { Search, List } from 'lucide-react';
+import { Search, List, Bell, Send } from 'lucide-react';
 
 export default function Events() {
   const { events, cameras } = useApp();
@@ -71,6 +71,7 @@ export default function Events() {
                 <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-500">Object</th>
                 <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-500">Risk</th>
                 <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-500">Status</th>
+                <th className="px-4 py-2.5 text-right text-[10px] font-mono uppercase text-slate-500">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -87,6 +88,15 @@ export default function Events() {
                   </td>
                   <td className="px-4 py-2.5">
                     <span className={`badge ${statusColor[e.status]}`}>{e.status}</span>
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <button 
+                      onClick={() => alert(`Alert sent successfully for event: ${e.eventType} (ID: ${e.id})!`)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold transition-colors border border-red-500/20"
+                    >
+                      <Bell className="h-3.5 w-3.5" />
+                      Send Alert
+                    </button>
                   </td>
                 </tr>
               ))}

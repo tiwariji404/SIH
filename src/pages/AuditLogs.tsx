@@ -3,11 +3,13 @@ import { useApp } from '../store';
 import { Search, ScrollText, CheckCircle, XCircle } from 'lucide-react';
 
 export default function AuditLogs() {
-  const { auditLogs } = useApp();
+  const { auditLogs, user } = useApp();
   const [search, setSearch] = useState('');
   const [resultFilter, setResultFilter] = useState('ALL');
 
   const filtered = auditLogs.filter(l => {
+    // Hide admin logs from non-admin users
+    if (user?.role !== 'admin' && l.user.toLowerCase().includes('admin')) return false;
     if (search && !l.action.toLowerCase().includes(search.toLowerCase()) && !l.user.toLowerCase().includes(search.toLowerCase())) return false;
     if (resultFilter !== 'ALL' && l.result !== resultFilter) return false;
     return true;

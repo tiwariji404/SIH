@@ -64,7 +64,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [cameras, setCameras] = useState<Camera[]>(() => initialCamerasRef.current);
   const [events, setEvents] = useState<EventItem[]>(() => initialEventsRef.current);
   const [alerts, setAlerts] = useState<Alert[]>(() => generateAlerts(initialEventsRef.current, 35));
-  const [vehicles] = useState<VehicleRecord[]>(() => generateVehicles(initialCamerasRef.current, 55));
+  const [vehicles, setVehicles] = useState<VehicleRecord[]>(() => generateVehicles(initialCamerasRef.current, 55));
   const [zones, setZones] = useState<Zone[]>(() => generateZones());
   const [tracks] = useState<TrackRecord[]>(() => generateTracks(initialCamerasRef.current));
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => generateAuditLogs(DEMO_USERS, 40));
@@ -475,6 +475,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }, 5000);
     return () => clearInterval(interval);
   }, [demoMode, user]);
+
+  // WebSocket for Real-time AI Detections
+  useEffect(() => {
+    if (!user) return;
+    const ws = new WebSocket('ws://localhost:8000/ws/detections');
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'vehicle' && data.vehicle) {
+          setVehicles(prev => [data.vehicle, ...prev]);
+          if (data.vehicle.status === 'WATCHLIST') {
+            showToast({ type: 'alert', title: 'WATCHLIST MATCH', message: `Watchlist vehicle ${data.vehicle.plateNumber} detected!` });
+          } else {
+            showToast({ type: 'info', title: 'Vehicle Detected', message: `Plate ${data.vehicle.plateNumber} detected.` });
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing WS message', e);
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [user, showToast]);
 
   const value: AppState = {
     user, token, login, logout, demoMode, setDemoMode,

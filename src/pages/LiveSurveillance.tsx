@@ -18,7 +18,6 @@ export default function LiveSurveillance() {
   const [gridSize, setGridSize] = useState<'2x2' | '3x3'>('2x2');
   const [selectedCam, setSelectedCam] = useState<string | null>(null);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
-  const [liveCamId, setLiveCamId] = useState<string | null>(null);
   const [camError, setCamError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
@@ -36,9 +35,6 @@ export default function LiveSurveillance() {
       });
       streamRef.current = stream;
       setLiveStream(stream);
-      // Assign to first online camera
-      const firstCam = cameras.find(c => c.status === 'ONLINE');
-      if (firstCam) setLiveCamId(firstCam.id);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to access camera';
       setCamError(msg);
@@ -53,11 +49,6 @@ export default function LiveSurveillance() {
       streamRef.current = null;
     }
     setLiveStream(null);
-    setLiveCamId(null);
-  }, []);
-
-  const assignLiveToCam = useCallback((camId: string) => {
-    setLiveCamId(camId);
   }, []);
 
   const visibleCameras = selectedCam
@@ -128,17 +119,8 @@ export default function LiveSurveillance() {
           <div className="flex items-center gap-2 flex-wrap">
             <Smartphone className="h-4 w-4 text-emerald-400 flex-shrink-0" />
             <p className="text-xs text-emerald-300">
-              <span className="font-semibold">Phone camera connected.</span> Assign it to a camera slot below:
+              <span className="font-semibold">Phone camera connected.</span> Broadcasting live feed to all camera channels.
             </p>
-            <select
-              value={liveCamId || ''}
-              onChange={e => assignLiveToCam(e.target.value)}
-              className="bg-ink-900 border border-emerald-500/20 rounded px-2 py-1 text-[10px] text-slate-300 focus:outline-none focus:border-emerald-500/50 ml-auto"
-            >
-              {cameras.filter(c => c.status !== 'OFFLINE').map(c => (
-                <option key={c.id} value={c.id}>{c.id} — {c.name}</option>
-              ))}
-            </select>
           </div>
         </div>
       )}
@@ -157,9 +139,9 @@ export default function LiveSurveillance() {
             onClick={() => setSelectedCam(cam.id)}
             className={`badge whitespace-nowrap ${selectedCam === cam.id ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white/5 text-slate-400 border border-white/5'} ${cam.status === 'OFFLINE' ? 'opacity-50' : ''}`}
           >
-            <span className={`status-dot ${liveCamId === cam.id ? 'bg-emerald-400' : cam.status === 'ONLINE' ? 'bg-emerald-400' : cam.status === 'DEGRADED' ? 'bg-amber-400' : 'bg-red-500'}`} />
+            <span className={`status-dot ${liveStream ? 'bg-emerald-400' : cam.status === 'ONLINE' ? 'bg-emerald-400' : cam.status === 'DEGRADED' ? 'bg-amber-400' : 'bg-red-500'}`} />
             {cam.id}
-            {liveCamId === cam.id && <Smartphone className="h-2.5 w-2.5 ml-0.5 inline" />}
+            {liveStream && <Smartphone className="h-2.5 w-2.5 ml-0.5 inline" />}
           </button>
         ))}
       </div>
@@ -171,14 +153,14 @@ export default function LiveSurveillance() {
             <CameraFeed
               camera={cam}
               detections={detections}
-              liveStream={liveCamId === cam.id ? liveStream : null}
+              liveStream={liveStream}
             />
             {/* Camera info + scenario selector */}
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-xs font-medium text-slate-200 truncate">
                   {cam.id} — {cam.name}
-                  {liveCamId === cam.id && <span className="text-emerald-400"> (Phone)</span>}
+                  {liveStream && <span className="text-emerald-400"> (Phone)</span>}
                 </p>
                 <p className="text-[10px] text-slate-500 truncate">{cam.bop} • {cam.location}</p>
               </div>

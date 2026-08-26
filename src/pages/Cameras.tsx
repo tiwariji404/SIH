@@ -1,103 +1,169 @@
 import { useState } from 'react';
 import { useApp } from '../store';
-import CameraFeed from '../components/CameraFeed';
-import { Search, Activity, HardDrive, Wifi, Clock } from 'lucide-react';
-import type { ScenarioType } from '../types';
+import { Search, CalendarDays, Clock, PlayCircle, Download, Camera as CameraIcon, Filter } from 'lucide-react';
 
-const SCENARIOS: { value: ScenarioType; label: string }[] = [
-  { value: 'normal', label: 'Normal' },
-  { value: 'intrusion', label: 'Intrusion' },
-  { value: 'night', label: 'Night Movement' },
-  { value: 'suspicious', label: 'Suspicious Activity' },
-  { value: 'vehicle', label: 'Vehicle' },
-  { value: 'anpr', label: 'ANPR' },
-];
+// Generate mock dates for the past 7 days
+const generatePastDays = (days: number) => {
+  const result = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    result.push(d);
+  }
+  return result;
+};
+
+const PAST_DAYS = generatePastDays(7);
+
+// Mock video clips for a selected camera and day
+const generateMockClips = (cameraId: string, date: Date) => {
+  return [
+    { id: 'clip-1', time: '08:00 AM - 12:00 PM', size: '2.4 GB', events: 12 },
+    { id: 'clip-2', time: '12:00 PM - 04:00 PM', size: '2.6 GB', events: 5 },
+    { id: 'clip-3', time: '04:00 PM - 08:00 PM', size: '1.9 GB', events: 18 },
+    { id: 'clip-4', time: '08:00 PM - 12:00 AM', size: '1.5 GB', events: 3 },
+  ];
+};
 
 export default function Cameras() {
-  const { cameras, detections, setCameraScenario } = useApp();
+  const { cameras } = useApp();
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(PAST_DAYS[0]);
+  const [selectedCam, setSelectedCam] = useState<string | null>(null);
 
   const filtered = cameras.filter(c =>
     !search || c.id.toLowerCase().includes(search.toLowerCase()) || c.name.toLowerCase().includes(search.toLowerCase()) || c.bop.toLowerCase().includes(search.toLowerCase())
   );
 
-  const selectedCam = cameras.find(c => c.id === selected);
-
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4 animate-fade-in flex flex-col h-[calc(100vh-100px)]">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">Camera Management</h1>
-          <p className="text-xs text-slate-500">{cameras.filter(c => c.status === 'ONLINE').length} online • {cameras.filter(c => c.status === 'DEGRADED').length} degraded • {cameras.filter(c => c.status === 'OFFLINE').length} offline</p>
+          <h1 className="text-xl font-bold text-slate-100">Day-Wise Video Archive</h1>
+          <p className="text-xs text-slate-500">Access and review recorded surveillance footage organized by day.</p>
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
-          <input type="text" placeholder="Search cameras..." value={search} onChange={e => setSearch(e.target.value)} className="input pl-10 w-64" />
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
+            <input type="text" placeholder="Search cameras..." value={search} onChange={e => setSearch(e.target.value)} className="input pl-10 w-48 lg:w-64" />
+          </div>
+          <button className="btn-ghost px-3">
+            <Filter className="h-4 w-4" /> Filter
+          </button>
         </div>
       </div>
 
-      {/* Camera grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {filtered.map(cam => (
-          <div key={cam.id} className="card card-hover overflow-hidden cursor-pointer" onClick={() => setSelected(cam.id)}>
-            <CameraFeed camera={cam} detections={detections} compact />
-            <div className="p-3">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-semibold text-slate-200">{cam.id}</p>
-                <span className={`badge ${cam.status === 'ONLINE' ? 'bg-emerald-500/20 text-emerald-400' : cam.status === 'DEGRADED' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>
-                  {cam.status}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400">{cam.name}</p>
-              <p className="text-[10px] text-slate-600">{cam.bop} • {cam.location}</p>
-              <div className="mt-2 flex items-center gap-3 text-[10px] text-slate-500">
-                <span className="flex items-center gap-1"><Activity className="h-3 w-3" />{cam.fps} FPS</span>
-                <span className="flex items-center gap-1"><Wifi className="h-3 w-3" />{cam.signalQuality}%</span>
-                <span className="flex items-center gap-1"><HardDrive className="h-3 w-3" />{cam.storage}%</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Detail modal */}
-      {selectedCam && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setSelected(null)}>
-          <div className="glass-strong rounded-2xl p-6 max-w-2xl w-full" onClick={e => e.stopPropagation()}>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-bold text-slate-100">{selectedCam.id} — {selectedCam.name}</h2>
-                <p className="text-xs text-slate-500">{selectedCam.bop} • {selectedCam.location}</p>
-              </div>
-              <span className={`badge ${selectedCam.status === 'ONLINE' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>{selectedCam.status}</span>
-            </div>
-            <CameraFeed camera={selectedCam} detections={detections} />
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Stat label="FPS" value={`${selectedCam.fps}`} icon={Activity} />
-              <Stat label="Latency" value={`${selectedCam.latency} ms`} icon={Clock} />
-              <Stat label="Storage" value={`${selectedCam.storage}%`} icon={HardDrive} />
-              <Stat label="Health" value={`${selectedCam.health}%`} icon={Wifi} />
-            </div>
-            <div className="mt-4">
-              <label className="block text-[10px] font-mono uppercase text-slate-600 mb-1.5">Scenario</label>
-              <select value={selectedCam.scenario} onChange={e => { setCameraScenario(selectedCam.id, e.target.value as ScenarioType); }} className="input" disabled={selectedCam.status === 'OFFLINE'}>
-                {SCENARIOS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </div>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 min-h-0">
+        
+        {/* Date Selector Sidebar */}
+        <div className="card p-4 overflow-y-auto hidden lg:block">
+           <h3 className="text-sm font-bold text-slate-100 mb-4 uppercase tracking-wider text-accent-400 flex items-center gap-2">
+             <CalendarDays className="h-4 w-4" /> Select Date
+           </h3>
+           <div className="space-y-2">
+             {PAST_DAYS.map((date, i) => {
+               const isSelected = selectedDate.toDateString() === date.toDateString();
+               const isToday = i === 0;
+               return (
+                 <button
+                   key={date.toISOString()}
+                   onClick={() => { setSelectedDate(date); setSelectedCam(null); }}
+                   className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                     isSelected 
+                      ? 'bg-slate-800 border-accent-500/50 text-accent-300' 
+                      : 'bg-white/5 border-white/5 hover:bg-white/10 text-slate-300'
+                   }`}
+                 >
+                   <div className="font-bold text-sm">
+                     {isToday ? 'Today' : date.toLocaleDateString('en-US', { weekday: 'long' })}
+                   </div>
+                   <div className="text-[10px] text-slate-500 mt-1">
+                     {date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                   </div>
+                 </button>
+               )
+             })}
+           </div>
         </div>
-      )}
-    </div>
-  );
-}
 
-function Stat({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Activity }) {
-  return (
-    <div className="card p-3 text-center">
-      <Icon className="h-4 w-4 text-accent-400 mx-auto mb-1" />
-      <p className="text-sm font-bold text-slate-100">{value}</p>
-      <p className="text-[9px] text-slate-500">{label}</p>
+        {/* Camera/Archive Viewer */}
+        <div className="lg:col-span-3 card p-4 overflow-y-auto flex flex-col">
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/5">
+            <CalendarDays className="h-6 w-6 text-accent-400" />
+            <div>
+              <h2 className="text-lg font-bold text-slate-100">
+                Archive for {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              </h2>
+              <p className="text-xs text-slate-500">Select a camera to view its recorded segments.</p>
+            </div>
+          </div>
+
+          {!selectedCam ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              {filtered.map(cam => (
+                <div 
+                  key={cam.id} 
+                  className="card card-hover p-4 cursor-pointer border border-white/5 hover:border-accent-500/30 flex items-center gap-3"
+                  onClick={() => setSelectedCam(cam.id)}
+                >
+                  <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center border border-white/10 flex-shrink-0">
+                    <CameraIcon className="h-4 w-4 text-slate-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-200 truncate">{cam.name}</p>
+                    <p className="text-[10px] text-slate-500 truncate">{cam.id} • {cam.bop}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col h-full animate-fade-in">
+              <div className="flex items-center justify-between mb-4">
+                <button onClick={() => setSelectedCam(null)} className="text-xs text-accent-400 hover:text-accent-300 font-bold tracking-wider uppercase">
+                  ← Back to Cameras
+                </button>
+                <div className="text-sm font-bold text-slate-300 border border-white/10 px-3 py-1 rounded bg-white/5">
+                  {cameras.find(c => c.id === selectedCam)?.name}
+                </div>
+              </div>
+
+              {/* Video Player Placeholder */}
+              <div className="relative w-full aspect-video bg-black rounded-lg border border-white/10 overflow-hidden flex items-center justify-center mb-4">
+                <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 to-slate-950/80" />
+                <div className="absolute inset-0 grid-overlay opacity-30" />
+                <div className="relative text-center">
+                  <PlayCircle className="h-16 w-16 text-slate-600 hover:text-accent-400 transition-colors cursor-pointer mx-auto mb-2" />
+                  <p className="text-xs font-mono text-slate-500">Select a segment below to play</p>
+                </div>
+              </div>
+
+              {/* Clips List */}
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Recorded Segments</h3>
+              <div className="space-y-2">
+                {generateMockClips(selectedCam, selectedDate).map(clip => (
+                  <div key={clip.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-white/5 hover:bg-slate-800/50 transition-colors group cursor-pointer">
+                    <div className="flex items-center gap-4">
+                      <div className="h-8 w-8 rounded bg-accent-500/10 flex items-center justify-center border border-accent-500/20 text-accent-400">
+                        <Clock className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-200">{clip.time}</p>
+                        <p className="text-[10px] text-slate-500">{clip.events} AI Events detected</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs font-mono text-slate-400 bg-white/5 px-2 py-1 rounded">{clip.size}</span>
+                      <button className="p-2 text-slate-500 hover:text-emerald-400 transition-colors opacity-0 group-hover:opacity-100">
+                        <Download className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

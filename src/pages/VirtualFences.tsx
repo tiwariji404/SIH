@@ -90,8 +90,13 @@ export default function VirtualFences() {
       {/* Existing zones */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 border-t border-slate-200 mt-4 pt-4">
         {zones.map(zone => {
+          const camArray = zone.cameraIds || ((zone as any).cameraId ? [(zone as any).cameraId] : []);
           return (
-            <div key={zone.id} className="card p-5 border shadow-sm border-slate-200 hover:shadow-md hover:border-slate-300 transition-all">
+            <div 
+               key={zone.id} 
+               onClick={() => window.dispatchEvent(new CustomEvent('appNavigate', { detail: { page: 'live', cameraIds: camArray } }))}
+               className="card p-5 border shadow-sm border-slate-200 hover:shadow-md hover:border-accent-500 hover:bg-slate-50 cursor-pointer transition-all group"
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <div className="p-2 bg-slate-100 rounded-lg">
@@ -102,7 +107,7 @@ export default function VirtualFences() {
                     <p className="text-xs font-mono text-slate-600">{zone.id} • {zone.zoneType}</p>
                   </div>
                 </div>
-                <button onClick={() => deleteZone(zone.id)} className="text-slate-400 hover:text-red-500 transition-colors p-1">
+                <button onClick={(e) => { e.stopPropagation(); deleteZone(zone.id); }} className="text-slate-300 group-hover:text-slate-400 hover:!text-red-500 transition-colors p-1">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -110,10 +115,10 @@ export default function VirtualFences() {
               <div className="space-y-2 mt-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1 border-b border-slate-200 pb-1">Covered Cameras</p>
                  <div className="flex flex-wrap gap-1">
-                   {zone.cameraIds.map(cid => (
+                   {camArray.map(cid => (
                      <span key={cid} className="badge bg-white shadow-sm text-slate-700 border border-slate-200 font-mono text-[10px]"><CameraIdLabel id={cid} cameras={cameras}/></span>
                    ))}
-                   {zone.cameraIds.length === 0 && <span className="text-xs italic text-slate-500">Legacy single-cam zone</span>}
+                   {camArray.length === 0 && <span className="text-xs italic text-slate-500">Legacy single-cam zone</span>}
                  </div>
               </div>
               

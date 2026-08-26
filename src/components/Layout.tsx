@@ -31,7 +31,6 @@ export type PageId =
   | 'cameras'
   | 'alerts'
   | 'events'
-  | 'map'
   | 'anpr'
   | 'tracking'
   | 'fences'
@@ -68,7 +67,6 @@ const NAV_ITEMS: Record<string, NavItem> = {
   cameras: { id: 'cameras', label: 'Recorded Video', icon: Camera },
   alerts: { id: 'alerts', label: 'Alerts', icon: Bell },
   events: { id: 'events', label: 'Events History', icon: FileText },
-  map: { id: 'map', label: 'Border Map', icon: Map },
   anpr: { id: 'anpr', label: 'Vehicle Detection', icon: TrafficCone },
   tracking: { id: 'tracking', label: 'Tracking', icon: Target },
   fences: { id: 'fences', label: 'Fencing', icon: Shield },
@@ -123,14 +121,14 @@ export default function Layout({ current, onNavigate, children }: Props) {
   let secondaryNavIds: PageId[] = [];
   
   if (role === 'admin') {
-    primaryNavIds = ['home', 'assign_sub_admin', 'events', 'map', 'fences'];
+    primaryNavIds = ['home', 'assign_sub_admin', 'events', 'fences'];
     secondaryNavIds = ['settings', 'audit'];
   } else if (role === 'sub_admin') {
-    primaryNavIds = ['home', 'overview', 'assign_operator', 'live', 'cameras', 'map', 'fences'];
+    primaryNavIds = ['home', 'overview', 'assign_operator', 'live', 'cameras', 'fences'];
     secondaryNavIds = ['audit'];
   } else {
     // operator
-    primaryNavIds = ['home', 'live', 'cameras', 'alerts', 'map', 'anpr', 'fences'];
+    primaryNavIds = ['home', 'live', 'cameras', 'alerts', 'anpr', 'fences'];
     secondaryNavIds = ['tracking'];
   }
 

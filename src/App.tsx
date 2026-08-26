@@ -8,7 +8,6 @@ import LiveSurveillance from './pages/LiveSurveillance';
 import Cameras from './pages/Cameras';
 import Alerts from './pages/Alerts';
 import Events from './pages/Events';
-import BorderMap from './pages/BorderMap';
 import ANPR from './pages/ANPR';
 import Tracking from './pages/Tracking';
 import VirtualFences from './pages/VirtualFences';
@@ -218,7 +217,6 @@ function AppContent() {
       case 'cameras': return <Cameras />;
       case 'alerts': return <Alerts />;
       case 'events': return <Events />;
-      case 'map': return <BorderMap />;
       case 'anpr': return <ANPR />;
       case 'tracking': return <Tracking />;
       case 'fences': return <VirtualFences />;

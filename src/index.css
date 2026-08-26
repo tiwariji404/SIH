@@ -7,7 +7,7 @@
 @layer base {
   * {
     scrollbar-width: thin;
-    scrollbar-color: #243044 transparent;
+    scrollbar-color: #cbd5e1 transparent;
   }
   *::-webkit-scrollbar {
     width: 6px;
@@ -17,65 +17,62 @@
     background: transparent;
   }
   *::-webkit-scrollbar-thumb {
-    background-color: #243044;
+    background-color: #cbd5e1;
     border-radius: 3px;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background-color: #334155;
+    background-color: #94a3b8;
   }
   body {
-    @apply bg-slate-900 text-slate-200 font-sans antialiased;
+    @apply bg-slate-50 text-slate-900 font-sans antialiased;
   }
 }
 
 .bg-tactical {
-  background-color: #020617;
+  background-color: #f8fafc;
   background-image: 
-    radial-gradient(circle at 90% 0%, rgba(22, 101, 52, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 10% 100%, rgba(2ea, 88, 12, 0.15) 0%, transparent 50%),
-    linear-gradient(rgba(2, 6, 23, 0.8), rgba(2, 6, 23, 0.95)),
-    url('data:image/svg+xml,%3Csvg width="20" height="20" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath d="M0 0h20v20H0z" fill="none"/%3E%3Cpath d="M0 19h20v1H0zM19 0h1v20h-1z" fill="rgba(255,255,255,0.03)"/%3E%3C/svg%3E');
+    linear-gradient(to bottom, #ffffff, #f8fafc);
 }
 
 @layer components {
   .glass {
-    @apply bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 shadow-lg;
+    @apply bg-white/95 backdrop-blur-sm border border-slate-200 shadow-md;
   }
   .glass-strong {
-    @apply bg-slate-900/90 backdrop-blur-2xl border border-slate-700/50 shadow-2xl;
+    @apply bg-white border border-slate-200 shadow-xl;
   }
   .card {
-    @apply bg-slate-900/50 backdrop-blur-md border border-slate-700/50 rounded-xl shadow-lg;
+    @apply bg-white border border-slate-200 rounded-xl shadow-sm;
   }
   .card-hover {
-    @apply transition-all duration-300 hover:border-orange-500/50 hover:bg-slate-800/80 hover:shadow-[0_0_15px_rgba(234,88,12,0.1)];
+    @apply transition-all duration-300 hover:border-orange-300 hover:shadow-md hover:-translate-y-0.5;
   }
   .nav-item {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 font-medium transition-all duration-200 cursor-pointer hover:bg-slate-800/80 hover:text-orange-400;
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 font-bold transition-all duration-200 cursor-pointer hover:bg-slate-200 hover:text-slate-900;
   }
   .nav-item-active {
-    @apply bg-gradient-to-r from-orange-500/10 to-transparent text-orange-400 border-l-4 border-orange-500 shadow-sm font-semibold;
+    @apply bg-orange-100 text-orange-700 border-l-4 border-orange-600 font-black;
   }
   .btn {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold tracking-wide transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed uppercase;
   }
   .btn-primary {
-    @apply btn bg-gradient-to-r from-orange-600 to-orange-500 text-white border-none shadow-[0_0_15px_rgba(234,88,12,0.3)] hover:shadow-[0_0_25px_rgba(234,88,12,0.5)];
+    @apply btn bg-orange-600 text-white shadow-sm hover:bg-orange-700 hover:shadow-md;
   }
   .btn-ghost {
-    @apply btn text-slate-400 hover:bg-slate-800 hover:text-white;
+    @apply btn text-slate-500 hover:bg-slate-100 hover:text-slate-800;
   }
   .btn-danger {
-    @apply btn bg-red-950/40 text-red-400 border border-red-500/30 hover:bg-red-900/50 hover:shadow-[0_0_15px_rgba(239,68,68,0.2)];
+    @apply btn bg-red-50 text-red-600 border border-red-200 hover:bg-red-100;
   }
   .btn-success {
-    @apply btn bg-green-950/40 text-green-400 border border-green-500/30 hover:bg-green-900/50 hover:shadow-[0_0_15px_rgba(34,197,94,0.2)];
+    @apply btn bg-green-50 text-green-700 border border-green-200 hover:bg-green-100;
   }
   .input {
-    @apply w-full bg-slate-950/70 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all shadow-inner;
+    @apply w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder-slate-500 font-medium focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all shadow-sm;
   }
   .badge {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium;
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold;
   }
   .status-dot {
     @apply inline-block w-2 h-2 rounded-full;
@@ -88,14 +85,14 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.5), transparent);
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.5), transparent);
   animation: scan 3s linear infinite;
   pointer-events: none;
 }
 
 .grid-overlay {
   background-image:
-    linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px);
   background-size: 40px 40px;
 }

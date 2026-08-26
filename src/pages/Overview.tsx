@@ -20,7 +20,7 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
   const intrusionsToday = events.filter(e => e.eventType.includes('Intrusion') || e.eventType.includes('Fence')).length;
   const anprEvents = vehicles.length;
   const suspiciousActivities = events.filter(e => e.eventType.includes('Suspicious') || e.eventType.includes('Loitering')).length;
-  const avgHealth = Math.round(cameras.reduce((s, c) => s + c.health, 0) / cameras.length);
+  const avgHealth = Math.round(cameras.reduce((s, c) => s + c.health, 0) / (cameras.length || 1));
 
   const kpis = [
     { label: 'Cameras Online', value: `${onlineCameras} / ${cameras.length}`, icon: Cctv, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
@@ -56,11 +56,13 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
   const liveCameras = cameras.filter(c => c.status === 'ONLINE').slice(0, 4);
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in pb-10">
+      
+
+
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">Command Overview</h1>
+          <h2 className="text-xl font-bold text-slate-800">Command Overview</h2>
           <p className="text-xs text-slate-500">Real-time border surveillance intelligence</p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
@@ -79,10 +81,10 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
                 <div className={`p-2 rounded-lg ${kpi.bg}`}>
                   <Icon className={`h-5 w-5 ${kpi.color}`} />
                 </div>
-                <ArrowUpRight className="h-3 w-3 text-slate-600" />
+                <ArrowUpRight className="h-3 w-3 text-slate-400" />
               </div>
-              <p className="text-2xl font-bold text-slate-100">{kpi.value}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{kpi.label}</p>
+              <p className="text-2xl font-extrabold text-slate-800">{kpi.value}</p>
+              <p className="text-[10px] font-semibold text-slate-500 mt-0.5 uppercase tracking-wider">{kpi.label}</p>
             </div>
           );
         })}
@@ -93,8 +95,8 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
         {/* Events by hour */}
         <div className="card p-4 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-200">Events by Hour</h3>
-            <TrendingUp className="h-4 w-4 text-slate-600" />
+            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Events by Hour</h3>
+            <TrendingUp className="h-4 w-4 text-slate-400" />
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={hourlyData}>
@@ -108,10 +110,10 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
                   <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1a2332" />
-              <XAxis dataKey="hour" stroke="#475569" fontSize={9} interval={3} />
-              <YAxis stroke="#475569" fontSize={10} />
-              <Tooltip contentStyle={{ background: '#0d1320', border: '1px solid #243044', borderRadius: '8px', fontSize: '11px' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="hour" stroke="#94a3b8" fontSize={9} interval={3} />
+              <YAxis stroke="#94a3b8" fontSize={10} />
+              <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#1e293b', borderRadius: '8px', fontSize: '11px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
               <Area type="monotone" dataKey="events" stroke="#06b6d4" strokeWidth={2} fill="url(#eventGrad)" />
               <Area type="monotone" dataKey="alerts" stroke="#ef4444" strokeWidth={2} fill="url(#alertGrad)" />
             </AreaChart>
@@ -120,7 +122,7 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
 
         {/* Severity distribution */}
         <div className="card p-4">
-          <h3 className="text-sm font-semibold text-slate-200 mb-4">Alert Severity Distribution</h3>
+          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide mb-4">Alert Severity Distribution</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={severityData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3}>
@@ -128,7 +130,7 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
                   <Cell key={i} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={{ background: '#0d1320', border: '1px solid #243044', borderRadius: '8px', fontSize: '11px' }} />
+              <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#1e293b', borderRadius: '8px', fontSize: '11px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
               <Legend wrapperStyle={{ fontSize: '10px' }} />
             </PieChart>
           </ResponsiveContainer>
@@ -140,11 +142,11 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
         {/* Live camera grid */}
         <div className="card p-4 lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-              <Radio className="h-4 w-4 text-accent-400 animate-pulse" />
+            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+              <Radio className="h-4 w-4 text-orange-500 animate-pulse" />
               Live Camera Feeds
             </h3>
-            <button onClick={() => onNavigate('live')} className="text-[10px] text-accent-400 hover:text-accent-300 font-mono">
+            <button onClick={() => onNavigate('live')} className="text-[10px] text-orange-500 hover:text-orange-600 font-bold uppercase tracking-wider">
               VIEW ALL →
             </button>
           </div>
@@ -158,18 +160,18 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
         {/* Recent alerts */}
         <div className="card p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-200">Recent Alerts</h3>
-            <button onClick={() => onNavigate('alerts')} className="text-[10px] text-accent-400 hover:text-accent-300 font-mono">
+            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Recent Alerts</h3>
+            <button onClick={() => onNavigate('alerts')} className="text-[10px] text-orange-500 hover:text-orange-600 font-bold uppercase tracking-wider">
               VIEW ALL →
             </button>
           </div>
           <div className="space-y-2">
             {recentAlerts.map(alert => (
-              <div key={alert.id} className="flex items-center gap-2 p-2.5 rounded-lg bg-white/5 border border-white/5 hover:border-white/10 transition-colors cursor-pointer" onClick={() => onNavigate('alerts')}>
+              <div key={alert.id} className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-100 hover:border-orange-200 hover:shadow-[0_2px_8px_rgba(234,88,12,0.1)] transition-all cursor-pointer" onClick={() => onNavigate('alerts')}>
                 <div className={`w-1 h-10 rounded-full ${alert.severity === 'CRITICAL' ? 'bg-red-500' : alert.severity === 'HIGH' ? 'bg-orange-500' : alert.severity === 'MEDIUM' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-slate-200 truncate">{alert.title}</p>
-                  <p className="text-[10px] text-slate-500">{alert.cameraId} • {alert.when}</p>
+                  <p className="text-xs font-bold text-slate-800 truncate">{alert.title}</p>
+                  <p className="text-[10px] font-semibold text-slate-500">{alert.cameraId} • {alert.when}</p>
                 </div>
                 <span className={`badge text-[9px] ${alert.status === 'NEW' ? 'bg-red-500/20 text-red-400' : alert.status === 'RESOLVED' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
                   {alert.status}
@@ -179,20 +181,7 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
           </div>
         </div>
       </div>
-
-      {/* Events by camera bar chart */}
-      <div className="card p-4">
-        <h3 className="text-sm font-semibold text-slate-200 mb-4">Detections by Camera</h3>
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={cameraData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1a2332" />
-            <XAxis dataKey="name" stroke="#475569" fontSize={9} />
-            <YAxis stroke="#475569" fontSize={10} />
-            <Tooltip contentStyle={{ background: '#0d1320', border: '1px solid #243044', borderRadius: '8px', fontSize: '11px' }} cursor={{ fill: '#ffffff05' }} />
-            <Bar dataKey="events" fill="#06b6d4" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      
     </div>
   );
 }

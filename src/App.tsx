@@ -3,6 +3,7 @@ import { AppProvider, useApp } from './store';
 import Login from './pages/Login';
 import Layout, { type PageId } from './components/Layout';
 import Overview from './pages/Overview';
+import Home from './pages/Home';
 import LiveSurveillance from './pages/LiveSurveillance';
 import Cameras from './pages/Cameras';
 import Alerts from './pages/Alerts';
@@ -173,7 +174,7 @@ function AssignUser({ roleLabel, actionUrl }: { roleLabel: string; actionUrl: st
 
 function AppContent() {
   const { user } = useApp();
-  const [page, setPage] = useState<PageId>('overview');
+  const [page, setPage] = useState<PageId>('home');
 
   if (!user) return <Login />;
 
@@ -182,14 +183,12 @@ function AppContent() {
   const isSubAdmin = user.role === 'sub_admin';
 
   let activePage = page;
-  if (user?.role === 'admin' && activePage === 'overview') {
-    activePage = 'assign_sub_admin';
-  }
 
   const renderPage = () => {
     switch (activePage) {
+      case 'home':
+        return <Home />;
       case 'overview': 
-        if (isOperator) return <LiveSurveillance />; 
         return <Overview onNavigate={setPage} />;
       case 'live': return <LiveSurveillance />;
       case 'cameras': return <Cameras />;
@@ -209,7 +208,7 @@ function AppContent() {
       case 'faces': return <FaceDetection />;
       case 'assign_sub_admin': return <AssignUser roleLabel="Sub-Admin" actionUrl="/api/v1/users" />;
       case 'assign_operator': return <AssignUser roleLabel="Operator" actionUrl="/api/v1/users" />;
-      default: return <Overview onNavigate={setPage} />;
+      default: return <Home />;
     }
   };
 

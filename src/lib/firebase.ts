@@ -13,8 +13,8 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase (safely wrapped for demo)
-let app;
-let db;
+export let app: any;
+export let db: any;
 try {
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);

@@ -1,130 +1,245 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../store';
-import { Search, Radio, Users, Car, ArrowRight, Clock, MapPin } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { Radio, ScanFace, Clock, AlertTriangle, ShieldCheck, X, Camera } from 'lucide-react';
 
-export default function Tracking() {
-  const { tracks, cameras } = useApp();
-  const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<string | null>(null);
-
-  const filtered = tracks.filter(t => !search || t.trackingId.toLowerCase().includes(search.toLowerCase()));
-  const selectedTrack = tracks.find(t => t.trackingId === selected);
-
-  return (
-    <div className="space-y-4 animate-fade-in">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">People & Tracking</h1>
-        <p className="text-xs text-slate-600">{tracks.length} active tracks • Cross-camera movement simulation</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Track list */}
-        <div className="lg:col-span-1 space-y-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
-            <input type="text" placeholder="Search tracking ID..." value={search} onChange={e => setSearch(e.target.value)} className="input pl-10" />
-          </div>
-          {filtered.map(t => (
-            <button
-              key={t.trackingId}
-              onClick={() => setSelected(t.trackingId)}
-              className={`card card-hover w-full p-3 text-left ${selected === t.trackingId ? 'border-accent-500/30 bg-accent-500/5' : ''}`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${t.objectType === 'person' ? 'bg-accent-500/10' : 'bg-blue-500/10'}`}>
-                  {t.objectType === 'person' ? <Users className="h-4 w-4 text-accent-400" /> : <Car className="h-4 w-4 text-blue-400" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-mono font-semibold text-slate-800">{t.trackingId}</p>
-                  <p className="text-[10px] text-slate-600">{t.cameraId} • {t.direction}</p>
-                </div>
-                <span className={`badge ${t.status === 'Active' ? 'bg-emerald-500/20 text-emerald-400' : t.status === 'Lost' ? 'bg-red-500/20 text-red-400' : 'bg-slate-500/20 text-slate-600'}`}>{t.status}</span>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {/* Track detail */}
-        <div className="lg:col-span-2">
-          {selectedTrack ? (
-            <div className="card p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`p-3 rounded-lg ${selectedTrack.objectType === 'person' ? 'bg-accent-500/10' : 'bg-blue-500/10'}`}>
-                    {selectedTrack.objectType === 'person' ? <Users className="h-6 w-6 text-accent-400" /> : <Car className="h-6 w-6 text-blue-400" />}
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-slate-900 font-mono">{selectedTrack.trackingId}</h2>
-                    <p className="text-xs text-slate-600 capitalize">{selectedTrack.objectType}</p>
-                  </div>
-                </div>
-                <span className={`badge ${selectedTrack.status === 'Active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-600'}`}>{selectedTrack.status}</span>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <InfoCard label="Camera" value={selectedTrack.cameraId} icon={Radio} />
-                <InfoCard label="Direction" value={selectedTrack.direction} icon={MapPin} />
-                <InfoCard label="Duration" value={selectedTrack.duration} icon={Clock} />
-                <InfoCard label="Status" value={selectedTrack.status} icon={Radio} />
-              </div>
-
-              <div>
-                <p className="text-[10px] font-mono uppercase text-slate-600 mb-2">Detection Times</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="card p-3">
-                    <p className="text-[10px] text-slate-600">First Detected</p>
-                    <p className="text-xs font-mono text-slate-700">{new Date(selectedTrack.firstSeen).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
-                  </div>
-                  <div className="card p-3">
-                    <p className="text-[10px] text-slate-600">Last Detected</p>
-                    <p className="text-xs font-mono text-slate-700">{new Date(selectedTrack.lastSeen).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Cross-camera movement history */}
-              <div>
-                <p className="text-[10px] font-mono uppercase text-slate-600 mb-2">Movement History (Cross-Camera Tracking)</p>
-                <div className="space-y-2">
-                  {[...selectedTrack.history].reverse().map((h, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="flex flex-col items-center">
-                        <div className={`w-3 h-3 rounded-full ${i === 0 ? 'bg-emerald-400 animate-pulse' : 'bg-accent-400'}`} />
-                        {i < selectedTrack.history.length - 1 && <div className="w-0.5 h-8 bg-white/10" />}
-                      </div>
-                      <div className="flex-1 card p-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-mono text-accent-300">{h.cameraId}</span>
-                          <span className="text-[10px] text-slate-600">{new Date(h.time).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
-                        </div>
-                        <p className="text-[10px] text-slate-600">{cameras.find(c => c.id === h.cameraId)?.location || 'Unknown location'}</p>
-                      </div>
-                      {i < selectedTrack.history.length - 1 && <ArrowRight className="h-3 w-3 text-slate-600 rotate-90" />}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="card p-8 text-center h-full flex items-center justify-center">
-              <div>
-                <Radio className="h-8 w-8 text-slate-600 mx-auto mb-2" />
-                <p className="text-sm text-slate-600">Select a tracking ID to view details</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+interface FaceLog {
+  id: string;
+  name: string;
+  status: 'Known' | 'Unknown';
+  cameraId: string;
+  timestamp: any;
+  imageUrl: string;
 }
 
-function InfoCard({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Radio }) {
+export default function Tracking() {
+  const { cameras } = useApp();
+  const [logs, setLogs] = useState<FaceLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedLog, setSelectedLog] = useState<FaceLog | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    async function startCam() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error("Camera access denied or unavailable", err);
+      }
+    }
+    startCam();
+
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+        tracks.forEach(t => t.stop());
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!db) {
+      setError("Firebase DB is not initialized. Please configure firebase.ts with valid credentials.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const q = query(collection(db, 'face_logs'), orderBy('timestamp', 'desc'), limit(50));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const fetchedLogs: FaceLog[] = [];
+        snapshot.forEach((doc) => {
+          fetchedLogs.push({ id: doc.id, ...doc.data() } as FaceLog);
+        });
+        setLogs(fetchedLogs);
+        setLoading(false);
+      }, (err) => {
+        console.error("Firestore listener error:", err);
+        setError("Failed to listen to face_logs. Ensure Firestore rules allow read access.");
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
+    } catch (err: any) {
+      console.error(err);
+      setError("Error setting up Firestore listener.");
+      setLoading(false);
+    }
+  }, []);
+
   return (
-    <div className="card p-3">
-      <Icon className="h-4 w-4 text-accent-400 mb-1" />
-      <p className="text-[10px] text-slate-600">{label}</p>
-      <p className="text-sm font-semibold text-slate-800">{value}</p>
+    <div className="space-y-4 animate-fade-in h-full flex flex-col pb-10">
+      <div>
+        <h1 className="text-xl font-bold text-slate-900">AI Face Recognition & Logging</h1>
+        <p className="text-xs text-slate-600">Real-time CCTV face detection and verification dashboard</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+        
+        {/* Left Col: Live Webcam Feed & Status */}
+        <div className="lg:col-span-4 flex flex-col gap-4 h-[calc(100vh-180px)]">
+          <div className="card border-slate-200 bg-white p-4 flex flex-col flex-1">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                <Radio className="h-4 w-4 text-orange-500 animate-pulse" />
+                Live Feed (Operator Cam)
+              </h3>
+            </div>
+            
+            <div className="flex-1 rounded-lg border-2 border-slate-200 bg-slate-900 flex items-center justify-center relative overflow-hidden group">
+              <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
+              {!videoRef.current?.srcObject && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
+                  <Camera className="w-10 h-10 mb-2 opacity-50" />
+                  <span className="text-xs">Requesting Camera...</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="card p-4 bg-slate-800 text-white shadow-lg border-slate-700">
+             <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">System Status</h4>
+             <div className="space-y-2">
+               <div className="flex justify-between items-center text-sm">
+                 <span className="text-slate-300">AI Model</span>
+                 <span className="font-semibold text-emerald-400 flex items-center gap-1"><ShieldCheck className="w-4 h-4"/> Active</span>
+               </div>
+               <div className="flex justify-between items-center text-sm">
+                 <span className="text-slate-300">Faces Logged</span>
+                 <span className="font-semibold text-white">{logs.length}</span>
+               </div>
+             </div>
+          </div>
+        </div>
+
+        {/* Middle Col: Real-Time Logs List */}
+        <div className="lg:col-span-4 flex flex-col h-[calc(100vh-180px)]">
+          <div className="card bg-white border-slate-200 flex-1 flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                <Clock className="w-4 h-4 text-slate-500" />
+                Detection Logs
+              </h2>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+              {loading ? (
+                <div className="flex justify-center items-center h-40">
+                  <span className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></span>
+                </div>
+              ) : logs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-60 text-slate-500">
+                  <ScanFace className="w-10 h-10 mb-2 opacity-50" />
+                  <p className="text-sm font-medium">No faces detected yet.</p>
+                </div>
+              ) : (
+                logs.map((log) => {
+                  const isKnown = log.status === 'Known';
+                  const logDate = log.timestamp?.toDate ? log.timestamp.toDate() : new Date();
+
+                  return (
+                    <div 
+                      key={log.id} 
+                      onClick={() => setSelectedLog(log)}
+                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group ${selectedLog?.id === log.id ? 'bg-orange-50 border-orange-300 shadow-sm' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm'}`}
+                    >
+                      
+                      <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0 bg-slate-100">
+                        {log.imageUrl ? (
+                          <img src={log.imageUrl} alt="Face" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <ScanFace className="w-5 h-5 text-slate-300" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <h3 className="text-sm font-extrabold text-slate-900 truncate">
+                            {isKnown ? log.name : "Unknown"}
+                          </h3>
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] font-medium text-slate-500">
+                          <span>{logDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}</span>
+                        </div>
+                      </div>
+
+                      <span className={`w-2 h-2 rounded-full ${isKnown ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`} />
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Col: Full Details Pane */}
+        <div className="lg:col-span-4 flex flex-col h-[calc(100vh-180px)]">
+          <div className="card bg-white border-slate-200 flex-1 flex flex-col overflow-hidden relative">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                Detailed Verification
+              </h2>
+            </div>
+            
+            {selectedLog ? (
+              <div className="p-6 flex flex-col h-full overflow-y-auto animate-fade-in">
+                <div className="flex justify-center mb-6">
+                  <div className={`relative w-48 h-48 rounded-2xl overflow-hidden border-4 shadow-lg ${selectedLog.status === 'Known' ? 'border-emerald-400 shadow-emerald-500/20' : 'border-red-400 shadow-red-500/20'}`}>
+                    {selectedLog.imageUrl ? (
+                      <img src={selectedLog.imageUrl} alt="Full Face" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-slate-100 flex items-center justify-center"><ScanFace className="w-12 h-12 text-slate-300"/></div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="text-center mb-6">
+                  <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{selectedLog.status === 'Known' ? selectedLog.name : 'Unknown Person'}</h2>
+                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mt-2 border ${selectedLog.status === 'Known' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                    {selectedLog.status === 'Known' ? <ShieldCheck className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                    {selectedLog.status === 'Known' ? 'AUTHORIZED PERSONNEL' : 'UNAUTHORIZED'}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Time of Entry</p>
+                    <p className="text-sm font-semibold text-slate-800 font-mono">
+                      {selectedLog.timestamp?.toDate ? selectedLog.timestamp.toDate().toLocaleString('en-IN') : 'Unknown'}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Source Camera ID</p>
+                    <p className="text-sm font-semibold text-slate-800 font-mono">
+                      {selectedLog.cameraId}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Log ID</p>
+                    <p className="text-xs font-semibold text-slate-800 font-mono break-all">
+                      {selectedLog.id}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-6 text-center">
+                <ScanFace className="w-16 h-16 mb-4 opacity-30" />
+                <p className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-2">No Subject Selected</p>
+                <p className="text-xs">Click on a person from the Detection Logs list to view their full identification profile.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }

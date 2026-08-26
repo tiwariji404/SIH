@@ -1,17 +1,22 @@
 import cv2
 import threading
 import time
+import os
+
+source_env = os.getenv("CAMERA_SOURCE", "0")
+if str(source_env).isdigit():
+    source_env = int(source_env)
 
 class VideoStreamProcessor:
     def __init__(self, source=0):
+        print(f"Initializing VideoStreamProcessor with source: {source}")
         self.source = source
         self.cap = cv2.VideoCapture(self.source)
+        if not self.cap.isOpened():
+            print(f"Warning: Could not open video source {self.source}")
         self.frame = None
         self.running = False
         self.lock = threading.Lock()
-        
-        # MOG2 background subtractor for "Fencing" and "Border" alerts
-        self.backSub = cv2.createBackgroundSubtractorMOG2()
 
     def start(self):
         self.running = True
@@ -19,18 +24,27 @@ class VideoStreamProcessor:
 
     def update(self):
         while self.running:
+            if not self.cap.isOpened():
+                time.sleep(2) # Wait before retry (good for RTSP reconnects)
+                self.cap = cv2.VideoCapture(self.source)
+                continue
+                
             ret, frame = self.cap.read()
             if not ret:
-                # If stream ends (e.g., video file), loop it
-                self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                # Reconnect logic for RTSP or loop for Video file
+                print("Warning: Stream lost or ended, attempting reconnect...")
+                if isinstance(self.source, str) and not self.source.startswith("rtsp"):
+                    self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0) # Video loop
+                else:
+                    self.cap.release()
+                    time.sleep(2) # wait before RTSP reconnect
                 continue
-            
-            # Apply MOG2
-            fgMask = self.backSub.apply(frame)
 
             with self.lock:
                 self.frame = frame.copy()
-            time.sleep(0.03)
+            
+            # Tiny sleep to yield thread and control FPS reading
+            time.sleep(0.01)
 
     def read(self):
         with self.lock:
@@ -43,8 +57,7 @@ class VideoStreamProcessor:
         if self.cap.isOpened():
             self.cap.release()
 
-# Global stream instance for demo (In real app, manage per-camera)
-video_stream = VideoStreamProcessor(source=0) 
+video_stream = VideoStreamProcessor(source=source_env) 
 video_stream.start()
 
 def get_video_stream():

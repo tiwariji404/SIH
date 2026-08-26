@@ -1,15 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routers import auth, users, stream
-from app.db.session import engine, Base
 from app.core.config import settings
+from app.db.firebase import init_firebase
 import logging
 
 try:
-    # Ensure tables are created
-    Base.metadata.create_all(bind=engine)
+    # Initialize Firebase Admin 
+    init_firebase()
 except Exception as e:
-    print(f"DB Error: {e}")
+    print(f"Firebase Init Error: {e}")
 
 app = FastAPI(title=settings.PROJECT_NAME)
 

@@ -13,8 +13,8 @@ export default function Tracking() {
   return (
     <div className="space-y-4 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-slate-100">People & Tracking</h1>
-        <p className="text-xs text-slate-500">{tracks.length} active tracks • Cross-camera movement simulation</p>
+        <h1 className="text-xl font-bold text-slate-900">People & Tracking</h1>
+        <p className="text-xs text-slate-600">{tracks.length} active tracks • Cross-camera movement simulation</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -35,10 +35,10 @@ export default function Tracking() {
                   {t.objectType === 'person' ? <Users className="h-4 w-4 text-accent-400" /> : <Car className="h-4 w-4 text-blue-400" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-mono font-semibold text-slate-200">{t.trackingId}</p>
-                  <p className="text-[10px] text-slate-500">{t.cameraId} • {t.direction}</p>
+                  <p className="text-sm font-mono font-semibold text-slate-800">{t.trackingId}</p>
+                  <p className="text-[10px] text-slate-600">{t.cameraId} • {t.direction}</p>
                 </div>
-                <span className={`badge ${t.status === 'Active' ? 'bg-emerald-500/20 text-emerald-400' : t.status === 'Lost' ? 'bg-red-500/20 text-red-400' : 'bg-slate-500/20 text-slate-400'}`}>{t.status}</span>
+                <span className={`badge ${t.status === 'Active' ? 'bg-emerald-500/20 text-emerald-400' : t.status === 'Lost' ? 'bg-red-500/20 text-red-400' : 'bg-slate-500/20 text-slate-600'}`}>{t.status}</span>
               </div>
             </button>
           ))}
@@ -54,11 +54,11 @@ export default function Tracking() {
                     {selectedTrack.objectType === 'person' ? <Users className="h-6 w-6 text-accent-400" /> : <Car className="h-6 w-6 text-blue-400" />}
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-slate-100 font-mono">{selectedTrack.trackingId}</h2>
-                    <p className="text-xs text-slate-500 capitalize">{selectedTrack.objectType}</p>
+                    <h2 className="text-lg font-bold text-slate-900 font-mono">{selectedTrack.trackingId}</h2>
+                    <p className="text-xs text-slate-600 capitalize">{selectedTrack.objectType}</p>
                   </div>
                 </div>
-                <span className={`badge ${selectedTrack.status === 'Active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-400'}`}>{selectedTrack.status}</span>
+                <span className={`badge ${selectedTrack.status === 'Active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-600'}`}>{selectedTrack.status}</span>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -73,11 +73,11 @@ export default function Tracking() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="card p-3">
                     <p className="text-[10px] text-slate-600">First Detected</p>
-                    <p className="text-xs font-mono text-slate-300">{new Date(selectedTrack.firstSeen).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
+                    <p className="text-xs font-mono text-slate-700">{new Date(selectedTrack.firstSeen).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                   </div>
                   <div className="card p-3">
                     <p className="text-[10px] text-slate-600">Last Detected</p>
-                    <p className="text-xs font-mono text-slate-300">{new Date(selectedTrack.lastSeen).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
+                    <p className="text-xs font-mono text-slate-700">{new Date(selectedTrack.lastSeen).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                   </div>
                 </div>
               </div>
@@ -95,9 +95,9 @@ export default function Tracking() {
                       <div className="flex-1 card p-2.5">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-mono text-accent-300">{h.cameraId}</span>
-                          <span className="text-[10px] text-slate-500">{new Date(h.time).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                          <span className="text-[10px] text-slate-600">{new Date(h.time).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                         </div>
-                        <p className="text-[10px] text-slate-500">{cameras.find(c => c.id === h.cameraId)?.location || 'Unknown location'}</p>
+                        <p className="text-[10px] text-slate-600">{cameras.find(c => c.id === h.cameraId)?.location || 'Unknown location'}</p>
                       </div>
                       {i < selectedTrack.history.length - 1 && <ArrowRight className="h-3 w-3 text-slate-600 rotate-90" />}
                     </div>
@@ -109,7 +109,7 @@ export default function Tracking() {
             <div className="card p-8 text-center h-full flex items-center justify-center">
               <div>
                 <Radio className="h-8 w-8 text-slate-600 mx-auto mb-2" />
-                <p className="text-sm text-slate-500">Select a tracking ID to view details</p>
+                <p className="text-sm text-slate-600">Select a tracking ID to view details</p>
               </div>
             </div>
           )}
@@ -124,7 +124,7 @@ function InfoCard({ label, value, icon: Icon }: { label: string; value: string; 
     <div className="card p-3">
       <Icon className="h-4 w-4 text-accent-400 mb-1" />
       <p className="text-[10px] text-slate-600">{label}</p>
-      <p className="text-sm font-semibold text-slate-200">{value}</p>
+      <p className="text-sm font-semibold text-slate-800">{value}</p>
     </div>
   );
 }

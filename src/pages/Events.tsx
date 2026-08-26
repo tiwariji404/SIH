@@ -25,8 +25,8 @@ export default function Events() {
   return (
     <div className="space-y-4 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-slate-100">Event Management</h1>
-        <p className="text-xs text-slate-500">{filtered.length} of {events.length} events</p>
+        <h1 className="text-xl font-bold text-slate-900">Event Management</h1>
+        <p className="text-xs text-slate-600">{filtered.length} of {events.length} events</p>
       </div>
 
       {/* Filters */}
@@ -64,25 +64,25 @@ export default function Events() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/5 bg-white/5">
-                <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-500">Time</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-500">Camera</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-500">Event</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-500">Object</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-500">Risk</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-500">Status</th>
-                <th className="px-4 py-2.5 text-right text-[10px] font-mono uppercase text-slate-500">Actions</th>
+              <tr className="border-b border-slate-200 bg-white">
+                <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-600">Time</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-600">Camera</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-600">Event</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-600">Object</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-600">Risk</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase text-slate-600">Status</th>
+                <th className="px-4 py-2.5 text-right text-[10px] font-mono uppercase text-slate-600">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.slice(0, 50).map(e => (
-                <tr key={e.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                  <td className="px-4 py-2.5 text-[11px] font-mono text-slate-400 whitespace-nowrap">
+                <tr key={e.id} className="border-b border-slate-200 hover:bg-white transition-colors">
+                  <td className="px-4 py-2.5 text-[11px] font-mono text-slate-600 whitespace-nowrap">
                     {new Date(e.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
                   </td>
                   <td className="px-4 py-2.5 text-xs text-accent-300 font-mono">{e.cameraId}</td>
-                  <td className="px-4 py-2.5 text-xs text-slate-200">{e.eventType}</td>
-                  <td className="px-4 py-2.5 text-xs text-slate-400 font-mono">{e.trackingId}</td>
+                  <td className="px-4 py-2.5 text-xs text-slate-800">{e.eventType}</td>
+                  <td className="px-4 py-2.5 text-xs text-slate-600 font-mono">{e.trackingId}</td>
                   <td className="px-4 py-2.5">
                     <span className={`badge ${riskColor[e.severity]}`}>{e.severity} ({e.riskScore})</span>
                   </td>
@@ -106,7 +106,7 @@ export default function Events() {
         {filtered.length === 0 && (
           <div className="p-8 text-center">
             <List className="h-8 w-8 text-slate-600 mx-auto mb-2" />
-            <p className="text-sm text-slate-500">No events match your filters</p>
+            <p className="text-sm text-slate-600">No events match your filters</p>
           </div>
         )}
       </div>

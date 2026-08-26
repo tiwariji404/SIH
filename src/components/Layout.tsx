@@ -138,7 +138,7 @@ export default function Layout({ current, onNavigate, children }: Props) {
   const SECONDARY_NAV = secondaryNavIds.map(id => NAV_ITEMS[id]);
 
   return (
-    <div className="min-h-screen bg-tactical text-slate-200 font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-tactical text-slate-800 font-sans relative overflow-hidden">
       <div className="flex min-h-screen">
         <aside
           className={`fixed inset-y-0 left-0 z-40 w-72 transform border-r border-slate-200 bg-white px-4 py-5 transition-transform duration-200 lg:static lg:translate-x-0 shadow-xl ${
@@ -154,13 +154,13 @@ export default function Layout({ current, onNavigate, children }: Props) {
               <h1 className="mt-1 text-lg font-black text-slate-800 tracking-tight uppercase">
                 {role === 'admin' ? 'Admin Console' : role === 'sub_admin' ? 'Sub-Admin Console' : 'Operator Console'}
               </h1>
-              <p className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">
+              <p className="text-xs font-bold text-slate-600 mt-1 uppercase tracking-wider">
                 Border Security Force
               </p>
             </div>
             <button
               type="button"
-              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 lg:hidden"
+              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-800 lg:hidden"
               onClick={() => setMobileOpen(false)}
             >
               <X className="h-4 w-4" />
@@ -190,7 +190,7 @@ export default function Layout({ current, onNavigate, children }: Props) {
           </nav>
 
           <div className="mt-6 border-t border-slate-200 pt-5">
-            <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.25em] text-slate-400">
+            <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.25em] text-slate-600">
               Operations
             </p>
             <nav className="space-y-1">
@@ -239,7 +239,7 @@ export default function Layout({ current, onNavigate, children }: Props) {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 lg:hidden"
+                  className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-800 lg:hidden"
                   onClick={() => setMobileOpen(true)}
                 >
                   <Menu className="h-4 w-4" />
@@ -294,8 +294,8 @@ export default function Layout({ current, onNavigate, children }: Props) {
                     }`}
                   />
                   <div>
-                    <p className="text-sm font-semibold text-slate-100">{toast.title}</p>
-                    <p className="mt-1 text-xs text-slate-300">{toast.message}</p>
+                    <p className="text-sm font-semibold text-slate-900">{toast.title}</p>
+                    <p className="mt-1 text-xs text-slate-700">{toast.message}</p>
                   </div>
                 </div>
               </div>

@@ -54,8 +54,8 @@ export default function Analytics() {
   return (
     <div className="space-y-4 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-slate-100">Analytics</h1>
-        <p className="text-xs text-slate-500">Surveillance intelligence and trend analysis</p>
+        <h1 className="text-xl font-bold text-slate-900">Analytics</h1>
+        <p className="text-xs text-slate-600">Surveillance intelligence and trend analysis</p>
       </div>
 
       {/* Stats */}
@@ -65,8 +65,8 @@ export default function Analytics() {
           return (
             <div key={s.label} className="card p-4">
               <Icon className={`h-5 w-5 ${s.color} mb-2`} />
-              <p className="text-2xl font-bold text-slate-100">{s.value}</p>
-              <p className="text-[10px] text-slate-500">{s.label}</p>
+              <p className="text-2xl font-bold text-slate-900">{s.value}</p>
+              <p className="text-[10px] text-slate-600">{s.label}</p>
             </div>
           );
         })}
@@ -74,7 +74,7 @@ export default function Analytics() {
 
       {/* Detections over time */}
       <div className="card p-4">
-        <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-800 mb-4 flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-accent-400" /> Detections Over 24 Hours
         </h3>
         <ResponsiveContainer width="100%" height={250}>
@@ -99,7 +99,7 @@ export default function Analytics() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Intrusions per day */}
         <div className="card p-4">
-          <h3 className="text-sm font-semibold text-slate-200 mb-4">Intrusions Per Day</h3>
+          <h3 className="text-sm font-semibold text-slate-800 mb-4">Intrusions Per Day</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={dailyIntrusions}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1a2332" />
@@ -115,7 +115,7 @@ export default function Analytics() {
 
         {/* Severity distribution */}
         <div className="card p-4">
-          <h3 className="text-sm font-semibold text-slate-200 mb-4">Alert Severity Distribution</h3>
+          <h3 className="text-sm font-semibold text-slate-800 mb-4">Alert Severity Distribution</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={severityData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3}>
@@ -131,7 +131,7 @@ export default function Analytics() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Vehicle detections */}
         <div className="card p-4">
-          <h3 className="text-sm font-semibold text-slate-200 mb-4">Vehicle Detections by Type</h3>
+          <h3 className="text-sm font-semibold text-slate-800 mb-4">Vehicle Detections by Type</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={vehicleTypes} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#1a2332" />
@@ -145,7 +145,7 @@ export default function Analytics() {
 
         {/* Camera uptime */}
         <div className="card p-4">
-          <h3 className="text-sm font-semibold text-slate-200 mb-4">Camera Uptime %</h3>
+          <h3 className="text-sm font-semibold text-slate-800 mb-4">Camera Uptime %</h3>
           <ResponsiveContainer width="100%" height={200}>
             <RadialBarChart data={cameraUptime} innerRadius="20%" outerRadius="90%" startAngle={90} endAngle={-270}>
               <RadialBar dataKey="uptime" cornerRadius={4} background={{ fill: '#1a2332' }} />
@@ -158,7 +158,7 @@ export default function Analytics() {
 
       {/* Response time */}
       <div className="card p-4">
-        <h3 className="text-sm font-semibold text-slate-200 mb-4">Incident Response Time (seconds)</h3>
+        <h3 className="text-sm font-semibold text-slate-800 mb-4">Incident Response Time (seconds)</h3>
         <ResponsiveContainer width="100%" height={180}>
           <LineChart data={responseTimes}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1a2332" />

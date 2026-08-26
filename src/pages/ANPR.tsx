@@ -18,8 +18,8 @@ export default function ANPR() {
   return (
     <div className="space-y-4 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-slate-100">ANPR — Automatic Number Plate Recognition</h1>
-        <p className="text-xs text-slate-500">{vehicles.length} plate captures • {watchlisted.length} watchlist matches • Demo data</p>
+        <h1 className="text-xl font-bold text-slate-900">ANPR — Automatic Number Plate Recognition</h1>
+        <p className="text-xs text-slate-600">{vehicles.length} plate captures • {watchlisted.length} watchlist matches • Demo data</p>
       </div>
 
       {/* Watchlist alert */}
@@ -29,7 +29,7 @@ export default function ANPR() {
             <ShieldAlert className="h-5 w-5 text-red-400 animate-pulse" />
             <div>
               <p className="text-sm font-semibold text-red-300">Watchlist Vehicle Detected</p>
-              <p className="text-xs text-slate-400">Plate {watchlisted[0].plateNumber} detected at {watchlisted[0].cameraId} — Status: WATCHLIST</p>
+              <p className="text-xs text-slate-600">Plate {watchlisted[0].plateNumber} detected at {watchlisted[0].cameraId} — Status: WATCHLIST</p>
             </div>
           </div>
         </div>
@@ -42,7 +42,7 @@ export default function ANPR() {
           <input type="text" placeholder="Search plate number..." value={search} onChange={e => setSearch(e.target.value)} className="input pl-10" />
         </div>
         {['ALL', 'AUTHORIZED', 'WATCHLIST', 'UNKNOWN'].map(s => (
-          <button key={s} onClick={() => setStatusFilter(s)} className={`badge ${statusFilter === s ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white/5 text-slate-400 border border-white/5'}`}>{s}</button>
+          <button key={s} onClick={() => setStatusFilter(s)} className={`badge ${statusFilter === s ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white text-slate-600 border border-slate-200'}`}>{s}</button>
         ))}
       </div>
 
@@ -52,7 +52,7 @@ export default function ANPR() {
           return (
             <div key={v.id} className={`card p-4 ${v.status === 'WATCHLIST' ? 'border-red-500/30 bg-red-500/5' : ''}`}>
               {/* Simulated vehicle image */}
-              <div className="relative h-28 rounded-lg bg-gradient-to-b from-slate-700/40 to-slate-900/60 mb-3 overflow-hidden border border-white/5">
+              <div className="relative h-28 rounded-lg bg-gradient-to-b from-slate-700/40 to-slate-900/60 mb-3 overflow-hidden border border-slate-200">
                 <div className="absolute inset-0 grid-overlay opacity-30" />
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2">
                   <div className="h-6 w-24 rounded bg-slate-600/60" />
@@ -90,14 +90,14 @@ export default function ANPR() {
 function StatusBadge({ status }: { status: string }) {
   if (status === 'WATCHLIST') return <span className="badge bg-red-500/20 text-red-400 border border-red-500/30"><ShieldAlert className="h-3 w-3" /> WATCHLIST</span>;
   if (status === 'AUTHORIZED') return <span className="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"><CheckCircle className="h-3 w-3" /> AUTHORIZED</span>;
-  return <span className="badge bg-slate-500/20 text-slate-400 border border-slate-500/30"><HelpCircle className="h-3 w-3" /> UNKNOWN</span>;
+  return <span className="badge bg-slate-500/20 text-slate-600 border border-slate-500/30"><HelpCircle className="h-3 w-3" /> UNKNOWN</span>;
 }
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-slate-600">{label}:</span>
-      <span className="text-slate-300">{value}</span>
+      <span className="text-slate-700">{value}</span>
     </div>
   );
 }

@@ -21,8 +21,8 @@ export default function Alerts() {
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">Alert Center</h1>
-          <p className="text-xs text-slate-500">{alerts.filter(a => a.status === 'NEW').length} new • {alerts.filter(a => a.status !== 'RESOLVED').length} active • {alerts.length} total</p>
+          <h1 className="text-xl font-bold text-slate-900">Alert Center</h1>
+          <p className="text-xs text-slate-600">{alerts.filter(a => a.status === 'NEW').length} new • {alerts.filter(a => a.status !== 'RESOLVED').length} active • {alerts.length} total</p>
         </div>
       </div>
 
@@ -35,7 +35,7 @@ export default function Alerts() {
         <div className="flex items-center gap-1">
           <Filter className="h-4 w-4 text-slate-600" />
           {(['ALL', 'NEW', 'ACKNOWLEDGED', 'INVESTIGATING', 'RESOLVED'] as const).map(s => (
-            <button key={s} onClick={() => setFilter(s)} className={`badge ${filter === s ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white/5 text-slate-400 border border-white/5'}`}>
+            <button key={s} onClick={() => setFilter(s)} className={`badge ${filter === s ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white text-slate-600 border border-slate-200'}`}>
               {s}
             </button>
           ))}
@@ -47,7 +47,7 @@ export default function Alerts() {
         {filtered.length === 0 ? (
           <div className="card p-8 text-center">
             <Bell className="h-8 w-8 text-slate-600 mx-auto mb-2" />
-            <p className="text-sm text-slate-500">No alerts match your filters</p>
+            <p className="text-sm text-slate-600">No alerts match your filters</p>
           </div>
         ) : (
           filtered.map(alert => (
@@ -60,12 +60,12 @@ export default function Alerts() {
                     <span className="text-[10px] font-mono text-slate-600">{alert.id}</span>
                     <span className="text-[10px] font-mono text-accent-400">Risk: {alert.riskScore}/100</span>
                   </div>
-                  <h3 className="text-sm font-semibold text-slate-100">{alert.title}</h3>
+                  <h3 className="text-sm font-semibold text-slate-900">{alert.title}</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-[11px]">
-                    <div><span className="text-slate-600">Camera:</span> <span className="text-slate-300">{alert.cameraId}</span></div>
-                    <div><span className="text-slate-600">Object:</span> <span className="text-slate-300">{alert.object}</span></div>
-                    <div><span className="text-slate-600">When:</span> <span className="text-slate-300">{alert.when}</span></div>
-                    <div><span className="text-slate-600">Confidence:</span> <span className="text-slate-300">{alert.confidence}%</span></div>
+                    <div><span className="text-slate-600">Camera:</span> <span className="text-slate-700">{alert.cameraId}</span></div>
+                    <div><span className="text-slate-600">Object:</span> <span className="text-slate-700">{alert.object}</span></div>
+                    <div><span className="text-slate-600">When:</span> <span className="text-slate-700">{alert.when}</span></div>
+                    <div><span className="text-slate-600">Confidence:</span> <span className="text-slate-700">{alert.confidence}%</span></div>
                   </div>
                   <div className="mt-2 flex items-start gap-1.5">
                     <span className="text-[10px] text-slate-600 mt-0.5">WHY:</span>
@@ -99,9 +99,9 @@ export default function Alerts() {
                 <span className={`badge ${riskColor[selectedAlert.severity]}`}>{selectedAlert.severity}</span>
                 <span className={`badge ${statusColor[selectedAlert.status]}`}>{selectedAlert.status}</span>
               </div>
-              <button onClick={() => setSelected(null)} className="text-slate-500 hover:text-slate-300"><X className="h-4 w-4" /></button>
+              <button onClick={() => setSelected(null)} className="text-slate-600 hover:text-slate-700"><X className="h-4 w-4" /></button>
             </div>
-            <h2 className="text-lg font-bold text-slate-100 mb-4">{selectedAlert.title}</h2>
+            <h2 className="text-lg font-bold text-slate-900 mb-4">{selectedAlert.title}</h2>
             <div className="space-y-2.5 text-sm">
               <DetailRow label="WHAT" value={selectedAlert.what} />
               <DetailRow label="WHERE" value={selectedAlert.where} />
@@ -112,7 +112,7 @@ export default function Alerts() {
               <DetailRow label="CONFIDENCE" value={`${selectedAlert.confidence}%`} />
               <DetailRow label="RISK SCORE" value={`${selectedAlert.riskScore} / 100`} color="text-red-400" />
             </div>
-            <div className="mt-4 pt-4 border-t border-white/5">
+            <div className="mt-4 pt-4 border-t border-slate-200">
               <p className="text-[10px] font-mono uppercase text-slate-600 mb-2">Risk Factors</p>
               <div className="flex flex-wrap gap-1.5">
                 {selectedAlert.reasons.map((r, i) => (
@@ -132,7 +132,7 @@ export default function Alerts() {
   );
 }
 
-function DetailRow({ label, value, color = 'text-slate-200' }: { label: string; value: string; color?: string }) {
+function DetailRow({ label, value, color = 'text-slate-800' }: { label: string; value: string; color?: string }) {
   return (
     <div className="flex items-start gap-3">
       <span className="text-[10px] font-mono uppercase text-slate-600 w-20 flex-shrink-0 mt-0.5">{label}</span>

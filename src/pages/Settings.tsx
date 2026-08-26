@@ -19,13 +19,13 @@ export default function Settings() {
   return (
     <div className="space-y-4 animate-fade-in max-w-3xl">
       <div>
-        <h1 className="text-xl font-bold text-slate-100">Settings</h1>
-        <p className="text-xs text-slate-500">System configuration and detection rules</p>
+        <h1 className="text-xl font-bold text-slate-900">Settings</h1>
+        <p className="text-xs text-slate-600">System configuration and detection rules</p>
       </div>
 
       {/* Detection rules */}
       <div className="card p-5">
-        <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-800 mb-4 flex items-center gap-2">
           <Eye className="h-4 w-4 text-accent-400" /> Detection Rules
         </h3>
         <div className="space-y-4">
@@ -44,14 +44,14 @@ export default function Settings() {
           <div>
             <label className="block text-[10px] font-mono uppercase text-slate-600 mb-1.5">Minimum Detection Confidence (%)</label>
             <input type="range" value={confidence} onChange={e => setConfidence(Number(e.target.value))} className="w-full accent-cyan-500" min={50} max={99} />
-            <p className="text-xs text-slate-400 mt-1">{confidence}%</p>
+            <p className="text-xs text-slate-600 mt-1">{confidence}%</p>
           </div>
         </div>
       </div>
 
       {/* System preferences */}
       <div className="card p-5">
-        <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-800 mb-4 flex items-center gap-2">
           <Bell className="h-4 w-4 text-accent-400" /> System Preferences
         </h3>
         <div className="space-y-3">
@@ -63,7 +63,7 @@ export default function Settings() {
 
       {/* Architecture info */}
       <div className="card p-5">
-        <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-800 mb-4 flex items-center gap-2">
           <Shield className="h-4 w-4 text-accent-400" /> System Information
         </h3>
         <div className="grid grid-cols-2 gap-3 text-xs">
@@ -86,7 +86,7 @@ export default function Settings() {
 function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm text-slate-300">{label}</span>
+      <span className="text-sm text-slate-700">{label}</span>
       <button onClick={() => onChange(!value)} className={`relative h-5 w-10 rounded-full transition-colors ${value ? 'bg-accent-500' : 'bg-slate-600'}`}>
         <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${value ? 'left-5' : 'left-0.5'}`} />
       </button>
@@ -96,9 +96,9 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between p-2 rounded-lg bg-white/5">
-      <span className="text-slate-500">{label}</span>
-      <span className="text-slate-300 font-mono text-[11px]">{value}</span>
+    <div className="flex items-center justify-between p-2 rounded-lg bg-white">
+      <span className="text-slate-600">{label}</span>
+      <span className="text-slate-700 font-mono text-[11px]">{value}</span>
     </div>
   );
 }

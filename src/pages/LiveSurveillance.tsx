@@ -60,8 +60,8 @@ export default function LiveSurveillance() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">Live Surveillance</h1>
-          <p className="text-xs text-slate-500">Real-time CCTV monitoring with AI detection overlay</p>
+          <h1 className="text-xl font-bold text-slate-900">Live Surveillance</h1>
+          <p className="text-xs text-slate-600">Real-time CCTV monitoring with AI detection overlay</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Phone camera connect button */}
@@ -80,11 +80,11 @@ export default function LiveSurveillance() {
               <span className="text-[10px] font-mono">{connecting ? 'CONNECTING...' : 'CONNECT PHONE'}</span>
             </button>
           )}
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-white/5 border border-white/10">
-            <button onClick={() => setGridSize('2x2')} className={`p-1.5 rounded ${gridSize === '2x2' ? 'bg-accent-500/20 text-accent-300' : 'text-slate-500'}`}>
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-white border border-slate-200">
+            <button onClick={() => setGridSize('2x2')} className={`p-1.5 rounded ${gridSize === '2x2' ? 'bg-accent-500/20 text-accent-300' : 'text-slate-600'}`}>
               <Grid3x3 className="h-4 w-4" />
             </button>
-            <button onClick={() => setGridSize('3x3')} className={`px-2 py-1.5 rounded text-[10px] font-mono ${gridSize === '3x3' ? 'bg-accent-500/20 text-accent-300' : 'text-slate-500'}`}>
+            <button onClick={() => setGridSize('3x3')} className={`px-2 py-1.5 rounded text-[10px] font-mono ${gridSize === '3x3' ? 'bg-accent-500/20 text-accent-300' : 'text-slate-600'}`}>
               3×3
             </button>
           </div>
@@ -102,8 +102,8 @@ export default function LiveSurveillance() {
             <X className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-xs font-semibold text-red-300">Camera Access Failed</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">{camError}</p>
-              <p className="text-[10px] text-slate-500 mt-1">
+              <p className="text-[11px] text-slate-600 mt-0.5">{camError}</p>
+              <p className="text-[10px] text-slate-600 mt-1">
                 Tip: The browser needs camera permission. On phone, open this page over HTTPS and allow camera access when prompted.
               </p>
             </div>
@@ -129,7 +129,7 @@ export default function LiveSurveillance() {
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         <button
           onClick={() => setSelectedCam(null)}
-          className={`badge whitespace-nowrap ${!selectedCam ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white/5 text-slate-400 border border-white/5'}`}
+          className={`badge whitespace-nowrap ${!selectedCam ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white text-slate-600 border border-slate-200'}`}
         >
           All Cameras
         </button>
@@ -137,7 +137,7 @@ export default function LiveSurveillance() {
           <button
             key={cam.id}
             onClick={() => setSelectedCam(cam.id)}
-            className={`badge whitespace-nowrap ${selectedCam === cam.id ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white/5 text-slate-400 border border-white/5'} ${cam.status === 'OFFLINE' ? 'opacity-50' : ''}`}
+            className={`badge whitespace-nowrap ${selectedCam === cam.id ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white text-slate-600 border border-slate-200'} ${cam.status === 'OFFLINE' ? 'opacity-50' : ''}`}
           >
             <span className={`status-dot ${liveStream ? 'bg-emerald-400' : cam.status === 'ONLINE' ? 'bg-emerald-400' : cam.status === 'DEGRADED' ? 'bg-amber-400' : 'bg-red-500'}`} />
             {cam.id}
@@ -158,16 +158,16 @@ export default function LiveSurveillance() {
             {/* Camera info + scenario selector */}
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-xs font-medium text-slate-200 truncate">
+                <p className="text-xs font-medium text-slate-800 truncate">
                   {cam.id} — {cam.name}
                   {liveStream && <span className="text-emerald-400"> (Phone)</span>}
                 </p>
-                <p className="text-[10px] text-slate-500 truncate">{cam.bop} • {cam.location}</p>
+                <p className="text-[10px] text-slate-600 truncate">{cam.bop} • {cam.location}</p>
               </div>
               <select
                 value={cam.scenario}
                 onChange={e => setCameraScenario(cam.id, e.target.value as ScenarioType)}
-                className="bg-ink-900 border border-white/10 rounded px-2 py-1 text-[10px] text-slate-300 focus:outline-none focus:border-accent-500/50"
+                className="bg-ink-900 border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-700 focus:outline-none focus:border-accent-500/50"
                 disabled={cam.status === 'OFFLINE'}
               >
                 {SCENARIOS.map(s => (

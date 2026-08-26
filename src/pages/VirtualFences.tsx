@@ -48,8 +48,8 @@ export default function VirtualFences() {
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">Virtual Fences</h1>
-          <p className="text-xs text-slate-500">{zones.length} active zones • Draw boundaries on camera feeds</p>
+          <h1 className="text-xl font-bold text-slate-900">Virtual Fences</h1>
+          <p className="text-xs text-slate-600">{zones.length} active zones • Draw boundaries on camera feeds</p>
         </div>
         <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> Create Zone
@@ -66,8 +66,8 @@ export default function VirtualFences() {
                 <div className="flex items-center gap-2">
                   <Fence className="h-4 w-4 text-accent-400" />
                   <div>
-                    <p className="text-sm font-semibold text-slate-200">{zone.name}</p>
-                    <p className="text-[10px] text-slate-500">{zone.id} • {zone.cameraId}</p>
+                    <p className="text-sm font-semibold text-slate-800">{zone.name}</p>
+                    <p className="text-[10px] text-slate-600">{zone.id} • {zone.cameraId}</p>
                   </div>
                 </div>
                 <button onClick={() => deleteZone(zone.id)} className="text-slate-600 hover:text-red-400">
@@ -75,15 +75,15 @@ export default function VirtualFences() {
                 </button>
               </div>
               <div className="space-y-1 text-[11px]">
-                <div className="flex justify-between"><span className="text-slate-600">Type:</span><span className="text-slate-300">{zone.zoneType}</span></div>
-                <div className="flex justify-between"><span className="text-slate-600">Camera:</span><span className="text-slate-300">{zc?.name || zone.cameraId}</span></div>
+                <div className="flex justify-between"><span className="text-slate-600">Type:</span><span className="text-slate-700">{zone.zoneType}</span></div>
+                <div className="flex justify-between"><span className="text-slate-600">Camera:</span><span className="text-slate-700">{zc?.name || zone.cameraId}</span></div>
                 <div className="flex justify-between"><span className="text-slate-600">Severity:</span>
                   <span className={`badge text-[9px] ${zone.severity === 'CRITICAL' ? 'bg-red-500/20 text-red-400' : zone.severity === 'HIGH' ? 'bg-orange-500/20 text-orange-400' : 'bg-amber-500/20 text-amber-400'}`}>{zone.severity}</span>
                 </div>
-                <div className="flex justify-between"><span className="text-slate-600">Rule:</span><span className="text-slate-400 text-right">{zone.rule}</span></div>
+                <div className="flex justify-between"><span className="text-slate-600">Rule:</span><span className="text-slate-600 text-right">{zone.rule}</span></div>
               </div>
               {/* Mini preview */}
-              <div className="mt-3 relative h-24 rounded-lg bg-slate-800/40 border border-white/5 overflow-hidden">
+              <div className="mt-3 relative h-24 rounded-lg bg-slate-50 border border-slate-200 overflow-hidden">
                 <div className="absolute inset-0 grid-overlay opacity-30" />
                 <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                   <polygon
@@ -105,8 +105,8 @@ export default function VirtualFences() {
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowCreate(false)}>
           <div className="glass-strong rounded-2xl p-6 max-w-2xl w-full" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2"><Fence className="h-5 w-5 text-accent-400" /> Create Virtual Fence</h2>
-              <button onClick={() => setShowCreate(false)} className="text-slate-500 hover:text-slate-300">✕</button>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Fence className="h-5 w-5 text-accent-400" /> Create Virtual Fence</h2>
+              <button onClick={() => setShowCreate(false)} className="text-slate-600 hover:text-slate-700">✕</button>
             </div>
 
             {/* Camera selector */}
@@ -146,13 +146,13 @@ export default function VirtualFences() {
               <p className="text-[10px] font-mono uppercase text-slate-600 mb-1.5">
                 Click on the camera view to draw boundary points ({points.length} points)
               </p>
-              <div className="relative h-64 rounded-lg overflow-hidden border border-white/10 bg-black">
+              <div className="relative h-64 rounded-lg overflow-hidden border border-slate-200 bg-black">
                 {cam && (
                   <>
                     {/* Simulated camera background */}
                     <div className="absolute inset-0 bg-gradient-to-b from-slate-700/40 via-slate-800/30 to-slate-900/50" />
                     <div className="absolute inset-0 grid-overlay opacity-40" />
-                    <div className="absolute top-2 left-2 text-[10px] font-mono text-slate-400">{cam.id} — {cam.name}</div>
+                    <div className="absolute top-2 left-2 text-[10px] font-mono text-slate-600">{cam.id} — {cam.name}</div>
 
                     <svg ref={svgRef} className="absolute inset-0 w-full h-full cursor-crosshair" viewBox="0 0 100 100" preserveAspectRatio="none" onClick={handleSvgClick}>
                       {points.length > 0 && (
@@ -179,7 +179,7 @@ export default function VirtualFences() {
             {points.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {points.map((p, i) => (
-                  <button key={i} onClick={() => removePoint(i)} className="badge bg-white/5 text-slate-400 border border-white/10 hover:border-red-500/30">
+                  <button key={i} onClick={() => removePoint(i)} className="badge bg-white text-slate-600 border border-slate-200 hover:border-red-500/30">
                     {i + 1}: {p.x},{p.y} ✕
                   </button>
                 ))}

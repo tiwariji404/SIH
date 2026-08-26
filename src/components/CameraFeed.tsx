@@ -130,7 +130,7 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
           <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-2 py-1 bg-gradient-to-b from-black/70 to-transparent pointer-events-none">
             <div className="flex items-center gap-1.5">
               <span className={`status-dot ${hasLive ? 'bg-emerald-400' : camera.status === 'ONLINE' ? 'bg-emerald-400' : 'bg-amber-400'} animate-pulse`} />
-              <span className="text-[10px] font-mono text-slate-300">{camera.id}</span>
+              <span className="text-[10px] font-mono text-slate-700">{camera.id}</span>
               {hasLive && (
                 <span className="badge bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] px-1 py-0">LIVE CAM</span>
               )}
@@ -141,7 +141,7 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
                   <span className="status-dot bg-red-500 animate-pulse" /> REC
                 </span>
               )}
-              <span className="text-[10px] font-mono text-slate-400">{hasLive ? '30 FPS' : `${camera.fps} FPS`}</span>
+              <span className="text-[10px] font-mono text-slate-600">{hasLive ? '30 FPS' : `${camera.fps} FPS`}</span>
             </div>
           </div>
         )}
@@ -149,7 +149,7 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
         {/* Bottom overlay bar */}
         {!isOffline && !compact && (
           <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-2 py-1 bg-gradient-to-t from-black/70 to-transparent pointer-events-none">
-            <span className="text-[10px] text-slate-300 truncate">{camera.name} — {camera.location}</span>
+            <span className="text-[10px] text-slate-700 truncate">{camera.name} — {camera.location}</span>
             <span className="text-[10px] font-mono text-accent-300">
               {time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
             </span>

@@ -11,7 +11,7 @@ export default function Home() {
             className="h-24 mb-4 object-contain" 
           />
           <h2 className="text-xl md:text-2xl font-bold text-slate-800 tracking-[0.2em] uppercase">भारत सरकार</h2>
-          <p className="text-xs md:text-sm font-semibold tracking-[0.3em] text-slate-500 mb-2 uppercase">Bharat Sarkar / Government of India</p>
+          <p className="text-xs md:text-sm font-semibold tracking-[0.3em] text-slate-600 mb-2 uppercase">Bharat Sarkar / Government of India</p>
           <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-[0.15em] uppercase">Ministry of Defence</h1>
         </div>
 
@@ -34,7 +34,7 @@ export default function Home() {
                 A fully automated, advanced AI-driven CCTV detection system designed exclusively for the Indian Army and Government. Monitor borders 24/7, detect threats instantly, and safeguard the nation.
               </p>
 
-              <div className="inline-flex items-center gap-3 text-sm font-bold text-slate-400 tracking-widest uppercase">
+              <div className="inline-flex items-center gap-3 text-sm font-bold text-slate-600 tracking-widest uppercase">
                 <span className="w-12 h-[2px] bg-slate-300"></span>
                 Secure Command Operations
               </div>
@@ -105,7 +105,7 @@ export default function Home() {
             <p className="text-lg md:text-xl font-bold text-orange-400 mb-8 uppercase tracking-[0.2em]">
               (The Brave Shall Inherit The Earth)
             </p>
-            <p className="text-base md:text-lg font-medium text-slate-300 leading-title max-w-2xl mx-auto">
+            <p className="text-base md:text-lg font-medium text-slate-700 leading-title max-w-2xl mx-auto">
               देश की सुरक्षा में तैनात हर सिपाही का समर्पण और हमारी एआई तकनीक का संगम। हम सीमाओं को अभेद्य बनाने के लिए प्रतिबद्ध हैं। जय हिंद!
             </p>
           </div>

@@ -57,9 +57,9 @@ function AssignUser({ roleLabel, actionUrl }: { roleLabel: string; actionUrl: st
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Full Name</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Full Name</label>
                 <div className="relative">
-                  <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                  <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
                   <input 
                     type="text" 
                     className="input pl-10"
@@ -72,9 +72,9 @@ function AssignUser({ roleLabel, actionUrl }: { roleLabel: string; actionUrl: st
               </div>
               
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">User ID / Username</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">User ID / Username</label>
                 <div className="relative">
-                  <Target className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                  <Target className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
                   <input 
                     type="text" 
                     className="input pl-10"
@@ -87,9 +87,9 @@ function AssignUser({ roleLabel, actionUrl }: { roleLabel: string; actionUrl: st
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Location / Control Room</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Location / Control Room</label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
                   <input 
                     type="text" 
                     className="input pl-10"
@@ -102,9 +102,9 @@ function AssignUser({ roleLabel, actionUrl }: { roleLabel: string; actionUrl: st
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Password</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Password</label>
                 <div className="relative">
-                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
                   <input 
                     type="password" 
                     className="input pl-10"
@@ -117,7 +117,7 @@ function AssignUser({ roleLabel, actionUrl }: { roleLabel: string; actionUrl: st
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Assign Post</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Assign Post</label>
                 <input 
                   type="text" 
                   className="input opacity-50 cursor-not-allowed font-bold text-orange-400"
@@ -150,16 +150,16 @@ function AssignUser({ roleLabel, actionUrl }: { roleLabel: string; actionUrl: st
                       {u.name.charAt(0)}
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-slate-200">{u.name}</h3>
-                      <p className="text-xs text-slate-500 font-mono">@{u.username}</p>
+                      <h3 className="text-sm font-bold text-slate-800">{u.name}</h3>
+                      <p className="text-xs text-slate-600 font-mono">@{u.username}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
                       <MapPin className="h-3 w-3 text-red-400" />
                       {u.location}
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-1">Added: {u.date}</p>
+                    <p className="text-[10px] text-slate-600 mt-1">Added: {u.date}</p>
                   </div>
                 </div>
               ))}

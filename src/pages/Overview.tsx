@@ -63,7 +63,7 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Command Overview</h2>
-          <p className="text-xs text-slate-500">Real-time border surveillance intelligence</p>
+          <p className="text-xs text-slate-600">Real-time border surveillance intelligence</p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
           <span className="status-dot bg-emerald-400 animate-pulse" />
@@ -81,10 +81,10 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
                 <div className={`p-2 rounded-lg ${kpi.bg}`}>
                   <Icon className={`h-5 w-5 ${kpi.color}`} />
                 </div>
-                <ArrowUpRight className="h-3 w-3 text-slate-400" />
+                <ArrowUpRight className="h-3 w-3 text-slate-600" />
               </div>
               <p className="text-2xl font-extrabold text-slate-800">{kpi.value}</p>
-              <p className="text-[10px] font-semibold text-slate-500 mt-0.5 uppercase tracking-wider">{kpi.label}</p>
+              <p className="text-[10px] font-semibold text-slate-600 mt-0.5 uppercase tracking-wider">{kpi.label}</p>
             </div>
           );
         })}
@@ -96,7 +96,7 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
         <div className="card p-4 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Events by Hour</h3>
-            <TrendingUp className="h-4 w-4 text-slate-400" />
+            <TrendingUp className="h-4 w-4 text-slate-600" />
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={hourlyData}>
@@ -171,7 +171,7 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
                 <div className={`w-1 h-10 rounded-full ${alert.severity === 'CRITICAL' ? 'bg-red-500' : alert.severity === 'HIGH' ? 'bg-orange-500' : alert.severity === 'MEDIUM' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-slate-800 truncate">{alert.title}</p>
-                  <p className="text-[10px] font-semibold text-slate-500">{alert.cameraId} • {alert.when}</p>
+                  <p className="text-[10px] font-semibold text-slate-600">{alert.cameraId} • {alert.when}</p>
                 </div>
                 <span className={`badge text-[9px] ${alert.status === 'NEW' ? 'bg-red-500/20 text-red-400' : alert.status === 'RESOLVED' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
                   {alert.status}

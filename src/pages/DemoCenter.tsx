@@ -84,8 +84,8 @@ export default function DemoCenter() {
   return (
     <div className="space-y-5 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-slate-100">Demo Center</h1>
-        <p className="text-xs text-slate-500">Launch realistic surveillance scenarios with one click</p>
+        <h1 className="text-xl font-bold text-slate-900">Demo Center</h1>
+        <p className="text-xs text-slate-600">Launch realistic surveillance scenarios with one click</p>
       </div>
 
       {/* Live Demo banner */}
@@ -96,8 +96,8 @@ export default function DemoCenter() {
               {liveDemoRunning ? <Radio className="h-6 w-6 text-red-400 animate-pulse" /> : <Zap className="h-6 w-6 text-accent-400" />}
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-100">Live Demo: Border Intrusion Sequence</h2>
-              <p className="text-xs text-slate-500">
+              <h2 className="text-sm font-bold text-slate-900">Live Demo: Border Intrusion Sequence</h2>
+              <p className="text-xs text-slate-600">
                 {liveDemoRunning
                   ? 'Demo running... Watch alerts appear in real-time.'
                   : 'Runs the complete DETECT → TRACK → ANALYZE → DECIDE → ALERT → RESPOND sequence over ~16 seconds.'}
@@ -124,7 +124,7 @@ export default function DemoCenter() {
             '4. Fence Crossed',
             '5. Critical Alert',
           ].map((step, i) => (
-            <div key={i} className={`text-center text-[10px] font-mono px-2 py-1.5 rounded-lg ${liveDemoRunning ? 'bg-red-500/10 text-red-300' : 'bg-white/5 text-slate-500'}`}>
+            <div key={i} className={`text-center text-[10px] font-mono px-2 py-1.5 rounded-lg ${liveDemoRunning ? 'bg-red-500/10 text-red-300' : 'bg-white text-slate-600'}`}>
               {step}
             </div>
           ))}
@@ -133,7 +133,7 @@ export default function DemoCenter() {
 
       {/* Scenario cards */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-200 mb-3">Individual Scenarios</h3>
+        <h3 className="text-sm font-semibold text-slate-800 mb-3">Individual Scenarios</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {scenarios.map(s => {
             const Icon = s.icon;
@@ -145,8 +145,8 @@ export default function DemoCenter() {
                 disabled={liveDemoRunning}
               >
                 <Icon className="h-6 w-6 mb-3" />
-                <h4 className="text-sm font-semibold text-slate-100 mb-1">{s.title}</h4>
-                <p className="text-[11px] text-slate-500">{s.description}</p>
+                <h4 className="text-sm font-semibold text-slate-900 mb-1">{s.title}</h4>
+                <p className="text-[11px] text-slate-600">{s.description}</p>
                 <div className="mt-3 flex items-center gap-1 text-[10px] font-mono text-accent-400">
                   <Play className="h-3 w-3" /> Launch
                 </div>
@@ -158,8 +158,8 @@ export default function DemoCenter() {
 
       {/* Demo flow guide */}
       <div className="card p-5">
-        <h3 className="text-sm font-semibold text-slate-200 mb-3">Final Demo Flow (3-5 minutes)</h3>
-        <div className="space-y-1.5 text-xs text-slate-400">
+        <h3 className="text-sm font-semibold text-slate-800 mb-3">Final Demo Flow (3-5 minutes)</h3>
+        <div className="space-y-1.5 text-xs text-slate-600">
           {[
             'Login as Operator → Open Overview → Show 8+ active cameras',
             'Open Live Surveillance → Select BOP Delta → Start "Border Intrusion" scenario',

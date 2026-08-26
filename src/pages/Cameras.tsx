@@ -39,8 +39,8 @@ export default function Cameras() {
     <div className="space-y-4 animate-fade-in flex flex-col h-[calc(100vh-100px)]">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">Day-Wise Video Archive</h1>
-          <p className="text-xs text-slate-500">Access and review recorded surveillance footage organized by day.</p>
+          <h1 className="text-xl font-bold text-slate-900">Day-Wise Video Archive</h1>
+          <p className="text-xs text-slate-600">Access and review recorded surveillance footage organized by day.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -57,7 +57,7 @@ export default function Cameras() {
         
         {/* Date Selector Sidebar */}
         <div className="card p-4 overflow-y-auto hidden lg:block">
-           <h3 className="text-sm font-bold text-slate-100 mb-4 uppercase tracking-wider text-accent-400 flex items-center gap-2">
+           <h3 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider text-accent-400 flex items-center gap-2">
              <CalendarDays className="h-4 w-4" /> Select Date
            </h3>
            <div className="space-y-2">
@@ -70,14 +70,14 @@ export default function Cameras() {
                    onClick={() => { setSelectedDate(date); setSelectedCam(null); }}
                    className={`w-full text-left p-3 rounded-lg border transition-colors ${
                      isSelected 
-                      ? 'bg-slate-800 border-accent-500/50 text-accent-300' 
-                      : 'bg-white/5 border-white/5 hover:bg-white/10 text-slate-300'
+                      ? 'bg-slate-100 border-accent-500/50 text-accent-300' 
+                      : 'bg-white border-slate-200 hover:bg-white/10 text-slate-700'
                    }`}
                  >
                    <div className="font-bold text-sm">
                      {isToday ? 'Today' : date.toLocaleDateString('en-US', { weekday: 'long' })}
                    </div>
-                   <div className="text-[10px] text-slate-500 mt-1">
+                   <div className="text-[10px] text-slate-600 mt-1">
                      {date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                    </div>
                  </button>
@@ -88,13 +88,13 @@ export default function Cameras() {
 
         {/* Camera/Archive Viewer */}
         <div className="lg:col-span-3 card p-4 overflow-y-auto flex flex-col">
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/5">
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-200">
             <CalendarDays className="h-6 w-6 text-accent-400" />
             <div>
-              <h2 className="text-lg font-bold text-slate-100">
+              <h2 className="text-lg font-bold text-slate-900">
                 Archive for {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
               </h2>
-              <p className="text-xs text-slate-500">Select a camera to view its recorded segments.</p>
+              <p className="text-xs text-slate-600">Select a camera to view its recorded segments.</p>
             </div>
           </div>
 
@@ -103,15 +103,15 @@ export default function Cameras() {
               {filtered.map(cam => (
                 <div 
                   key={cam.id} 
-                  className="card card-hover p-4 cursor-pointer border border-white/5 hover:border-accent-500/30 flex items-center gap-3"
+                  className="card card-hover p-4 cursor-pointer border border-slate-200 hover:border-accent-500/30 flex items-center gap-3"
                   onClick={() => setSelectedCam(cam.id)}
                 >
-                  <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center border border-white/10 flex-shrink-0">
-                    <CameraIcon className="h-4 w-4 text-slate-400" />
+                  <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 flex-shrink-0">
+                    <CameraIcon className="h-4 w-4 text-slate-600" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-200 truncate">{cam.name}</p>
-                    <p className="text-[10px] text-slate-500 truncate">{cam.id} • {cam.bop}</p>
+                    <p className="text-sm font-bold text-slate-800 truncate">{cam.name}</p>
+                    <p className="text-[10px] text-slate-600 truncate">{cam.id} • {cam.bop}</p>
                   </div>
                 </div>
               ))}
@@ -122,38 +122,38 @@ export default function Cameras() {
                 <button onClick={() => setSelectedCam(null)} className="text-xs text-accent-400 hover:text-accent-300 font-bold tracking-wider uppercase">
                   ← Back to Cameras
                 </button>
-                <div className="text-sm font-bold text-slate-300 border border-white/10 px-3 py-1 rounded bg-white/5">
+                <div className="text-sm font-bold text-slate-700 border border-slate-200 px-3 py-1 rounded bg-white">
                   {cameras.find(c => c.id === selectedCam)?.name}
                 </div>
               </div>
 
               {/* Video Player Placeholder */}
-              <div className="relative w-full aspect-video bg-black rounded-lg border border-white/10 overflow-hidden flex items-center justify-center mb-4">
+              <div className="relative w-full aspect-video bg-black rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center mb-4">
                 <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 to-slate-950/80" />
                 <div className="absolute inset-0 grid-overlay opacity-30" />
                 <div className="relative text-center">
                   <PlayCircle className="h-16 w-16 text-slate-600 hover:text-accent-400 transition-colors cursor-pointer mx-auto mb-2" />
-                  <p className="text-xs font-mono text-slate-500">Select a segment below to play</p>
+                  <p className="text-xs font-mono text-slate-600">Select a segment below to play</p>
                 </div>
               </div>
 
               {/* Clips List */}
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Recorded Segments</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-3">Recorded Segments</h3>
               <div className="space-y-2">
                 {generateMockClips(selectedCam, selectedDate).map(clip => (
-                  <div key={clip.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-white/5 hover:bg-slate-800/50 transition-colors group cursor-pointer">
+                  <div key={clip.id} className="flex items-center justify-between p-3 rounded-lg bg-white border border-slate-200 hover:bg-slate-100/50 transition-colors group cursor-pointer">
                     <div className="flex items-center gap-4">
                       <div className="h-8 w-8 rounded bg-accent-500/10 flex items-center justify-center border border-accent-500/20 text-accent-400">
                         <Clock className="h-4 w-4" />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-slate-200">{clip.time}</p>
-                        <p className="text-[10px] text-slate-500">{clip.events} AI Events detected</p>
+                        <p className="text-sm font-bold text-slate-800">{clip.time}</p>
+                        <p className="text-[10px] text-slate-600">{clip.events} AI Events detected</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <span className="text-xs font-mono text-slate-400 bg-white/5 px-2 py-1 rounded">{clip.size}</span>
-                      <button className="p-2 text-slate-500 hover:text-emerald-400 transition-colors opacity-0 group-hover:opacity-100">
+                      <span className="text-xs font-mono text-slate-600 bg-white px-2 py-1 rounded">{clip.size}</span>
+                      <button className="p-2 text-slate-600 hover:text-emerald-400 transition-colors opacity-0 group-hover:opacity-100">
                         <Download className="h-4 w-4" />
                       </button>
                     </div>

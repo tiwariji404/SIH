@@ -14,9 +14,8 @@ const SCENARIOS: { value: ScenarioType; label: string; color: string }[] = [
 ];
 
 export default function LiveSurveillance() {
-  const { cameras, setCameraScenario, detections } = useApp();
+  const { cameras, setCameraScenario, detections, selectedLiveCameraIds, setSelectedLiveCameraIds } = useApp();
   const [gridSize, setGridSize] = useState<'2x2' | '3x3'>('2x2');
-  const [selectedCamIds, setSelectedCamIds] = useState<string[] | null>(null);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [camError, setCamError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
@@ -24,18 +23,6 @@ export default function LiveSurveillance() {
 
   useEffect(() => {
     // Only standard component mounts here. Global Alarm handles timer.
-    const handleNav = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail) {
-        if (customEvent.detail.cameraIds) {
-           setSelectedCamIds(customEvent.detail.cameraIds);
-        } else if (customEvent.detail.cameraId) {
-           setSelectedCamIds([customEvent.detail.cameraId]);
-        }
-      }
-    };
-    window.addEventListener('appNavigate', handleNav);
-    return () => window.removeEventListener('appNavigate', handleNav);
   }, []);
 
   const connectPhoneCamera = useCallback(async () => {
@@ -67,8 +54,8 @@ export default function LiveSurveillance() {
     setLiveStream(null);
   }, []);
 
-  const visibleCameras = selectedCamIds && selectedCamIds.length > 0
-    ? cameras.filter(c => selectedCamIds.includes(c.id))
+  const visibleCameras = selectedLiveCameraIds && selectedLiveCameraIds.length > 0
+    ? cameras.filter(c => selectedLiveCameraIds.includes(c.id))
     : cameras.filter(c => c.status !== 'OFFLINE');
 
   return (
@@ -147,17 +134,17 @@ export default function LiveSurveillance() {
       {/* Camera selector */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         <button
-          onClick={() => setSelectedCamIds(null)}
-          className={`badge whitespace-nowrap ${!selectedCamIds || selectedCamIds.length === 0 ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white text-slate-600 border border-slate-200'}`}
+          onClick={() => setSelectedLiveCameraIds(null)}
+          className={`badge whitespace-nowrap ${!selectedLiveCameraIds || selectedLiveCameraIds.length === 0 ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white text-slate-600 border border-slate-200'}`}
         >
           All Cameras
         </button>
         {cameras.map(cam => {
-          const isSelected = selectedCamIds?.includes(cam.id);
+          const isSelected = selectedLiveCameraIds?.includes(cam.id);
           return (
             <button
               key={cam.id}
-              onClick={() => setSelectedCamIds([cam.id])}
+              onClick={() => setSelectedLiveCameraIds([cam.id])}
               className={`badge whitespace-nowrap ${isSelected ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white text-slate-600 border border-slate-200'} ${cam.status === 'OFFLINE' ? 'opacity-50' : ''}`}
             >
               <span className={`status-dot ${liveStream ? 'bg-emerald-400' : cam.status === 'ONLINE' ? 'bg-emerald-400' : cam.status === 'DEGRADED' ? 'bg-amber-400' : 'bg-red-500'}`} />

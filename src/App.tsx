@@ -178,7 +178,7 @@ function AssignUser({ roleLabel }: { roleLabel: string }) {
 }
 
 function AppContent() {
-  const { user } = useApp();
+  const { user, setSelectedLiveCameraIds } = useApp();
   const [page, setPage] = useState<PageId>('home');
 
   useEffect(() => {
@@ -191,13 +191,20 @@ function AppContent() {
   useEffect(() => {
     const handleNav = (e: Event) => {
       const customEvent = e as CustomEvent;
-      if (customEvent.detail && customEvent.detail.page) {
-        setPage(customEvent.detail.page as PageId);
+      if (customEvent.detail) {
+        if (customEvent.detail.page) {
+          setPage(customEvent.detail.page as PageId);
+        }
+        if (customEvent.detail.cameraIds) {
+          setSelectedLiveCameraIds(customEvent.detail.cameraIds);
+        } else if (customEvent.detail.cameraId) {
+          setSelectedLiveCameraIds([customEvent.detail.cameraId]);
+        }
       }
     };
     window.addEventListener('appNavigate', handleNav);
     return () => window.removeEventListener('appNavigate', handleNav);
-  }, []);
+  }, [setSelectedLiveCameraIds]);
 
   if (!user) return <Login />;
 

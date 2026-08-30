@@ -43,6 +43,8 @@ interface AppState {
   setActiveAlarm: (alarm: Alert | null) => void;
   watchlistPlates: string[];
   addToWatchlist: (plate: string) => void;
+  selectedLiveCameraIds: string[] | null;
+  setSelectedLiveCameraIds: (ids: string[] | null) => void;
 }
 
 export interface ToastMsg {
@@ -78,6 +80,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastMsg | null>(null);
   const [activeAlarm, setActiveAlarm] = useState<Alert | null>(null);
   const [watchlistPlates, setWatchlistPlates] = useState<string[]>([]);
+  const [selectedLiveCameraIds, setSelectedLiveCameraIds] = useState<string[] | null>(null);
   const demoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -611,6 +614,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCameraScenario, acknowledgeAlert, escalateAlert, resolveAlert,
     addZone, deleteZone, addAuditLog, addAlert, triggerCameraOffline, toast, showToast,
     activeAlarm, setActiveAlarm, watchlistPlates, addToWatchlist,
+    selectedLiveCameraIds, setSelectedLiveCameraIds,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

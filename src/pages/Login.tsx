@@ -147,8 +147,8 @@ export default function Login() {
               <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow">
                 <h3 className="text-base sm:text-lg font-bold text-slate-800 uppercase tracking-wide mb-4">Live Feed Preview</h3>
                 <div className="grid grid-cols-2 gap-3 aspect-[2/1] sm:aspect-auto sm:h-[140px]">
-                  <img src="https://images.unsplash.com/photo-1595187766060-63cecd37f5b3?q=80&w=300&auto=format&fit=crop" className="w-full h-full object-cover rounded-lg grayscale brightness-75 contrast-125 border border-slate-200" alt="Feed 1" />
-                  <img src="https://images.unsplash.com/photo-1627993356023-e18eceff0dfa?q=80&w=300&auto=format&fit=crop" className="w-full h-full object-cover rounded-lg grayscale brightness-75 contrast-125 border border-slate-200" alt="Feed 2" />
+                  <img src="/live_feed.jpg" className="w-full h-full object-cover rounded-lg grayscale brightness-75 contrast-125 border border-slate-200" alt="Feed 1" />
+                  <img src="/border_patrol.jpg" className="w-full h-full object-cover rounded-lg grayscale brightness-75 contrast-125 border border-slate-200" alt="Feed 2" />
                 </div>
               </div>
             </div>

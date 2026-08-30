@@ -43,7 +43,7 @@ export default function Home() {
             {/* Main Image (Explicit height to prevent disappearing) */}
             <div className="h-[400px] lg:h-auto min-h-[400px] bg-slate-200 relative">
               <img 
-                src="https://images.unsplash.com/photo-1595187766060-63cecd37f5b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" 
+                src="/border_patrol.jpg" 
                 alt="Border Security Patrol" 
                 className="absolute inset-0 w-full h-full object-cover object-center"
               />
@@ -93,7 +93,7 @@ export default function Home() {
 
         {/* Motivational Banner / Quote */}
         <div className="mt-12 bg-slate-900 rounded-2xl p-10 md:p-16 text-center relative overflow-hidden shadow-2xl">
-          <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1557597774-9d273705bef4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80')] bg-cover bg-center opacity-10"></div>
+          <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1600&q=80')] bg-cover bg-center opacity-10"></div>
           
           <div className="relative z-10 max-w-4xl mx-auto">
             <svg className="w-12 h-12 text-orange-500 mx-auto mb-6 opacity-80" fill="currentColor" viewBox="0 0 24 24">
@@ -114,19 +114,19 @@ export default function Home() {
         {/* 3 Grid Images at bottom (Explicit sizing) */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="h-64 sm:h-72 rounded-2xl overflow-hidden border border-slate-200 shadow-sm relative group">
-            <img src="https://images.unsplash.com/photo-1627993356023-e18eceff0dfa?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" alt="Special Forces" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+            <img src="/special_forces.jpg" alt="Special Forces" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
             <p className="absolute bottom-4 left-4 text-white font-bold tracking-widest uppercase text-sm">Tactical Response</p>
           </div>
           <div className="h-64 sm:h-72 rounded-2xl overflow-hidden border border-slate-200 shadow-sm relative group">
-            <img src="https://images.unsplash.com/photo-1612441804231-77a36b284856?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" alt="Border Fencing" className="absolute inset-0 w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-105" />
+            <img src="/border_fence.jpg" alt="Border Fencing" className="absolute inset-0 w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-105" />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
             <p className="absolute bottom-4 left-4 text-white font-bold tracking-widest uppercase text-sm">Virtual Fencing</p>
           </div>
           <div className="h-64 sm:h-72 rounded-2xl overflow-hidden border border-slate-200 shadow-sm relative group">
-            <img src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" alt="Server Operations" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+            <img src="/live_feed.jpg" alt="Live Feed" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
-            <p className="absolute bottom-4 left-4 text-white font-bold tracking-widest uppercase text-sm">Data Infrastructure</p>
+            <p className="absolute bottom-4 left-4 text-white font-bold tracking-widest uppercase text-sm">Live Surveillance Feed</p>
           </div>
         </div>
         

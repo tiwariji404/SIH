@@ -1,20 +1,12 @@
 import { useState, type ReactNode } from 'react';
 import {
-  Activity,
-  BarChart3,
-  Bell,
-  BrainCircuit,
   Camera,
-  FileClock,
   FileText,
-  FlaskConical,
-  Home,
   LayoutDashboard,
   LogOut,
   Menu,
   Radio,
   ScanFace,
-  Settings2,
   Shield,
   Target,
   TrafficCone,
@@ -24,25 +16,14 @@ import {
 import { useApp } from '../store';
 
 export type PageId =
-  | 'home'
   | 'overview'
   | 'live'
   | 'cameras'
-  | 'alerts'
   | 'events'
   | 'anpr'
   | 'tracking'
   | 'fences'
-  | 'analytics'
-  | 'health'
-  | 'audit'
-  | 'reports'
-  | 'demo'
-  | 'settings'
-  | 'innovation'
-  | 'faces'
-  | 'assign_sub_admin'
-  | 'assign_operator';
+  | 'faces';
 
 interface Props {
   current: PageId;
@@ -58,25 +39,14 @@ interface NavItem {
 }
 
 const NAV_ITEMS: Record<string, NavItem> = {
-  home: { id: 'home', label: 'Home', icon: Home, accent: 'text-orange-500' },
-  assign_sub_admin: { id: 'assign_sub_admin', label: 'Assign Sub-Admin', icon: Shield, accent: 'text-blue-500' },
-  assign_operator: { id: 'assign_operator', label: 'Assign Operator', icon: Target, accent: 'text-blue-500' },
-  overview: { id: 'overview', label: 'Overview Dashboard', icon: LayoutDashboard },
+  overview: { id: 'overview', label: 'Dashboard Overview', icon: LayoutDashboard },
+  fences: { id: 'fences', label: 'Virtual Fencing', icon: Shield },
+  anpr: { id: 'anpr', label: 'ANPR (Insert Capture)', icon: TrafficCone },
   live: { id: 'live', label: 'Live Surveillance', icon: Radio, accent: 'text-red-500' },
-  cameras: { id: 'cameras', label: 'Recorded Video', icon: Camera },
-  alerts: { id: 'alerts', label: 'Alerts', icon: Bell },
-  events: { id: 'events', label: 'Events History', icon: FileText },
-  anpr: { id: 'anpr', label: 'Vehicle Detection', icon: TrafficCone },
-  tracking: { id: 'tracking', label: 'Tracking', icon: Target },
-  fences: { id: 'fences', label: 'Fencing', icon: Shield },
-  analytics: { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-  health: { id: 'health', label: 'System Health', icon: Activity },
-  audit: { id: 'audit', label: 'Audit Log', icon: FileClock },
-  reports: { id: 'reports', label: 'Reports', icon: FileText },
-  demo: { id: 'demo', label: 'Demo Center', icon: FlaskConical },
-  innovation: { id: 'innovation', label: 'Innovation', icon: BrainCircuit },
+  events: { id: 'events', label: 'Event Log', icon: FileText },
+  cameras: { id: 'cameras', label: 'Recording', icon: Camera },
   faces: { id: 'faces', label: 'Face Detection', icon: ScanFace },
-  settings: { id: 'settings', label: 'Settings', icon: Settings2 },
+  tracking: { id: 'tracking', label: 'Object Tracking', icon: Target },
 };
 
 function NavButton({
@@ -103,36 +73,25 @@ function NavButton({
 }
 
 export default function Layout({ current, onNavigate, children }: Props) {
-  const { user, logout, alerts, cameras, toast } = useApp();
+  const { user, logout, toast } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  const activeAlerts = alerts.filter(alert => alert.status !== 'RESOLVED').length;
-  const offlineCameras = cameras.filter(camera => camera.status === 'OFFLINE').length;
 
   const handleNavigate = (page: PageId) => {
     setMobileOpen(false);
     onNavigate(page);
   };
   
-  const role = user?.role || 'operator';
-  
-  let primaryNavIds: PageId[] = [];
-  let secondaryNavIds: PageId[] = [];
-  
-  if (role === 'admin') {
-    primaryNavIds = ['home', 'assign_sub_admin', 'events', 'fences'];
-    secondaryNavIds = ['settings', 'audit'];
-  } else if (role === 'sub_admin') {
-    primaryNavIds = ['home', 'overview', 'assign_operator', 'live', 'cameras', 'fences'];
-    secondaryNavIds = ['audit'];
-  } else {
-    // operator
-    primaryNavIds = ['home', 'live', 'cameras', 'alerts', 'anpr', 'fences'];
-    secondaryNavIds = ['tracking'];
-  }
-
-  const PRIMARY_NAV = primaryNavIds.map(id => NAV_ITEMS[id]);
-  const SECONDARY_NAV = secondaryNavIds.map(id => NAV_ITEMS[id]);
+  // The user is exclusively an Operator now. No need for complex role logic.
+  const PRIMARY_NAV = [
+    NAV_ITEMS.overview,
+    NAV_ITEMS.fences,
+    NAV_ITEMS.anpr,
+    NAV_ITEMS.live,
+    NAV_ITEMS.tracking,
+    NAV_ITEMS.faces,
+    NAV_ITEMS.cameras,
+    NAV_ITEMS.events
+  ];
 
   return (
     <div className="h-screen bg-tactical text-slate-800 font-sans relative overflow-hidden">
@@ -149,7 +108,7 @@ export default function Layout({ current, onNavigate, children }: Props) {
                 IBVAP
               </p>
               <h1 className="mt-1 text-lg font-black text-slate-800 tracking-tight uppercase">
-                {role === 'admin' ? 'Admin Console' : role === 'sub_admin' ? 'Sub-Admin Console' : 'Operator Console'}
+                Operator Console
               </h1>
               <p className="text-xs font-bold text-slate-600 mt-1 uppercase tracking-wider">
                 Border Security Force
@@ -164,17 +123,6 @@ export default function Layout({ current, onNavigate, children }: Props) {
             </button>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-xl border border-red-200 bg-red-50 p-3 shadow-sm">
-              <p className="text-[10px] font-mono uppercase text-red-600 font-bold">Active Alerts</p>
-              <p className="mt-1 text-xl font-extrabold text-red-700">{activeAlerts}</p>
-            </div>
-            <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 shadow-sm">
-              <p className="text-[10px] font-mono uppercase text-orange-600 font-bold">Offline Nodes</p>
-              <p className="mt-1 text-xl font-extrabold text-orange-700">{offlineCameras}</p>
-            </div>
-          </div>
-
           <nav className="mt-5 space-y-1">
             {PRIMARY_NAV.map(item => (
               <NavButton
@@ -186,28 +134,12 @@ export default function Layout({ current, onNavigate, children }: Props) {
             ))}
           </nav>
 
-          <div className="mt-6 border-t border-slate-200 pt-5">
-            <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.25em] text-slate-600">
-              Operations
-            </p>
-            <nav className="space-y-1">
-              {SECONDARY_NAV.map(item => (
-                <NavButton
-                  key={item.id}
-                  item={item}
-                  current={current}
-                  onNavigate={handleNavigate}
-                />
-              ))}
-            </nav>
-          </div>
-
           {user && (
             <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-extrabold text-slate-800">{user.name}</p>
-                  <p className="text-[10px] font-bold uppercase text-orange-600 tracking-widest mt-0.5">{user.role}</p>
+                  <p className="text-[10px] font-bold uppercase text-orange-600 tracking-widest mt-0.5">Operator</p>
                 </div>
                 <button
                   type="button"
@@ -243,10 +175,10 @@ export default function Layout({ current, onNavigate, children }: Props) {
                 </button>
                 <div>
                   <p className="text-[10px] font-extrabold uppercase tracking-[0.3em] text-orange-600">
-                    Unified Operations
+                    Live Status
                   </p>
                   <p className="text-sm font-semibold text-slate-600">
-                    {role === 'admin' ? 'Strategic monitoring' : 'Tactical command'} and infrastructure health.
+                    Tactical surveillance & monitoring active.
                   </p>
                 </div>
               </div>
@@ -257,7 +189,7 @@ export default function Layout({ current, onNavigate, children }: Props) {
                   System Secure
                 </span>
                 <span className="badge border border-slate-200 bg-white text-slate-600 shadow-sm">
-                  {cameras.length} active streams
+                  Full Camera Access
                 </span>
               </div>
             </div>

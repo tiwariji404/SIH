@@ -8,7 +8,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [remember, setRemember] = useState(true);
-  const [activeRole, setActiveRole] = useState('Admin'); // Just for UI highlighting
+  // activeRole removed for single role
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -30,12 +30,7 @@ export default function Login() {
     }
   };
 
-  const quickLogin = (role: string, u: string, p: string) => {
-    setActiveRole(role);
-    setUsername(u);
-    setPassword(p);
-    setError('');
-  };
+
 
   return (
     <div className="relative min-h-screen w-full flex flex-col font-sans text-slate-800 bg-slate-50 selection:bg-orange-500/30">
@@ -236,36 +231,7 @@ export default function Login() {
                   </div>
                 </form>
 
-                {/* Fast Login Roles */}
-                <div className="mt-8 border-t border-slate-100 pt-7 relative">
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-3 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Select Role</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { label: 'Admin', user: 'admin', pass: 'admin123', color: 'orange' },
-                      { label: 'Sub-Admin', user: 'sub-admin', pass: 'sub-admin123', color: 'slate' },
-                      { label: 'Operator', user: 'operator', pass: 'operator123', color: 'green' }
-                    ].map(r => {
-                      const isActive = activeRole === r.label;
-                      return (
-                        <button
-                          key={r.label}
-                          type="button"
-                          onClick={() => quickLogin(r.label, r.user, r.pass)}
-                          className={`flex flex-col items-center justify-center py-2.5 px-1 border rounded-lg transition-all ${
-                            isActive 
-                            ? r.color === 'orange' ? 'bg-orange-50 border-orange-300 text-orange-600' :
-                              r.color === 'green' ? 'bg-green-50 border-green-300 text-green-600' :
-                              'bg-slate-100 border-slate-300 text-slate-700'
-                            : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <span className="text-[11px] font-bold tracking-wider">{r.label}</span>
-                          <span className="text-[9px] opacity-60 font-medium mt-0.5">{r.user}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
+                {/* Fast Login removed for strict single-role system */}
 
               </div>
             </div>

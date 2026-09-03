@@ -23,7 +23,12 @@ export type PageId =
   | 'anpr'
   | 'tracking'
   | 'fences'
-  | 'faces';
+  | 'faces'
+  | 'suspicious'
+  | 'people'
+  | 'camera_health'
+  | 'vehicles'
+  | 'intrusions';
 
 interface Props {
   current: PageId;

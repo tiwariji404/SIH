@@ -11,6 +11,11 @@ import Tracking from './pages/Tracking';
 import VirtualFences from './pages/VirtualFences';
 import FaceDetection from './pages/FaceDetection';
 import GlobalAlarm from './components/GlobalAlarm';
+import SuspiciousActivity from './pages/SuspiciousActivity';
+import PeopleDetected from './pages/PeopleDetected';
+import CameraHealth from './pages/CameraHealth';
+import VehicleDetection from './pages/VehicleDetection';
+import IntrusionLogs from './pages/IntrusionLogs';
 
 function AppContent() {
   const { user, setSelectedLiveCameraIds } = useApp();
@@ -55,6 +60,11 @@ function AppContent() {
       case 'tracking': return <Tracking />;
       case 'fences': return <VirtualFences />;
       case 'faces': return <FaceDetection />;
+      case 'suspicious': return <SuspiciousActivity />;
+      case 'people': return <PeopleDetected />;
+      case 'camera_health': return <CameraHealth />;
+      case 'vehicles': return <VehicleDetection />;
+      case 'intrusions': return <IntrusionLogs />;
       default: return <Overview onNavigate={setPage} />;
     }
   };

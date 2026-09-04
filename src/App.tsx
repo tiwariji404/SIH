@@ -12,6 +12,11 @@ import VirtualFences from './pages/VirtualFences';
 import FaceDetection from './pages/FaceDetection';
 import InvestigationWorkspace from './pages/InvestigationWorkspace';
 import GlobalAlarm from './components/GlobalAlarm';
+import SuspiciousActivity from './pages/SuspiciousActivity';
+import PeopleDetected from './pages/PeopleDetected';
+import CameraHealth from './pages/CameraHealth';
+import VehicleDetection from './pages/VehicleDetection';
+import IntrusionLogs from './pages/IntrusionLogs';
 
 function AppContent() {
   const { user, setSelectedLiveCameraIds } = useApp();

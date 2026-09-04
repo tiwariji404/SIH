@@ -56,12 +56,21 @@ class MLEngine:
                 
             cv2.putText(processed_frame, label, (int(x1), int(y1) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
             
-            # Simple offline virtual fence logic mockup - logic can route to risk_engine
-            # If it's a person and confident, generate potential alert structure.
+            # Connect virtual fence and risk engine
             if det.object_type == "person" and det.confidence > 0.6:
-                # E.g. alerts.append({ ... }) handled by separate loop
-                pass
-
+                # Trigger Event
+                # For testing local pipeline seamlessly, we construct raw mock integration
+                alert_payload = {
+                    "eventType": "HUMAN_DETECTED",
+                    "camera_id": camera_id,
+                    "confidence": det.confidence,
+                    "bbox": det.bbox_xyxy,
+                    "riskScore": 75,
+                    "severity": "HIGH",
+                    "reason": "Person detected in critical view"
+                }
+                alerts.append(alert_payload)
+                
         return processed_frame, alerts
 
 _engine = MLEngine.get_instance()

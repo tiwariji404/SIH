@@ -3,10 +3,7 @@ import type {
   Camera, EventItem, Alert, VehicleRecord, Zone, TrackRecord, AuditLog, FaceRecord,
   Detection, User, AlertStatus, ScenarioType, Role,
 } from './types';
-import {
-  DEMO_USERS, generateCameras, generateEvents, generateAlerts, generateVehicles,
-  generateZones, generateTracks, generateAuditLogs, generateFaces, generateDetections,
-} from './data/demoData';
+// Mocks removed for production compliance
 
 
 interface AppState {

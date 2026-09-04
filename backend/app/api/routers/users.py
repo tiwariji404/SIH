@@ -4,7 +4,7 @@ from app.db.session import get_db
 from app.core import security
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate, UserResponse
-from app.api.deps import get_current_user, get_current_active_admin, get_current_active_sub_admin
+from app.api.deps import get_current_user
 
 router = APIRouter()
 
@@ -14,15 +14,15 @@ def create_user(
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
-    # Rule 1: Only Admin can create Sub-Admins or Operators
-    # Rule 2: Sub-Admin can only create Operators
-    # Rule 3: Operator cannot create any user
+    # Rule 1: Only Admin can create Supervisors, Operators or Investigators
+    # Rule 2: Supervisor can only create Operators or Investigators
+    # Rule 3: Operator & Investigator cannot create any user
     
-    if current_user.role == UserRole.OPERATOR:
-        raise HTTPException(status_code=403, detail="Operators cannot create users")
+    if current_user.role_name in [UserRole.OPERATOR, UserRole.INVESTIGATOR]:
+        raise HTTPException(status_code=403, detail="Operators/Investigators cannot create users")
     
-    if current_user.role == UserRole.SUB_ADMIN and user_in.role != UserRole.OPERATOR:
-        raise HTTPException(status_code=403, detail="Sub-Admins can only create Operators")
+    if current_user.role_name == UserRole.SUPERVISOR and user_in.role_name not in [UserRole.OPERATOR, UserRole.INVESTIGATOR]:
+        raise HTTPException(status_code=403, detail="Supervisors can only create Operators or Investigators")
 
     user = db.query(User).filter(User.username == user_in.username).first()
     if user:
@@ -32,7 +32,7 @@ def create_user(
     db_user = User(
         username=user_in.username, 
         hashed_password=hashed_password, 
-        role=user_in.role,
+        role_name=user_in.role_name,
         assigned_by=current_user.id
     )
     db.add(db_user)

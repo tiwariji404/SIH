@@ -62,20 +62,20 @@ export function useApp(): AppState {
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const initialCamerasRef = useRef<Camera[]>(generateCameras());
-  const initialEventsRef = useRef<EventItem[]>(generateEvents(initialCamerasRef.current, 120));
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-  const [demoMode, setDemoMode] = useState(true);
-  const [cameras, setCameras] = useState<Camera[]>(() => initialCamerasRef.current);
-  const [events, setEvents] = useState<EventItem[]>(() => initialEventsRef.current);
-  const [alerts, setAlerts] = useState<Alert[]>(() => generateAlerts(initialEventsRef.current, 35));
-  const [vehicles, setVehicles] = useState<VehicleRecord[]>(() => generateVehicles(initialCamerasRef.current, 55));
-  const [zones, setZones] = useState<Zone[]>(() => generateZones());
-  const [tracks] = useState<TrackRecord[]>(() => generateTracks(initialCamerasRef.current));
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => generateAuditLogs(DEMO_USERS, 40));
-  const [faces] = useState<FaceRecord[]>(() => generateFaces(initialCamerasRef.current, 20));
-  const [detections, setDetections] = useState<Detection[]>(() => generateDetections(initialCamerasRef.current, 30));
+  const [demoMode, setDemoMode] = useState(false); // strictly enforce false for production
+  
+  const [cameras, setCameras] = useState<Camera[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [tracks, setTracks] = useState<TrackRecord[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [faces, setFaces] = useState<FaceRecord[]>([]);
+  const [detections, setDetections] = useState<Detection[]>([]);
+  
   const [liveDemoRunning, setLiveDemoRunning] = useState(false);
   const [toast, setToast] = useState<ToastMsg | null>(null);
   const [activeAlarm, setActiveAlarm] = useState<Alert | null>(null);
@@ -102,11 +102,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAuditLogs(logs);
         setDetections(dets);
       }).catch(err => console.error("Error fetching backend data:", err));
-    } else {
-      // Revert to demo state if toggled back
-      setCameras(initialCamerasRef.current);
-      setEvents(initialEventsRef.current);
-      // We don't fully reset the others to avoid losing state, but cameras and events are back
     }
   }, [demoMode]);
 
@@ -135,42 +130,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAuditLogs(prev => [log, ...prev]);
   }, [user]);
 
-  const login = useCallback(async (username: string): Promise<boolean> => {
+  const login = useCallback(async (username: string, password: string = 'admin'): Promise<boolean> => {
     try {
-      // Bypass password / backend check for instant demo login
-      const lowerUser = username.toLowerCase();
-      let role: Role = 'operator';
+      const formData = new URLSearchParams();
+      formData.append('username', username);
+      formData.append('password', password);
 
-      if (lowerUser.includes('sub')) {
-        role = 'sub_admin';
-      } else if (lowerUser.includes('admin')) {
-        role = 'admin';
+      const loginRes = await fetch('http://localhost:8000/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+      });
+
+      if (!loginRes.ok) {
+        const errText = await loginRes.text();
+        console.error("Backend login failed:", errText);
+        showToast({ type: 'warning', title: 'Authentication Failed', message: 'Invalid credentials or backend offline.' });
+        return false;
       }
 
+      const tokenData = await loginRes.json();
+      setToken(tokenData.access_token);
+      localStorage.setItem('token', tokenData.access_token);
+
+      const meRes = await fetch('http://localhost:8000/api/v1/users/me', {
+        headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+      });
+      
+      if (!meRes.ok) throw new Error("Failed to fetch user profile");
+      const userProfile = await meRes.json();
+
       const loggedUser = {
-        id: `U-${Date.now()}`,
-        name: username,
-        email: `${username}@ssb.gov.in`,
-        role: role,
-        username: username,
+        id: userProfile.id,
+        name: userProfile.username,
+        email: `${userProfile.username}@ssb.gov.in`,
+        role: userProfile.role_name.toLowerCase(),
+        role_name: userProfile.role_name,
+        username: userProfile.username,
         password: '',
         avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=256'
-      };
+      } as any;
 
-      setToken('dummy-token-12345');
-      localStorage.setItem('token', 'dummy-token-12345');
       setUser(loggedUser);
-
-      const log: AuditLog = {
-        id: `LOG-${Date.now()}`,
-        user: loggedUser.name,
-        action: 'logged in directly (Backend bypassed)',
-        timestamp: new Date().toISOString(),
-        details: `Role: ${loggedUser.role}`,
-        result: 'SUCCESS',
-        ip: '10.0.1.42',
-      };
-      setAuditLogs(prev => [log, ...prev]);
       return true;
     } catch (e) {
       console.error(e);

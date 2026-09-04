@@ -3,26 +3,27 @@ import threading
 import time
 import os
 
-source_env = os.getenv("CAMERA_SOURCE", "0")
-if str(source_env).isdigit():
-    source_env = int(source_env)
-
 class VideoStreamProcessor:
     def __init__(self, source=0):
         print(f"Initializing VideoStreamProcessor with source: {source}")
         self.source = source
-        self.cap = cv2.VideoCapture(self.source)
-        if not self.cap.isOpened():
-            print(f"Warning: Could not open video source {self.source}")
+        self.cap = None
         self.frame = None
         self.running = False
         self.lock = threading.Lock()
+        self._thread = None
 
     def start(self):
+        if self.running: return
         self.running = True
-        threading.Thread(target=self.update, daemon=True).start()
+        self._thread = threading.Thread(target=self.update, daemon=True)
+        self._thread.start()
 
     def update(self):
+        self.cap = cv2.VideoCapture(self.source)
+        if not self.cap.isOpened():
+            print(f"Warning: Could not open video source {self.source}")
+
         while self.running:
             if not self.cap.isOpened():
                 time.sleep(2) # Wait before retry (good for RTSP reconnects)
@@ -54,11 +55,22 @@ class VideoStreamProcessor:
 
     def stop(self):
         self.running = False
-        if self.cap.isOpened():
+        if self._thread:
+            self._thread.join(timeout=1.0)
+        if self.cap and self.cap.isOpened():
             self.cap.release()
 
-video_stream = VideoStreamProcessor(source=source_env) 
-video_stream.start()
+# Instead of global auto-start, create a registry
+_streams = {}
 
-def get_video_stream():
-    return video_stream
+def get_video_stream(source="0") -> VideoStreamProcessor:
+    if source not in _streams:
+        source_val = int(source) if str(source).isdigit() else source
+        _streams[source] = VideoStreamProcessor(source=source_val)
+        _streams[source].start()
+    return _streams[source]
+
+def stop_video_stream(source="0"):
+    if source in _streams:
+        _streams[source].stop()
+        del _streams[source]

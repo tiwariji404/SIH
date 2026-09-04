@@ -3,93 +3,106 @@ from typing import List, Optional, Any, Dict
 from datetime import datetime
 
 class CameraBase(BaseModel):
-    id: str
     name: str
     bop: str
     location: str
-    status: str
+    status: str = "DISCONNECTED"
     fps: int = 30
     latency: int = 20
     storage: int = 100
     health: int = 100
-    lastHeartbeat: str
+    lastHeartbeat: Optional[str] = None
     signalQuality: int = 100
     scenario: str = "normal"
     recording: bool = True
     detectionCount: int = 0
-    coords: Dict[str, float]
-    mapCoord: Dict[str, float]
+    coords: Optional[Dict[str, float]] = None
+    mapCoord: Optional[Dict[str, float]] = None
+    
+    # New IBVAP Fields
+    rtsp_url: Optional[str] = None
+    protocol: Optional[str] = "RTSP"
+    credentials_ref: Optional[str] = None
+    resolution: Optional[str] = "1920x1080"
 
 class CameraCreate(CameraBase):
     pass
 
 class Camera(CameraBase):
+    id: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    
     model_config = ConfigDict(from_attributes=True)
 
 class EventItemBase(BaseModel):
-    id: str
     cameraId: str
     eventType: str
     severity: str
     trackingId: Optional[str] = None
     description: str
-    timestamp: str
+    timestamp: Optional[str] = None
     status: str
     riskScore: int = 0
-    reasons: List[str] = []
+    reasons: Optional[List[str]] = []
+    confidence: Optional[float] = None
+    details: Optional[Dict[str, Any]] = None
 
 class EventItemCreate(EventItemBase):
     pass
 
 class EventItem(EventItemBase):
+    id: str
+    event_timestamp: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
 class AlertBase(BaseModel):
-    id: str
     eventId: Optional[str] = None
     severity: str
     riskScore: int = 0
     reason: str
-    reasons: List[str] = []
-    status: str
-    createdAt: str
+    reasons: Optional[List[str]] = []
+    status: str = "NEW"
+    createdAt: Optional[str] = None
     acknowledgedAt: Optional[str] = None
     resolvedAt: Optional[str] = None
     cameraId: str
     trackingId: Optional[str] = None
     title: str
     what: str
-    where: str
-    when: str # Maps to when_time in DB model
-    object: str
-    why: str
+    where: Optional[str] = None
+    when: Optional[str] = None # Maps to when_time in DB model
+    object: Optional[str] = None
+    why: Optional[str] = None
     zone: Optional[str] = None
     confidence: int = 100
+    acknowledged_by: Optional[str] = None
 
 class AlertCreate(AlertBase):
     pass
 
 class Alert(AlertBase):
+    id: str
+    created_at_dt: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
 class VehicleRecordBase(BaseModel):
-    id: str
     cameraId: str
     vehicleType: str
     plateNumber: str
     confidence: int
     timestamp: str
     status: str
-    direction: str
+    direction: Optional[str] = None
 
 class VehicleRecordCreate(VehicleRecordBase):
     pass
 
 class VehicleRecord(VehicleRecordBase):
+    id: str
     model_config = ConfigDict(from_attributes=True)
 
 class FaceRecordBase(BaseModel):
-    id: str
     cameraId: str
     identity: str
     confidence: int
@@ -101,11 +114,12 @@ class FaceRecordCreate(FaceRecordBase):
     pass
 
 class FaceRecord(FaceRecordBase):
+    id: str
     model_config = ConfigDict(from_attributes=True)
 
 class ZoneBase(BaseModel):
-    id: str
-    cameraIds: List[str]
+    cameraIds: Optional[List[str]] = None
+    cameraId: Optional[str] = None
     name: str
     zoneType: str
     severity: str
@@ -116,10 +130,11 @@ class ZoneCreate(ZoneBase):
     pass
 
 class Zone(ZoneBase):
+    id: str
+    created_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
 class DetectionBase(BaseModel):
-    id: str
     cameraId: str
     objectType: str
     trackingId: str
@@ -133,36 +148,73 @@ class DetectionCreate(DetectionBase):
     pass
 
 class Detection(DetectionBase):
+    id: str
     model_config = ConfigDict(from_attributes=True)
 
 class AuditLogBase(BaseModel):
-    id: str
-    user: str
+    user: Optional[str] = None
+    actor_id: Optional[str] = None
     action: str
-    timestamp: str
+    timestamp: Optional[str] = None
     details: str
     result: str
     ip: str
+    resource_type: Optional[str] = None
+    resource_id: Optional[str] = None
 
 class AuditLogCreate(AuditLogBase):
     pass
 
 class AuditLog(AuditLogBase):
+    id: str
+    created_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
 class TrackRecordBase(BaseModel):
-    trackingId: str
     objectType: str
     cameraId: str
-    direction: str
-    duration: str
+    direction: Optional[str] = None
+    duration: Optional[str] = None
     status: str
     firstSeen: str
     lastSeen: str
     history: List[Dict[str, str]]
+    last_position: Optional[Dict[str, float]] = None
+    velocity: Optional[Dict[str, float]] = None
+    confidence: Optional[float] = None
 
 class TrackRecordCreate(TrackRecordBase):
-    pass
+    trackingId: str
 
 class TrackRecord(TrackRecordBase):
+    trackingId: str
+    model_config = ConfigDict(from_attributes=True)
+
+class IncidentBase(BaseModel):
+    title: str
+    status: str = "OPEN"
+
+class IncidentCreate(IncidentBase):
+    pass
+
+class Incident(IncidentBase):
+    id: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class EvidenceBase(BaseModel):
+    event_id: str
+    camera_id: str
+    file_location: str
+    file_type: str
+    sha256_hash: str
+    integrity_status: str = "PENDING"
+
+class EvidenceCreate(EvidenceBase):
+    pass
+
+class Evidence(EvidenceBase):
+    id: str
+    created_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)

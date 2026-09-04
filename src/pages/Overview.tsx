@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useApp } from '../store';
 import {
   Cctv, Bell, Users, Car, Fence, Car as CarIcon, Activity,
@@ -7,43 +8,48 @@ import {
 import type { PageId } from '../components/Layout';
 
 export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => void }) {
-  const { cameras, alerts, events, vehicles, tracks } = useApp();
+  const { alerts, token } = useApp();
+  const [stats, setStats] = useState<any>(null);
+  const [health, setHealth] = useState<any>(null);
 
-  const onlineCameras = cameras.filter(c => c.status === 'ONLINE').length;
-  const activeAlerts = alerts.filter(a => a.status !== 'RESOLVED').length;
-  const peopleDetected = tracks.filter(t => t.objectType === 'person').length + 132;
-  const vehiclesDetected = vehicles.length;
-  const intrusionsToday = events.filter(e => e.eventType.includes('Intrusion') || e.eventType.includes('Fence')).length;
-  const anprEvents = vehicles.length;
-  const suspiciousActivities = events.filter(e => e.eventType.includes('Suspicious') || e.eventType.includes('Loitering')).length;
-  const avgHealth = Math.round(cameras.reduce((s, c) => s + c.health, 0) / (cameras.length || 1));
+  useEffect(() => {
+    if (!token) return;
+    fetch('/api/v1/analytics/stats', { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => res.json())
+      .then(setStats)
+      .catch(console.error);
+      
+    fetch('/api/v1/analytics/health', { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => res.json())
+      .then(setHealth)
+      .catch(console.error);
+  }, [token]);
 
   const kpis: { label: string; value: number | string; icon: React.ElementType; color: string; bg: string; border: string; page: PageId }[] = [
-    { label: 'Cameras Online', value: `${onlineCameras} / ${cameras.length}`, icon: Cctv, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', page: 'live' },
-    { label: 'Active Alerts', value: activeAlerts, icon: Bell, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', page: 'alerts' },
-    { label: 'People Detected', value: peopleDetected, icon: Users, color: 'text-accent-400', bg: 'bg-accent-500/10', border: 'border-accent-500/20', page: 'tracking' },
-    { label: 'Vehicles Detected', value: vehiclesDetected, icon: Car, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', page: 'anpr' },
-    { label: 'Intrusions Today', value: intrusionsToday, icon: Fence, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', page: 'events' },
-    { label: 'ANPR Events', value: anprEvents, icon: CarIcon, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', page: 'anpr' },
-    { label: 'Suspicious Activities', value: suspiciousActivities, icon: ShieldAlert, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', page: 'tracking' },
-    { label: 'System Health', value: `${avgHealth}%`, icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', page: 'health' },
+    { label: 'Cameras Online', value: stats ? `${stats.cameras.active} / ${stats.cameras.total}` : '...', icon: Cctv, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', page: 'cameras' },
+    { label: 'Overall Events', value: stats ? stats.events.total : '...', icon: Activity, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', page: 'events' },
+    { label: 'Unresolved Events', value: stats ? stats.events.unresolved : '...', icon: ShieldAlert, color: 'text-accent-400', bg: 'bg-accent-500/10', border: 'border-accent-500/20', page: 'events' },
+    { label: 'Total Incidents', value: stats ? stats.incidents.total : '...', icon: Fence, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', page: 'vault' },
+    { label: 'Open Incidents', value: stats ? stats.incidents.open : '...', icon: Bell, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', page: 'vault' },
+    { label: 'Edge Queue Status', value: health ? health.edge_sync_queue : '...', icon: Activity, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', page: 'overview' },
+    { label: 'DB Health', value: health ? health.database : '...', icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', page: 'overview' },
   ];
 
   const activeAlertsList = alerts.filter(a => a.status !== 'RESOLVED');
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
-      
-
 
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Command Overview</h2>
           <p className="text-xs text-slate-600">Real-time border surveillance intelligence</p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-          <span className="status-dot bg-emerald-400 animate-pulse" />
-          <span className="text-[10px] font-mono text-emerald-400">ALL SYSTEMS OPERATIONAL</span>
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${health?.status === 'healthy' ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+          <span className={`status-dot animate-pulse ${health?.status === 'healthy' ? 'bg-emerald-400' : 'bg-red-400'}`} />
+          <span className={`text-[10px] font-mono ${health?.status === 'healthy' ? 'text-emerald-400' : 'text-red-400'}`}>
+            {health?.status === 'healthy' ? 'SYSTEMS OPERATIONAL' : 'SYSTEM DEGRADED'}
+          </span>
         </div>
       </div>
 

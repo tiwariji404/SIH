@@ -1,25 +1,35 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import logging
 import json
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routers import auth, users, stream, cameras, alerts, zones, analytics
 from app.core.config import settings
-from app.db.firebase import init_firebase
 from app.ws_manager import manager
 from app.db.session import engine, Base
-import app.models.core_models
-import app.models.user
+from app.core.redis_client import redis_client
+from app.core.storage import storage_client
 
-# Create all tables in sqlite
-Base.metadata.create_all(bind=engine)
-import logging
+# Define structured logger
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-try:
-    # Initialize Firebase Admin 
-    init_firebase()
-except Exception as e:
-    print(f"Firebase Init Error: {e}")
+# Start connections
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Starting IBVAP Backend")
+    # Base.metadata.create_all(bind=engine) # We will rely on Alembic instead.
+    redis_client.connect()
+    storage_client.connect()
+    yield
+    # Shutdown
+    logger.info("Shutting down IBVAP Backend")
 
-app = FastAPI(title=settings.PROJECT_NAME)
+app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
 # CORS
 app.add_middleware(
@@ -41,11 +51,20 @@ app.include_router(analytics.router, prefix=f"{settings.API_V1_STR}/analytics", 
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to AssistanCCTV AI Backend"}
+    return {"message": "Welcome to IBVAP AI Backend"}
 
-@app.get("/healthz")
-def healthcheck() -> dict:
-    return {"ok": True}
+@app.get("/health")
+def healthcheck():
+    return {"status": "ok", "service": "ibvap-backend"}
+
+@app.get("/liveness")
+def liveness():
+    return {"status": "alive"}
+
+@app.get("/readiness")
+def readiness():
+    # Will check db/redis/minio later, stub for now
+    return {"status": "ready"}
 
 @app.websocket("/ws/detections")
 async def websocket_endpoint(websocket: WebSocket):

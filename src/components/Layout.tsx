@@ -23,7 +23,8 @@ export type PageId =
   | 'anpr'
   | 'tracking'
   | 'fences'
-  | 'faces';
+  | 'faces'
+  | 'vault';
 
 interface Props {
   current: PageId;
@@ -90,7 +91,8 @@ export default function Layout({ current, onNavigate, children }: Props) {
     NAV_ITEMS.tracking,
     NAV_ITEMS.faces,
     NAV_ITEMS.cameras,
-    NAV_ITEMS.events
+    NAV_ITEMS.events,
+    { id: 'vault' as PageId, label: 'Incidents / Vault', icon: Target, accent: 'text-orange-500' }
   ];
 
   return (

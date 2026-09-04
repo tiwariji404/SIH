@@ -10,6 +10,7 @@ import ANPR from './pages/ANPR';
 import Tracking from './pages/Tracking';
 import VirtualFences from './pages/VirtualFences';
 import FaceDetection from './pages/FaceDetection';
+import InvestigationWorkspace from './pages/InvestigationWorkspace';
 import GlobalAlarm from './components/GlobalAlarm';
 
 function AppContent() {
@@ -55,6 +56,7 @@ function AppContent() {
       case 'tracking': return <Tracking />;
       case 'fences': return <VirtualFences />;
       case 'faces': return <FaceDetection />;
+      case 'vault': return <InvestigationWorkspace />;
       default: return <Overview onNavigate={setPage} />;
     }
   };

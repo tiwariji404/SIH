@@ -4,7 +4,7 @@ from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.user import TokenData
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
@@ -29,11 +29,11 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
     return user
 
 def get_current_active_admin(current_user: User = Depends(get_current_user)):
-    if current_user.role.value != "admin":
+    if current_user.role_name != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Not enough privileges")
     return current_user
 
-def get_current_active_sub_admin(current_user: User = Depends(get_current_user)):
-    if current_user.role.value not in ["admin", "sub_admin"]:
+def get_current_active_supervisor(current_user: User = Depends(get_current_user)):
+    if current_user.role_name not in [UserRole.ADMIN, UserRole.SUPERVISOR]:
         raise HTTPException(status_code=403, detail="Not enough privileges")
     return current_user

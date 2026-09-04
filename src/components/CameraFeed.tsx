@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Camera, Detection } from '../types';
+import type { Camera } from '../types';
 import { useApp } from '../store';
+
+// Local detection type for CameraFeed overlay (from backend WebSocket payload)
+interface DetectionOverlay {
+  id: string;
+  cameraId: string;
+  objectType: string;
+  trackingId: string;
+  confidence: number;
+  bbox: { x: number; y: number; w: number; h: number };
+  label: string;
+}
 
 interface Props {
   camera: Camera;
-  detections?: Detection[];
+  detections?: DetectionOverlay[];
   showOverlay?: boolean;
   compact?: boolean;
   liveStream?: MediaStream | null;
@@ -44,8 +55,8 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
     }
   }, [liveStream]);
 
-  const isOffline = camera.status === 'OFFLINE';
-  const isNight = camera.scenario === 'night';
+  const isOffline = camera.status === 'OFFLINE' || camera.status === 'DISCONNECTED';
+  const isNight = false; // Night mode determined by backend event, not frontend toggle
   const camDetections = detections.filter(d => d.cameraId === camera.id);
   const hasLive = !!liveStream;
   const camZones = zones.filter(z => z.cameraId === camera.id);
@@ -80,15 +91,10 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
             {/* Scanline */}
             <div className="absolute inset-x-0 h-px bg-accent-400/20 pointer-events-none" style={{ top: `${scanY}%` }} />
 
-            {/* Simulated scene elements (only when no live video) */}
+            {/* Waiting for stream placeholder */}
             {!hasLive && (
-              <div className={`absolute ${isNight ? 'opacity-30' : 'opacity-60'}`}>
-                {camera.scenario === 'vehicle' || camera.scenario === 'anpr' ? (
-                  <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
-                    <div className="h-8 w-20 rounded bg-slate-600/50 shadow-lg" />
-                    <div className="mx-auto -mt-6 h-5 w-16 rounded-t bg-slate-500/50" />
-                  </div>
-                ) : null}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <p className="text-[10px] font-mono text-slate-500">AWAITING STREAM</p>
               </div>
             )}
 
@@ -113,10 +119,7 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
               <DetectionBox key={det.id} det={det} night={isNight} />
             ))}
 
-            {/* Default simulated detection if no explicit detections */}
-            {showOverlay && camDetections.length === 0 && camera.status === 'ONLINE' && camera.scenario !== 'normal' && !hasLive && (
-              <DefaultDetection camera={camera} night={isNight} />
-            )}
+            {/* No fake default detections — only real AI detections from backend */}
 
             {/* Night vision tint */}
             {isNight && (
@@ -156,11 +159,11 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
           </div>
         )}
 
-        {/* Scenario badge */}
+        {/* Status badge */}
         {!isOffline && (
           <div className="absolute top-7 right-2 pointer-events-none">
-            <span className={`badge ${camera.scenario === 'normal' ? 'bg-emerald-500/20 text-emerald-300' : camera.scenario === 'night' ? 'bg-indigo-500/20 text-indigo-300' : camera.scenario === 'intrusion' ? 'bg-red-500/20 text-red-300' : 'bg-amber-500/20 text-amber-300'}`}>
-              {scenarioLabels[camera.scenario]}
+            <span className="badge bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
+              {camera.status}
             </span>
           </div>
         )}
@@ -169,7 +172,7 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
   );
 }
 
-function DetectionBox({ det, night }: { det: Detection; night: boolean }) {
+function DetectionBox({ det, night }: { det: DetectionOverlay; night: boolean }) {
   const colors: Record<string, string> = {
     person: 'border-accent-400',
     vehicle: 'border-blue-400',
@@ -206,45 +209,4 @@ function DetectionBox({ det, night }: { det: Detection; night: boolean }) {
   );
 }
 
-function DefaultDetection({ camera, night }: { camera: Camera; night: boolean }) {
-  const isVehicle = camera.scenario === 'vehicle' || camera.scenario === 'anpr';
-  const isPerson = camera.scenario === 'intrusion' || camera.scenario === 'night' || camera.scenario === 'suspicious';
-
-  if (isVehicle) {
-    return (
-      <div className="absolute" style={{ left: '35%', top: '50%', width: '30%', height: '25%' }}>
-        <div className="absolute inset-0 border-2 border-blue-400 rounded-sm" />
-        <div className="absolute -top-5 left-0 bg-blue-500/80 px-1.5 py-0.5 rounded-sm text-[9px] font-mono text-white whitespace-nowrap">
-          CAR | V-022 | 95%
-        </div>
-        {camera.scenario === 'anpr' && (
-          <div className="absolute -bottom-6 left-0 bg-amber-500/80 px-1.5 py-0.5 rounded-sm text-[9px] font-mono text-white whitespace-nowrap">
-            CG04AB1234 | 96%
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (isPerson) {
-    return (
-      <div className="absolute" style={{ left: '40%', top: '30%', width: '18%', height: '40%' }}>
-        <div className={`absolute inset-0 border-2 ${night ? 'border-indigo-400' : 'border-accent-400'} rounded-sm`}>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className={`w-2 h-2 rounded-full ${night ? 'bg-indigo-300' : 'bg-accent-400'} animate-ping`} />
-          </div>
-        </div>
-        <div className={`absolute -top-5 left-0 ${night ? 'bg-indigo-500/80' : 'bg-accent-500/80'} px-1.5 py-0.5 rounded-sm text-[9px] font-mono text-white whitespace-nowrap`}>
-          PERSON | P-104 | 94%
-        </div>
-        {camera.scenario === 'suspicious' && (
-          <div className="absolute -bottom-6 left-0 bg-amber-500/80 px-1.5 py-0.5 rounded-sm text-[9px] font-mono text-white whitespace-nowrap">
-            LOITERING 73s
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return null;
-}
+// DefaultDetection removed — only real AI backend detections are displayed

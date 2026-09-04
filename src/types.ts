@@ -1,92 +1,128 @@
-export type Role = 'admin' | 'sub_admin' | 'operator' | 'commander';
-
-export type AlertStatus = 'NEW' | 'ACKNOWLEDGED' | 'INVESTIGATING' | 'RESOLVED';
+// Domain types matching backend schemas exactly
+export type Role = 'admin' | 'supervisor' | 'operator' | 'investigator';
+export type AlertStatus = 'NEW' | 'ACKNOWLEDGED' | 'VERIFIED' | 'CLOSED' | 'INVESTIGATING' | 'RESOLVED';
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type CameraStatus = 'ONLINE' | 'OFFLINE' | 'DEGRADED';
-export type ScenarioType =
-  | 'normal'
-  | 'intrusion'
-  | 'night'
-  | 'suspicious'
-  | 'vehicle'
-  | 'anpr'
-  | 'camera_failure';
-
-export type ObjectType = 'person' | 'vehicle' | 'face' | 'plate';
+export type CameraStatus = 'ONLINE' | 'OFFLINE' | 'DEGRADED' | 'LIVE' | 'DISCONNECTED' | 'ERROR' | 'MAINTENANCE' | 'ACTIVE';
 
 export interface User {
   id: string;
-  name: string;
   username: string;
+  name: string;
   role: Role;
-  password: string;
+  role_name: string;
 }
 
 export interface Camera {
   id: string;
   name: string;
-  bop: string;
-  location: string;
+  bop?: string;
+  location?: string;
   status: CameraStatus;
-  fps: number;
-  latency: number;
-  storage: number;
-  health: number;
-  lastHeartbeat: string;
-  signalQuality: number;
-  scenario: ScenarioType;
-  recording: boolean;
-  detectionCount: number;
-  coords: { x: number; y: number };
-  mapCoord: { lat: number; lng: number };
+  fps?: number;
+  latency?: number;
+  storage?: number;
+  health?: number;
+  lastHeartbeat?: string;
+  signalQuality?: number;
+  recording?: boolean;
+  detectionCount?: number;
+  rtsp_url?: string;
+  created_at?: string;
 }
 
-export interface Detection {
+export interface Zone {
   id: string;
-  cameraId: string;
-  objectType: ObjectType;
-  trackingId: string;
-  confidence: number;
-  timestamp: string;
-  bbox: { x: number; y: number; w: number; h: number };
-  label: string;
-  direction?: string;
+  name: string;
+  zoneType: string;
+  severity: RiskLevel;
+  coordinates: { x: number; y: number }[];
+  rule: string;
+  cameraId?: string;
+  cameraIds?: string[];
+  created_at?: string;
 }
 
 export interface EventItem {
   id: string;
   cameraId: string;
   eventType: string;
-  severity: RiskLevel;
-  trackingId: string;
+  severity: string;
+  trackingId?: string;
   description: string;
-  timestamp: string;
-  status: AlertStatus;
+  timestamp?: string;
+  event_timestamp?: string;
+  status: string;
   riskScore: number;
-  reasons: string[];
+  reasons?: string[];
 }
 
 export interface Alert {
   id: string;
-  eventId: string;
-  severity: RiskLevel;
+  eventId?: string;
+  severity: string;
   riskScore: number;
   reason: string;
-  reasons: string[];
-  status: AlertStatus;
-  createdAt: string;
-  acknowledgedAt: string | null;
-  resolvedAt: string | null;
+  reasons?: string[];
+  status: string;
+  createdAt?: string;
+  created_at_dt?: string;
+  acknowledgedAt?: string;
+  resolvedAt?: string;
   cameraId: string;
-  trackingId: string;
+  trackingId?: string;
   title: string;
   what: string;
-  where: string;
-  when: string;
-  object: string;
-  why: string;
+  where?: string;
+  when?: string;
+  object?: string;
+  why?: string;
   zone?: string;
-  confidence: number;
+  confidence?: number;
+}
+
+export interface Incident {
+  id: string;
+  title: string;
+  status: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Evidence {
+  id: string;
+  event_id: string;
+  camera_id: string;
+  file_location: string;
+  file_type: string;
+  sha256_hash: string;
+  integrity_status: string;
+  created_at?: string;
+}
+
+export interface TrackRecord {
+  trackingId: string;
+  objectType: string;
+  cameraId: string;
+  direction?: string;
+  duration?: string;
+  status: string;
+  firstSeen: string;
+  lastSeen: string;
+  history: { cameraId: string; time: string }[];
+}
+
+export interface AuditLog {
+  id: string;
+  user?: string;
+  actor_id?: string;
+  action: string;
+  timestamp?: string;
+  details: string;
+  result: string;
+  ip: string;
+  resource_type?: string;
+  resource_id?: string;
+  created_at?: string;
 }
 
 export interface VehicleRecord {
@@ -96,40 +132,8 @@ export interface VehicleRecord {
   plateNumber: string;
   confidence: number;
   timestamp: string;
-  status: 'AUTHORIZED' | 'WATCHLIST' | 'UNKNOWN';
-  direction: string;
-}
-
-export interface Zone {
-  id: string;
-  cameraIds: string[];
-  name: string;
-  zoneType: string;
-  severity: RiskLevel;
-  coordinates: { x: number; y: number }[];
-  rule: string;
-}
-
-export interface TrackRecord {
-  trackingId: string;
-  objectType: ObjectType;
-  cameraId: string;
-  direction: string;
-  duration: string;
-  status: 'Active' | 'Lost' | 'Exited';
-  firstSeen: string;
-  lastSeen: string;
-  history: { cameraId: string; time: string }[];
-}
-
-export interface AuditLog {
-  id: string;
-  user: string;
-  action: string;
-  timestamp: string;
-  details: string;
-  result: 'SUCCESS' | 'FAILED';
-  ip: string;
+  status: string;
+  direction?: string;
 }
 
 export interface FaceRecord {
@@ -139,21 +143,40 @@ export interface FaceRecord {
   confidence: number;
   timestamp: string;
   database: string;
-  status: 'AUTHORIZED' | 'UNKNOWN' | 'FLAGGED';
+  status: string;
 }
 
-export const riskColor: Record<RiskLevel, string> = {
-  LOW: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
-  MEDIUM: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
-  HIGH: 'text-orange-400 bg-orange-500/10 border-orange-500/30',
-  CRITICAL: 'text-red-400 bg-red-500/10 border-red-500/30',
+export interface SystemHealth {
+  status: string;
+  database: string;
+  storage: string;
+  redis: string;
+  edge_sync_queue: number;
+  version: string;
+}
+
+// Severity display helpers
+export const riskColor: Record<string, string> = {
+  LOW: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+  MEDIUM: 'text-amber-700 bg-amber-50 border-amber-200',
+  HIGH: 'text-orange-700 bg-orange-50 border-orange-200',
+  CRITICAL: 'text-red-700 bg-red-50 border-red-200',
 };
 
-export const statusColor: Record<AlertStatus, string> = {
-  NEW: 'text-red-400 bg-red-500/10 border-red-500/30',
-  ACKNOWLEDGED: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
-  INVESTIGATING: 'text-accent-400 bg-accent-500/10 border-accent-500/30',
-  RESOLVED: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+export const riskBg: Record<string, string> = {
+  LOW: 'bg-emerald-500',
+  MEDIUM: 'bg-amber-500',
+  HIGH: 'bg-orange-500',
+  CRITICAL: 'bg-red-500',
+};
+
+export const statusColor: Record<string, string> = {
+  NEW: 'text-red-700 bg-red-50 border-red-200',
+  ACKNOWLEDGED: 'text-amber-700 bg-amber-50 border-amber-200',
+  INVESTIGATING: 'text-blue-700 bg-blue-50 border-blue-200',
+  VERIFIED: 'text-blue-700 bg-blue-50 border-blue-200',
+  RESOLVED: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+  CLOSED: 'text-slate-600 bg-slate-50 border-slate-200',
 };
 
 export function riskFromScore(score: number): RiskLevel {
@@ -161,4 +184,14 @@ export function riskFromScore(score: number): RiskLevel {
   if (score <= 60) return 'MEDIUM';
   if (score <= 80) return 'HIGH';
   return 'CRITICAL';
+}
+
+export function formatTime(ts?: string | null): string {
+  if (!ts) return '—';
+  try {
+    return new Date(ts).toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', hour: '2-digit',
+      minute: '2-digit', second: '2-digit', hour12: true
+    });
+  } catch { return ts; }
 }

@@ -1,125 +1,174 @@
-import { useState, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import { useApp } from '../store';
-import { Car, Search, RefreshCw, Filter } from 'lucide-react';
-import { formatTime } from '../types';
-
-const statusStyles: Record<string, string> = {
-  AUTHORIZED: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-  WATCHLIST: 'text-red-700 bg-red-50 border-red-200',
-  UNKNOWN: 'text-slate-600 bg-slate-50 border-slate-200',
-};
+import { Search, ShieldAlert, CheckCircle, HelpCircle, Plus, Camera, Car } from 'lucide-react';
 
 export default function ANPR() {
-  const { vehicles, refreshVehicles, cameras } = useApp();
-  const [loading, setLoading] = useState(false);
+  const { vehicles, showToast, addToWatchlist } = useApp();
   const [search, setSearch] = useState('');
-  const [camFilter, setCamFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [minConf, setMinConf] = useState(0);
-
-  const filtered = useMemo(() => {
-    return vehicles.filter(v => {
-      if (search && !(v.plateNumber || '').toLowerCase().includes(search.toLowerCase())) return false;
-      if (camFilter !== 'ALL' && v.cameraId !== camFilter) return false;
-      if (statusFilter !== 'ALL' && v.status !== statusFilter) return false;
-      if (v.confidence < minConf) return false;
-      return true;
-    });
-  }, [vehicles, search, camFilter, statusFilter, minConf]);
-
-  const refresh = () => {
-    setLoading(true);
-    refreshVehicles().finally(() => setLoading(false));
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Registration Form State
+  const [regPlate, setRegPlate] = useState('');
+  const [regReason, setRegReason] = useState('');
+  
+  const handleRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regPlate) return;
+    
+    addToWatchlist(regPlate);
+    
+    // In production, this pushes to Firebase / FastAPI DB
+    showToast({ type: 'success', title: 'Vehicle Registered', message: `Plate ${regPlate} added to Watchlist.` });
+    setRegPlate('');
+    setRegReason('');
   };
 
+  const filtered = vehicles.filter(v => {
+    if (search && !v.plateNumber.toLowerCase().includes(search.toLowerCase())) return false;
+    if (statusFilter !== 'ALL' && v.status !== statusFilter) return false;
+    return true;
+  });
+
+  const watchlisted = vehicles.filter(v => v.status === 'WATCHLIST');
+
   return (
-    <div className="space-y-5 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-            <Car className="h-5 w-5 text-slate-600" /> ANPR — Plate Records
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">{filtered.length} of {vehicles.length} plates · OCR-sourced data</p>
-        </div>
-        <button onClick={refresh} disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-xs font-semibold">
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
-        </button>
+    <div className="space-y-4 animate-fade-in">
+      <div>
+        <h1 className="text-xl font-bold text-slate-900">ANPR — Automatic Number Plate Recognition</h1>
+        <p className="text-xs text-slate-600">{vehicles.length} plate captures • {watchlisted.length} watchlist matches • Demo data</p>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-          <input type="text" placeholder="Search plate number..." value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 border border-slate-200 bg-white rounded-lg text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:border-orange-400" />
-        </div>
-        <select value={camFilter} onChange={e => setCamFilter(e.target.value)}
-          className="px-2 py-2 border border-slate-200 bg-white rounded-lg text-xs text-slate-700 focus:outline-none focus:border-orange-400">
-          <option value="ALL">All Cameras</option>
-          {cameras.map(c => <option key={c.id} value={c.id}>{c.name || c.id}</option>)}
-        </select>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="px-2 py-2 border border-slate-200 bg-white rounded-lg text-xs text-slate-700 focus:outline-none focus:border-orange-400">
-          <option value="ALL">All Status</option>
-          <option value="AUTHORIZED">Authorized</option>
-          <option value="WATCHLIST">Watchlist</option>
-          <option value="UNKNOWN">Unknown</option>
-        </select>
-      </div>
-
-      {/* Table */}
-      {vehicles.length === 0 ? (
-        <div className="text-center py-16">
-          <Car className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-500 font-medium">No ANPR records found</p>
-          <p className="text-xs text-slate-400 mt-1">ANPR data is populated when the YOLO pipeline detects plates via OCR.</p>
-          <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-700 max-w-md mx-auto">
-            <strong>Note:</strong> ANPR OCR runs in CPU mode via easyocr. Real plate recognition requires physical cameras or demo video with visible plates.
+      {/* Watchlist alert */}
+      {watchlisted.length > 0 && (
+        <div className="card p-4 border-red-500/30 bg-red-500/5 mb-4">
+          <div className="flex items-center gap-3">
+            <ShieldAlert className="h-5 w-5 text-red-400 animate-pulse" />
+            <div>
+              <p className="text-sm font-semibold text-red-300">Watchlist Vehicle Detected</p>
+              <p className="text-xs text-slate-600">Plate {watchlisted[0].plateNumber} detected at {watchlisted[0].cameraId}</p>
+            </div>
           </div>
         </div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-16 text-slate-500">No plates match your filters.</div>
-      ) : (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50">
-                {['Plate', 'Confidence', 'Camera', 'Vehicle Type', 'Direction', 'Status', 'Timestamp'].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.slice(0, 100).map(v => (
-                <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-2.5">
-                    <span className="font-black font-mono text-sm text-slate-800 tracking-wider">{v.plateNumber}</span>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full ${v.confidence >= 80 ? 'bg-emerald-500' : v.confidence >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
-                          style={{ width: `${v.confidence}%` }} />
-                      </div>
-                      <span className="font-mono text-slate-600">{v.confidence}%</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-slate-500">{v.cameraId}</td>
-                  <td className="px-4 py-2.5 text-slate-600">{v.vehicleType}</td>
-                  <td className="px-4 py-2.5 text-slate-500">{v.direction || '—'}</td>
-                  <td className="px-4 py-2.5">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${statusStyles[v.status] || ''}`}>
-                      {v.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-slate-400 whitespace-nowrap">{formatTime(v.timestamp)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Left Col: Registration Form */}
+        <div className="lg:col-span-4 space-y-4">
+          <div className="card p-6 border-slate-200 shadow-sm bg-white top-4 sticky">
+             <h2 className="text-lg font-black text-slate-800 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
+                <Plus className="h-5 w-5 text-accent-600" /> Add to Watchlist
+             </h2>
+             <form onSubmit={handleRegister} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Target Plate Number</label>
+                  <div className="relative">
+                    <Car className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="e.g. DL 1C AB 1234" 
+                      value={regPlate}
+                      onChange={e => setRegPlate(e.target.value)}
+                      className="input pl-10 font-mono font-bold text-slate-800 uppercase"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Suspicion Details</label>
+                  <textarea 
+                    rows={3}
+                    placeholder="Provide reason for watchlist..." 
+                    value={regReason}
+                    onChange={e => setRegReason(e.target.value)}
+                    className="input font-medium text-sm text-slate-800 resize-none"
+                  ></textarea>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Reference Image (Optional)</label>
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-300 rounded-lg p-6 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-accent-400 transition-colors cursor-pointer"
+                  >
+                    <Camera className="h-6 w-6 mb-2" />
+                    <span className="text-xs font-semibold">Click to upload photo</span>
+                  </div>
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={() => showToast({type: 'success', title: 'Image Added', message: 'Reference image attached.'})} />
+                </div>
+                <button type="submit" className="btn-primary w-full p-3 uppercase tracking-widest font-bold">Register Vehicle</button>
+             </form>
+          </div>
+        </div>
+
+        {/* Right Col: Live Feed */}
+        <div className="lg:col-span-8 space-y-4">
+          
+          {/* Filters */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
+              <input type="text" placeholder="Search plate number..." value={search} onChange={e => setSearch(e.target.value)} className="input pl-10 bg-white" />
+            </div>
+            {['ALL', 'AUTHORIZED', 'WATCHLIST', 'UNKNOWN'].map(s => (
+              <button key={s} onClick={() => setStatusFilter(s)} className={`badge ${statusFilter === s ? 'bg-accent-500 text-white shadow-md' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}>{s}</button>
+            ))}
+          </div>
+
+          {/* Plate grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {filtered.slice(0, 30).map(v => {
+              return (
+            <div key={v.id} className={`card p-4 ${v.status === 'WATCHLIST' ? 'border-red-500/30 bg-red-500/5' : ''}`}>
+              {/* Simulated vehicle image */}
+              <div className="relative h-28 rounded-lg bg-gradient-to-b from-slate-700/40 to-slate-900/60 mb-3 overflow-hidden border border-slate-200">
+                <div className="absolute inset-0 grid-overlay opacity-30" />
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2">
+                  <div className="h-6 w-24 rounded bg-slate-600/60" />
+                  <div className="mx-auto -mt-4 h-4 w-20 rounded-t bg-slate-500/50" />
+                </div>
+                {/* Plate highlight */}
+                <div className="absolute bottom-1 right-2 bg-amber-400/20 border border-amber-400/50 rounded px-1.5 py-0.5">
+                  <span className="text-[9px] font-mono text-amber-300">{v.plateNumber}</span>
+                </div>
+              </div>
+
+              {/* Plate number */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="px-2 py-1 rounded bg-yellow-400/90 text-black font-mono font-bold text-sm tracking-wider">
+                  {v.plateNumber}
+                </div>
+                <StatusBadge status={v.status} />
+              </div>
+
+              <div className="space-y-1 text-[11px]">
+                <Row label="Vehicle" value={v.vehicleType} />
+                <Row label="Camera" value={v.cameraId} />
+                <Row label="Direction" value={v.direction} />
+                <Row label="Confidence" value={`${v.confidence}%`} />
+                <Row label="Time" value={new Date(v.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })} />
+              </div>
+            </div>
+          );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === 'WATCHLIST') return <span className="badge bg-red-500/20 text-red-400 border border-red-500/30"><ShieldAlert className="h-3 w-3" /> WATCHLIST</span>;
+  if (status === 'AUTHORIZED') return <span className="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"><CheckCircle className="h-3 w-3" /> AUTHORIZED</span>;
+  return <span className="badge bg-slate-500/20 text-slate-600 border border-slate-500/30"><HelpCircle className="h-3 w-3" /> UNKNOWN</span>;
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-slate-600">{label}:</span>
+      <span className="text-slate-700">{value}</span>
     </div>
   );
 }

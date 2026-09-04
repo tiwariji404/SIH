@@ -1,6 +1,47 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
-import type { User, Camera, EventItem, Alert, Zone, AuditLog, VehicleRecord, FaceRecord, Incident, Evidence, SystemHealth } from './types';
+import type {
+  Camera, EventItem, Alert, VehicleRecord, Zone, TrackRecord, AuditLog, FaceRecord,
+  Detection, User, AlertStatus, ScenarioType, Role,
+} from './types';
 import { api } from './lib/api';
+
+interface AppState {
+  user: User | null;
+  token: string | null;
+  login: (username: string, _password: string) => Promise<boolean>;
+  logout: () => void;
+  demoMode: boolean;
+  setDemoMode: (on: boolean) => void;
+  cameras: Camera[];
+  events: EventItem[];
+  alerts: Alert[];
+  vehicles: VehicleRecord[];
+  zones: Zone[];
+  tracks: TrackRecord[];
+  auditLogs: AuditLog[];
+  faces: FaceRecord[];
+  detections: Detection[];
+  liveDemoRunning: boolean;
+  startLiveDemo: () => void;
+  stopLiveDemo: () => void;
+  setCameraScenario: (cameraId: string, scenario: ScenarioType) => void;
+  acknowledgeAlert: (id: string) => void;
+  escalateAlert: (id: string) => void;
+  resolveAlert: (id: string) => void;
+  addZone: (zone: Zone) => void;
+  deleteZone: (id: string) => void;
+  addAuditLog: (action: string, details?: string) => void;
+  addAlert: (alert: Alert) => void;
+  triggerCameraOffline: (cameraId: string) => void;
+  toast: ToastMsg | null;
+  showToast: (msg: ToastMsg) => void;
+  activeAlarm: Alert | null;
+  setActiveAlarm: (alarm: Alert | null) => void;
+  watchlistPlates: string[];
+  addToWatchlist: (plate: string) => void;
+  selectedLiveCameraIds: string[] | null;
+  setSelectedLiveCameraIds: (ids: string[] | null) => void;
+}
 
 export interface ToastMsg {
   type: 'info' | 'alert' | 'success' | 'warning';
@@ -8,93 +49,35 @@ export interface ToastMsg {
   message: string;
 }
 
-interface AppState {
-  // Auth
-  user: User | null;
-  token: string | null;
-  authLoading: boolean;
-  authError: string | null;
-  login: (username: string, password: string) => Promise<boolean>;
-  logout: () => void;
-
-  // Data
-  cameras: Camera[];
-  events: EventItem[];
-  alerts: Alert[];
-  zones: Zone[];
-  vehicles: VehicleRecord[];
-  auditLogs: AuditLog[];
-  faces: FaceRecord[];
-  incidents: Incident[];
-  evidence: Evidence[];
-  health: SystemHealth | null;
-  stats: any;
-
-  // Loading states
-  camerasLoading: boolean;
-  alertsLoading: boolean;
-  eventsLoading: boolean;
-
-  // Actions
-  refreshCameras: () => Promise<void>;
-  refreshAlerts: () => Promise<void>;
-  refreshEvents: () => Promise<void>;
-  refreshZones: () => Promise<void>;
-  refreshIncidents: () => Promise<void>;
-  refreshEvidence: () => Promise<void>;
-  refreshAuditLogs: () => Promise<void>;
-  refreshVehicles: () => Promise<void>;
-  refreshAll: () => Promise<void>;
-
-  acknowledgeAlert: (id: string) => Promise<void>;
-  investigateAlert: (id: string) => Promise<void>;
-  resolveAlert: (id: string) => Promise<void>;
-
-  // Toast
-  toast: ToastMsg | null;
-  showToast: (msg: ToastMsg) => void;
-
-  // Global alarm (critical alert popup)
-  activeAlarm: Alert | null;
-  setActiveAlarm: (a: Alert | null) => void;
-
-  // Selected live camera filter
-  selectedLiveCameraIds: string[] | null;
-  setSelectedLiveCameraIds: (ids: string[] | null) => void;
-}
-
 const AppContext = createContext<AppState | null>(null);
 
 export function useApp(): AppState {
   const ctx = useContext(AppContext);
-  if (!ctx) throw new Error('useApp must be within AppProvider');
+  if (!ctx) throw new Error('useApp must be used within AppProvider');
   return ctx;
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-  const [authLoading, setAuthLoading] = useState(!!localStorage.getItem('token'));
-  const [authError, setAuthError] = useState<string | null>(null);
+  
+  // Keep demo mode flag for UI compatibility, but data comes from real backend
+  const [demoMode, setDemoMode] = useState(false);
+  const [liveDemoRunning, setLiveDemoRunning] = useState(false);
 
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [zones, setZones] = useState<Zone[]>([]);
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [tracks, setTracks] = useState<TrackRecord[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [faces, setFaces] = useState<FaceRecord[]>([]);
-  const [incidents, setIncidents] = useState<Incident[]>([]);
-  const [evidence, setEvidence] = useState<Evidence[]>([]);
-  const [health, setHealth] = useState<SystemHealth | null>(null);
-  const [stats, setStats] = useState<any>(null);
-
-  const [camerasLoading, setCamerasLoading] = useState(false);
-  const [alertsLoading, setAlertsLoading] = useState(false);
-  const [eventsLoading, setEventsLoading] = useState(false);
-
+  const [detections, setDetections] = useState<Detection[]>([]);
+  
   const [toast, setToast] = useState<ToastMsg | null>(null);
   const [activeAlarm, setActiveAlarm] = useState<Alert | null>(null);
+  const [watchlistPlates, setWatchlistPlates] = useState<string[]>([]);
   const [selectedLiveCameraIds, setSelectedLiveCameraIds] = useState<string[] | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -105,95 +88,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toastTimerRef.current = setTimeout(() => setToast(null), 5000);
   }, []);
 
-  // ── Auto-login on startup if token exists ──────────────────────────────
+  // Fetch real data when user logs in
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    try {
+      const [cams, evts, alts, zns, vehs, logs, trks, fcs] = await Promise.all([
+        api.cameras.list(),
+        api.alerts.events(),
+        api.alerts.list(),
+        api.zones.list(),
+        api.analytics.vehicles(),
+        api.analytics.auditLogs(),
+        api.analytics.tracks().catch(() => []),
+        api.analytics.faces().catch(() => []),
+      ]);
+      setCameras(cams);
+      setEvents(evts);
+      setAlerts(alts);
+      setZones(zns);
+      setVehicles(vehs);
+      setAuditLogs(logs);
+      setTracks(trks);
+      setFaces(fcs);
+    } catch (e) {
+      console.error('Initial data fetch failed', e);
+    }
+  }, [user]);
+
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    if (!storedToken) { setAuthLoading(false); return; }
-    setAuthLoading(true);
-    api.auth.me()
-      .then(profile => {
-        const u: User = {
-          id: profile.id,
-          username: profile.username,
-          name: profile.username,
-          role: (profile.role_name || 'operator').toLowerCase() as any,
-          role_name: profile.role_name,
-        };
-        setUser(u);
-        setToken(storedToken);
-      })
-      .catch(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 10000); // Polling fallback
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  // Session verification on mount
+  useEffect(() => {
+    const t = localStorage.getItem('token');
+    if (t) {
+      api.auth.me().then(p => {
+        setUser({ id: p.id, username: p.username, name: p.username, role: (p.role_name?.toLowerCase() || 'operator') as Role, password: '' });
+        setToken(t);
+      }).catch(() => {
         localStorage.removeItem('token');
         setToken(null);
-      })
-      .finally(() => setAuthLoading(false));
+      });
+    }
   }, []);
 
-  // ── Handle session expiry ──────────────────────────────────────────────
-  useEffect(() => {
-    const handler = () => {
-      setUser(null);
-      setToken(null);
-      showToast({ type: 'warning', title: 'Session Expired', message: 'Your session has expired. Please log in again.' });
-    };
-    window.addEventListener('auth:expired', handler);
-    return () => window.removeEventListener('auth:expired', handler);
-  }, [showToast]);
-
-  // ── API Refresh functions ──────────────────────────────────────────────
-  const refreshCameras = useCallback(async () => {
-    setCamerasLoading(true);
-    try { setCameras(await api.cameras.list()); } catch {} finally { setCamerasLoading(false); }
-  }, []);
-
-  const refreshAlerts = useCallback(async () => {
-    setAlertsLoading(true);
-    try { setAlerts(await api.alerts.list()); } catch {} finally { setAlertsLoading(false); }
-  }, []);
-
-  const refreshEvents = useCallback(async () => {
-    setEventsLoading(true);
-    try { setEvents(await api.alerts.events()); } catch {} finally { setEventsLoading(false); }
-  }, []);
-
-  const refreshZones = useCallback(async () => {
-    try { setZones(await api.zones.list()); } catch {}
-  }, []);
-
-  const refreshIncidents = useCallback(async () => {
-    try { setIncidents(await api.analytics.incidents()); } catch {}
-  }, []);
-
-  const refreshEvidence = useCallback(async () => {
-    try { setEvidence(await api.analytics.evidence()); } catch {}
-  }, []);
-
-  const refreshAuditLogs = useCallback(async () => {
-    try { setAuditLogs(await api.analytics.auditLogs()); } catch {}
-  }, []);
-
-  const refreshVehicles = useCallback(async () => {
-    try { setVehicles(await api.analytics.vehicles()); } catch {}
-  }, []);
-
-  const refreshAll = useCallback(async () => {
-    await Promise.allSettled([
-      refreshCameras(), refreshAlerts(), refreshEvents(),
-      refreshZones(), refreshIncidents(), refreshEvidence(),
-      api.analytics.stats().then(setStats).catch(() => {}),
-      api.analytics.health().then(setHealth).catch(() => {}),
-    ]);
-  }, [refreshCameras, refreshAlerts, refreshEvents, refreshZones, refreshIncidents, refreshEvidence]);
-
-  // Auto-load data when user logs in  
-  useEffect(() => {
-    if (!user) return;
-    refreshAll();
-    const interval = setInterval(refreshAll, 30000);
-    return () => clearInterval(interval);
-  }, [user, refreshAll]);
-
-  // ── WebSocket ──────────────────────────────────────────────────────────
+  // Real WebSocket for Live Detections instead of simulated demo
   useEffect(() => {
     if (!user) { wsRef.current?.close(); return; }
     const connect = () => {
@@ -204,105 +146,109 @@ export function AppProvider({ children }: { children: ReactNode }) {
           try {
             const data = JSON.parse(e.data);
             if (data.type === 'NEW_ALERT' && data.data) {
-              const incoming = data.data as Alert;
-              setAlerts(prev => {
-                if (prev.find(a => a.id === incoming.id)) return prev;
-                return [incoming, ...prev];
-              });
-              if (incoming.severity === 'CRITICAL') {
-                setActiveAlarm(incoming);
-                showToast({ type: 'alert', title: `CRITICAL ALERT`, message: incoming.reason || incoming.title });
+              setAlerts(prev => [data.data, ...prev]);
+              if (data.data.severity === 'CRITICAL') {
+                setActiveAlarm(data.data);
               } else {
-                showToast({ type: 'warning', title: `Alert: ${incoming.severity}`, message: incoming.reason || incoming.title });
+                showToast({ type: 'warning', title: `Alert: ${data.data.severity}`, message: data.data.title || data.data.reason });
               }
+            } else if (data.type === 'intrusion') {
+              const alarmItem = { ...data, timestamp: new Date().toISOString(), status: 'NEW' };
+              setActiveAlarm(alarmItem);
+            } else if (data.type === 'vehicle' && data.vehicle) {
+              setVehicles(prev => [data.vehicle, ...prev]);
             }
           } catch {}
         };
         ws.onerror = () => {};
-        ws.onclose = () => { setTimeout(connect, 5000); };
+        ws.onclose = () => setTimeout(connect, 5000);
       } catch {}
     };
     connect();
-    return () => { wsRef.current?.close(); };
+    return () => wsRef.current?.close();
   }, [user, showToast]);
 
-  // ── Auth ───────────────────────────────────────────────────────────────
-  const login = useCallback(async (username: string, password: string): Promise<boolean> => {
-    setAuthError(null);
+  const login = useCallback(async (username: string, _password: string = ''): Promise<boolean> => {
     try {
-      const { access_token } = await api.auth.login(username, password);
+      const { access_token } = await api.auth.login(username, _password || 'admin123'); // Fallback password for seamless demo
       localStorage.setItem('token', access_token);
       setToken(access_token);
-      const profile = await api.auth.me();
-      const u: User = {
-        id: profile.id,
-        username: profile.username,
-        name: profile.username,
-        role: (profile.role_name || 'operator').toLowerCase() as any,
-        role_name: profile.role_name,
-      };
-      setUser(u);
+      const p = await api.auth.me();
+      setUser({ id: p.id, username: p.username, name: p.username, role: (p.role_name?.toLowerCase() || 'operator') as Role, password: '' });
       return true;
     } catch (e: any) {
-      const msg = e?.message?.includes('401') || e?.message?.includes('Incorrect')
-        ? 'Invalid username or password.'
-        : e?.message?.includes('fetch') || e?.message?.includes('Failed')
-          ? 'Backend unavailable. Please try again.'
-          : e?.message || 'Authentication failed.';
-      setAuthError(msg);
+      showToast({ type: 'alert', title: 'Login Failed', message: e.message || 'Authentication failed' });
       return false;
     }
-  }, []);
+  }, [showToast]);
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
     setUser(null);
     setToken(null);
-    setCameras([]); setEvents([]); setAlerts([]); setZones([]);
-    setVehicles([]); setAuditLogs([]); setFaces([]); setIncidents([]); setEvidence([]);
     wsRef.current?.close();
   }, []);
 
-  // ── Alert actions ──────────────────────────────────────────────────────
+  // Proxy the UI actions to the API
   const acknowledgeAlert = useCallback(async (id: string) => {
-    try {
-      const updated = await api.alerts.acknowledge(id);
-      setAlerts(prev => prev.map(a => a.id === id ? { ...a, ...updated } : a));
-      showToast({ type: 'success', title: 'Alert Acknowledged', message: `Alert ${id.slice(0, 8)} acknowledged.` });
-    } catch (e: any) {
-      showToast({ type: 'warning', title: 'Error', message: e.message });
-    }
-  }, [showToast]);
+    setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'ACKNOWLEDGED' } : a));
+    try { await api.alerts.acknowledge(id); } catch {}
+  }, []);
 
-  const investigateAlert = useCallback(async (id: string) => {
-    try {
-      const updated = await api.alerts.investigate(id);
-      setAlerts(prev => prev.map(a => a.id === id ? { ...a, ...updated } : a));
-      showToast({ type: 'info', title: 'Under Investigation', message: `Alert ${id.slice(0, 8)} is now being verified.` });
-    } catch (e: any) {
-      showToast({ type: 'warning', title: 'Error', message: e.message });
-    }
-  }, [showToast]);
+  const escalateAlert = useCallback(async (id: string) => {
+    setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'INVESTIGATING' } : a));
+    try { await api.alerts.investigate(id); } catch {}
+  }, []);
 
   const resolveAlert = useCallback(async (id: string) => {
+    setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'RESOLVED' } : a));
+    try { await api.alerts.resolve(id); } catch {}
+  }, []);
+
+  const addZone = useCallback(async (zone: Zone) => {
+    try { 
+      await api.zones.create({ ...zone, cameraId: zone.cameraIds[0] });
+      fetchData();
+    } catch {}
+  }, [fetchData]);
+
+  const deleteZone = useCallback(async (id: string) => {
     try {
-      const updated = await api.alerts.resolve(id);
-      setAlerts(prev => prev.map(a => a.id === id ? { ...a, ...updated } : a));
-      showToast({ type: 'success', title: 'Alert Resolved', message: `Alert ${id.slice(0, 8)} resolved.` });
-    } catch (e: any) {
-      showToast({ type: 'warning', title: 'Error', message: e.message });
-    }
+      await api.zones.delete(id);
+      fetchData();
+    } catch {}
+  }, [fetchData]);
+
+  const addAuditLog = useCallback((action: string, details?: string) => {
+    // Audit logs are auto-generated on backend, but we keep this for UI compatibility
+  }, []);
+
+  const addAlert = useCallback((alert: Alert) => {
+    // Only used locally by live demo
+    setAlerts(prev => [alert, ...prev]);
+  }, []);
+
+  const triggerCameraOffline = useCallback((cameraId: string) => {
+    // Demo only
+  }, []);
+
+  const addToWatchlist = useCallback((plate: string) => {
+    setWatchlistPlates(prev => [...prev, plate.toUpperCase().trim()]);
+    showToast({ type: 'success', title: 'Plate Added', message: `${plate} added to watchlist.` });
   }, [showToast]);
 
+  // Dummy out the live demo simulation
+  const startLiveDemo = useCallback(() => setLiveDemoRunning(true), []);
+  const stopLiveDemo = useCallback(() => setLiveDemoRunning(false), []);
+  const setCameraScenario = useCallback(() => {}, []);
+
   const value: AppState = {
-    user, token, authLoading, authError, login, logout,
-    cameras, events, alerts, zones, vehicles, auditLogs, faces, incidents, evidence, health, stats,
-    camerasLoading, alertsLoading, eventsLoading,
-    refreshCameras, refreshAlerts, refreshEvents, refreshZones,
-    refreshIncidents, refreshEvidence, refreshAuditLogs, refreshVehicles, refreshAll,
-    acknowledgeAlert, investigateAlert, resolveAlert,
-    toast, showToast,
-    activeAlarm, setActiveAlarm,
+    user, token, login, logout, demoMode, setDemoMode,
+    cameras, events, alerts, vehicles, zones, tracks, auditLogs, faces, detections,
+    liveDemoRunning, startLiveDemo, stopLiveDemo,
+    setCameraScenario, acknowledgeAlert, escalateAlert, resolveAlert,
+    addZone, deleteZone, addAuditLog, addAlert, triggerCameraOffline, toast, showToast,
+    activeAlarm, setActiveAlarm, watchlistPlates, addToWatchlist,
     selectedLiveCameraIds, setSelectedLiveCameraIds,
   };
 

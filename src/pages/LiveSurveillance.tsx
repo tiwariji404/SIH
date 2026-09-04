@@ -1,15 +1,29 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useApp } from '../store';
 import CameraFeed from '../components/CameraFeed';
 import { Radio, Grid3x3, Cctv, Smartphone, X, RefreshCw } from 'lucide-react';
+import type { ScenarioType } from '../types';
+
+const SCENARIOS: { value: ScenarioType; label: string; color: string }[] = [
+  { value: 'normal', label: 'Normal', color: 'text-emerald-400' },
+  { value: 'intrusion', label: 'Intrusion', color: 'text-red-400' },
+  { value: 'night', label: 'Night Movement', color: 'text-indigo-400' },
+  { value: 'suspicious', label: 'Suspicious Activity', color: 'text-amber-400' },
+  { value: 'vehicle', label: 'Vehicle', color: 'text-blue-400' },
+  { value: 'anpr', label: 'ANPR', color: 'text-purple-400' },
+];
 
 export default function LiveSurveillance() {
-  const { cameras, selectedLiveCameraIds, setSelectedLiveCameraIds, refreshCameras } = useApp();
+  const { cameras, setCameraScenario, detections, selectedLiveCameraIds, setSelectedLiveCameraIds } = useApp();
   const [gridSize, setGridSize] = useState<'2x2' | '3x3'>('2x2');
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [camError, setCamError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    // Only standard component mounts here. Global Alarm handles timer.
+  }, []);
 
   const connectPhoneCamera = useCallback(async () => {
     setCamError(null);
@@ -42,122 +56,147 @@ export default function LiveSurveillance() {
 
   const visibleCameras = selectedLiveCameraIds && selectedLiveCameraIds.length > 0
     ? cameras.filter(c => selectedLiveCameraIds.includes(c.id))
-    : cameras.filter(c => c.status !== 'OFFLINE' && c.status !== 'DISCONNECTED');
+    : cameras.filter(c => c.status !== 'OFFLINE');
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4 animate-fade-in relative block">
+      
+      {/* ALARM OVERLAY IS NOW HANDLED GLOBALLY IN App.tsx */}
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-black text-slate-800">Live Surveillance</h1>
-          <p className="text-xs text-slate-500">Real-time CCTV monitoring · {visibleCameras.length} cameras active</p>
+          <h1 className="text-xl font-bold text-slate-900">Live Surveillance</h1>
+          <p className="text-xs text-slate-600">Real-time CCTV monitoring with AI detection overlay</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Phone camera connect button */}
           {liveStream ? (
-            <button onClick={disconnectPhoneCamera} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-colors text-[11px] font-bold">
-              <X className="h-3.5 w-3.5" /> Disconnect Phone
+            <button onClick={disconnectPhoneCamera} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors">
+              <X className="h-3.5 w-3.5" />
+              <span className="text-[10px] font-mono">DISCONNECT PHONE</span>
             </button>
           ) : (
-            <button onClick={connectPhoneCamera} disabled={connecting}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-colors text-[11px] font-bold disabled:opacity-50">
+            <button
+              onClick={connectPhoneCamera}
+              disabled={connecting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+            >
               <Smartphone className="h-3.5 w-3.5" />
-              {connecting ? 'Connecting...' : 'Connect Phone'}
+              <span className="text-[10px] font-mono">{connecting ? 'CONNECTING...' : 'CONNECT PHONE'}</span>
             </button>
           )}
-          <button onClick={refreshCameras} className="p-2 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 transition-colors">
-            <RefreshCw className="h-4 w-4" />
-          </button>
           <div className="flex items-center gap-1 p-1 rounded-lg bg-white border border-slate-200">
-            <button onClick={() => setGridSize('2x2')} className={`p-1.5 rounded text-xs font-bold ${gridSize === '2x2' ? 'bg-orange-100 text-orange-700' : 'text-slate-500'}`}>
+            <button onClick={() => setGridSize('2x2')} className={`p-1.5 rounded ${gridSize === '2x2' ? 'bg-accent-500/20 text-accent-300' : 'text-slate-600'}`}>
               <Grid3x3 className="h-4 w-4" />
             </button>
-            <button onClick={() => setGridSize('3x3')} className={`px-2 py-1.5 rounded text-[10px] font-bold ${gridSize === '3x3' ? 'bg-orange-100 text-orange-700' : 'text-slate-500'}`}>
+            <button onClick={() => setGridSize('3x3')} className={`px-2 py-1.5 rounded text-[10px] font-mono ${gridSize === '3x3' ? 'bg-accent-500/20 text-accent-300' : 'text-slate-600'}`}>
               3×3
             </button>
           </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200">
-            <Radio className="h-3 w-3 text-red-500 animate-pulse" />
-            <span className="text-[10px] font-black text-red-600">LIVE</span>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20">
+            <Radio className="h-3 w-3 text-red-400 animate-pulse" />
+            <span className="text-[10px] font-mono text-red-400">LIVE</span>
           </div>
         </div>
       </div>
 
-      {/* Error */}
+      {/* Phone camera status / error */}
       {camError && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2">
-          <X className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-xs font-semibold text-red-700">Camera Access Failed</p>
-            <p className="text-[11px] text-red-600 mt-0.5">{camError}</p>
+        <div className="card p-3 border-red-500/20 bg-red-500/5">
+          <div className="flex items-start gap-2">
+            <X className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-red-300">Camera Access Failed</p>
+              <p className="text-[11px] text-slate-600 mt-0.5">{camError}</p>
+              <p className="text-[10px] text-slate-600 mt-1">
+                Tip: The browser needs camera permission. On phone, open this page over HTTPS and allow camera access when prompted.
+              </p>
+            </div>
+            <button onClick={connectPhoneCamera} className="flex items-center gap-1 text-[10px] text-accent-400 hover:text-accent-300">
+              <RefreshCw className="h-3 w-3" /> Retry
+            </button>
           </div>
-          <button onClick={connectPhoneCamera} className="text-[10px] text-red-600 font-bold flex items-center gap-1">
-            <RefreshCw className="h-3 w-3" /> Retry
-          </button>
         </div>
       )}
 
       {liveStream && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-2 text-xs text-emerald-700 font-medium">
-          <Smartphone className="h-4 w-4" /> Phone camera connected — broadcasting live feed
+        <div className="card p-3 border-emerald-500/20 bg-emerald-500/5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Smartphone className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+            <p className="text-xs text-emerald-300">
+              <span className="font-semibold">Phone camera connected.</span> Broadcasting live feed to all camera channels.
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Camera selector chips */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-wrap">
-        <button onClick={() => setSelectedLiveCameraIds(null)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${!selectedLiveCameraIds || selectedLiveCameraIds.length === 0 ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}>
+      {/* Camera selector */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <button
+          onClick={() => setSelectedLiveCameraIds(null)}
+          className={`badge whitespace-nowrap ${!selectedLiveCameraIds || selectedLiveCameraIds.length === 0 ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white text-slate-600 border border-slate-200'}`}
+        >
           All Cameras
         </button>
         {cameras.map(cam => {
           const isSelected = selectedLiveCameraIds?.includes(cam.id);
-          const isOnline = cam.status === 'ONLINE' || cam.status === 'ACTIVE' || cam.status === 'LIVE';
           return (
-            <button key={cam.id} onClick={() => setSelectedLiveCameraIds([cam.id])}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors flex items-center gap-1.5 ${isSelected ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-red-400'}`} />
-              {cam.name || cam.id}
+            <button
+              key={cam.id}
+              onClick={() => setSelectedLiveCameraIds([cam.id])}
+              className={`badge whitespace-nowrap ${isSelected ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white text-slate-600 border border-slate-200'} ${cam.status === 'OFFLINE' ? 'opacity-50' : ''}`}
+            >
+              <span className={`status-dot ${liveStream ? 'bg-emerald-400' : cam.status === 'ONLINE' ? 'bg-emerald-400' : cam.status === 'DEGRADED' ? 'bg-amber-400' : 'bg-red-500'}`} />
+              {cam.id}
+              {liveStream && <Smartphone className="h-2.5 w-2.5 ml-0.5 inline" />}
             </button>
-          );
+          )
         })}
       </div>
 
       {/* Camera grid */}
-      {visibleCameras.length === 0 ? (
-        <div className="text-center py-16">
-          <Cctv className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-500 font-medium">No live cameras available</p>
-          <p className="text-xs text-slate-400 mt-1">Add cameras via Camera Management and set status to ACTIVE.</p>
-        </div>
-      ) : (
-        <div className={`grid gap-3 ${gridSize === '2x2' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
-          {visibleCameras.map(cam => (
-            <div key={cam.id}>
-              <CameraFeed
-                camera={cam}
-                detections={[]}
-                liveStream={liveStream}
-              />
-              <div className="mt-1.5 flex items-center justify-between gap-2 px-1">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-700 truncate">{cam.name || cam.id}</p>
-                  <p className="text-[10px] text-slate-400">{cam.bop || ''}{cam.location ? ` · ${cam.location}` : ''}</p>
-                </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border flex-shrink-0 ${
-                  cam.status === 'ONLINE' || cam.status === 'ACTIVE' || cam.status === 'LIVE'
-                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                    : 'text-red-600 bg-red-50 border-red-200'
-                }`}>{cam.status}</span>
+      <div className={`grid gap-3 ${gridSize === '2x2' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
+        {visibleCameras.map(cam => (
+          <div key={cam.id} className="space-y-2">
+            <CameraFeed
+              camera={cam}
+              detections={detections}
+              liveStream={liveStream}
+            />
+            {/* Camera info + scenario selector */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-800 truncate">
+                  {cam.id} — {cam.name}
+                  {liveStream && <span className="text-emerald-400"> (Phone)</span>}
+                </p>
+                <p className="text-[10px] text-slate-600 truncate">{cam.bop} • {cam.location}</p>
               </div>
+              <select
+                value={cam.scenario}
+                onChange={e => setCameraScenario(cam.id, e.target.value as ScenarioType)}
+                className="bg-ink-900 border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-700 focus:outline-none focus:border-accent-500/50"
+                disabled={cam.status === 'OFFLINE'}
+              >
+                {SCENARIOS.map(s => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
 
-      {/* Offline notice */}
-      {cameras.some(c => c.status === 'OFFLINE' || c.status === 'DISCONNECTED') && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2 text-xs text-red-600">
-          <Cctv className="h-4 w-4" />
-          {cameras.filter(c => c.status === 'OFFLINE' || c.status === 'DISCONNECTED').length} camera(s) offline
+      {/* Offline cameras notice */}
+      {cameras.some(c => c.status === 'OFFLINE') && (
+        <div className="card p-3 border-red-500/20 bg-red-500/5">
+          <div className="flex items-center gap-2">
+            <Cctv className="h-4 w-4 text-red-400" />
+            <p className="text-xs text-red-300">
+              {cameras.filter(c => c.status === 'OFFLINE').length} camera(s) offline: {cameras.filter(c => c.status === 'OFFLINE').map(c => c.id).join(', ')}
+            </p>
+          </div>
         </div>
       )}
     </div>

@@ -159,6 +159,15 @@ class Zone(Base):
     rule = Column(String(255))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+class WatchlistRecord(Base):
+    __tablename__ = "watchlist"
+
+    id = Column(String(100), primary_key=True, index=True, default=generate_uuid)
+    plate_number = Column(String(50), unique=True, index=True)
+    description = Column(String(255), nullable=True)
+    added_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 
 class Detection(Base):
     __tablename__ = "detections"

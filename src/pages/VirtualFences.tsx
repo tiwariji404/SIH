@@ -1,22 +1,20 @@
 import { useState, useRef, MouseEvent, useEffect } from 'react';
 import { useApp } from '../store';
-import { Settings, Shield, Plus, MoreHorizontal, ChevronDown, ChevronUp, Map as MapIcon, Camera as CameraIcon, Trash2, ShieldAlert, Check } from 'lucide-react';
-import { MapContainer, TileLayer, Polygon as LeafletPolygon, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-
-// Fix leaflet marker icon issue in react-leaflet
-import L from 'leaflet';
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconAnchor: [12, 41]
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+import { Settings, Shield, Plus, MoreHorizontal, ChevronDown, ChevronUp, Map as MapIcon, Camera as CameraIcon, Trash2, ShieldAlert, Check, RefreshCw } from 'lucide-react';
+import { GoogleMap, useJsApiLoader, MarkerF, PolygonF } from '@react-google-maps/api';
 
 type Point = { x: number; y: number };
+
+const containerStyle = {
+  width: '100%',
+  height: '100%'
+};
+
+// Punjab Border roughly
+const defaultCenter = {
+  lat: 31.6045,
+  lng: 74.5768
+};
 
 export default function VirtualFences() {
   const { showToast } = useApp();
@@ -24,6 +22,10 @@ export default function VirtualFences() {
   const [viewMode, setViewMode] = useState<'camera' | 'map'>('camera');
   const [selectedCamera, setSelectedCamera] = useState('Cam 1 - Border Sector A');
   
+  // Custom Camera Stream
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [streamActive, setStreamActive] = useState(false);
+
   // Drawing State
   const [points, setPoints] = useState<Point[]>([]);
   const [isDrawing, setIsDrawing] = useState(true);
@@ -32,45 +34,72 @@ export default function VirtualFences() {
   const [isBreached, setIsBreached] = useState(false);
   const [breachPoint, setBreachPoint] = useState<Point | null>(null);
 
-  // Map coordinates mapping for cameras (Dummy data)
-  const cameraLocations: Record<string, [number, number]> = {
-    'Cam 1 - Border Sector A': [28.6139, 77.2090],
-    'Cam 2 - Checkpoint Alpha': [28.6150, 77.2100],
-    'Cam 3 - Outpost Delta': [28.6120, 77.2080],
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: 'AIzaSyDJkmhAaJGSlhomraLnXjDMeTd5dXzyCMM'
+  });
+
+  // Map coordinates mapping for cameras
+  const cameraLocations: Record<string, { lat: number, lng: number }> = {
+    'Cam 1 - Border Sector A': { lat: 31.6050, lng: 74.5765 },
+    'Cam 2 - Checkpoint Alpha': { lat: 31.6080, lng: 74.5790 },
+    'Cam 3 - Outpost Delta': { lat: 31.6020, lng: 74.5730 },
+    'Hardware Device (Webcam 1)': { lat: 31.6045, lng: 74.5768 },
+    'Hardware Device (Webcam 2)': { lat: 31.6030, lng: 74.5750 },
   };
 
-  const currentCoords = cameraLocations[selectedCamera];
+  const currentGeo = cameraLocations[selectedCamera] || defaultCenter;
 
-  // Map polygon coordinates (approximate conversion for demo purposes)
-  // In a real app, you'd map pixel coordinates to geo coordinates using a calibration matrix
+  // Approximate convert of UI points to geo polygon for map representation
   const mapPolygonPositions = points.map(p => {
-    // scale pixel (0-100) to geo offset
-    const latOffset = (50 - p.y) * 0.0001; 
-    const lngOffset = (p.x - 50) * 0.0001;
-    return [currentCoords[0] + latOffset, currentCoords[1] + lngOffset] as [number, number];
+    const latOffset = (50 - p.y) * 0.00005; 
+    const lngOffset = (p.x - 50) * 0.00005;
+    return { lat: currentGeo.lat + latOffset, lng: currentGeo.lng + lngOffset };
   });
+
+  useEffect(() => {
+    // If a hardware camera is selected, try to hook up the webcam feed.
+    if (selectedCamera.startsWith('Hardware Device') && viewMode === 'camera') {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then((stream) => {
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+              setStreamActive(true);
+            }
+          })
+          .catch((err) => {
+            showToast({ type: 'alert', title: 'Hardware Access Denied', message: err.message });
+            setStreamActive(false);
+          });
+      }
+    } else {
+      // Disconnect hardware stream if not using it
+      if (videoRef.current && videoRef.current.srcObject) {
+         const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+         tracks.forEach(t => t.stop());
+         videoRef.current.srcObject = null;
+      }
+      setStreamActive(false);
+    }
+  }, [selectedCamera, viewMode, showToast]);
 
   const handleSvgClick = (e: MouseEvent<SVGSVGElement>) => {
     if (!isDrawing) return;
-    
     const svg = e.currentTarget;
     const rect = svg.getBoundingClientRect();
-    
-    // Calculate percentage coordinates (0 to 100)
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     
-    // Check if clicking near the first point to close polygon
     if (points.length >= 3) {
       const first = points[0];
       const dist = Math.sqrt(Math.pow(x - first.x, 2) + Math.pow(y - first.y, 2));
-      if (dist < 3) { // 3% threshold
+      if (dist < 3) {
         setIsDrawing(false);
         showToast({ type: 'success', title: 'Fence Saved', message: 'Virtual Fence area established.' });
         return;
       }
     }
-    
     setPoints([...points, { x, y }]);
   };
 
@@ -87,7 +116,6 @@ export default function VirtualFences() {
       return;
     }
     
-    // Find a point inside the polygon (approximate center for demo)
     const centerX = points.reduce((acc, p) => acc + p.x, 0) / points.length;
     const centerY = points.reduce((acc, p) => acc + p.y, 0) / points.length;
     
@@ -101,21 +129,6 @@ export default function VirtualFences() {
     }, 5000);
   };
 
-  // Check if a point is in polygon (Ray-casting algorithm)
-  const isPointInPolygon = (point: Point, vs: Point[]) => {
-    let x = point.x, y = point.y;
-    let inside = false;
-    for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-        let xi = vs[i].x, yi = vs[i].y;
-        let xj = vs[j].x, yj = vs[j].y;
-        let intersect = ((yi > y) != (yj > y))
-            && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-        if (intersect) inside = !inside;
-    }
-    return inside;
-  };
-
-  // AI Toggles
   const [humanDetection, setHumanDetection] = useState(true);
   const [vehicleClassification, setVehicleClassification] = useState(true);
   const [aiExpanded, setAiExpanded] = useState(true);
@@ -152,11 +165,32 @@ export default function VirtualFences() {
 
         {viewMode === 'camera' ? (
           <div className="flex-1 relative overflow-hidden">
-            <img 
-              src="/border_fence.jpg" 
-              alt="Camera Feed" 
-              className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 ${isBreached ? 'brightness-110 saturate-150' : ''}`} 
-            />
+            {selectedCamera.startsWith('Hardware') ? (
+               <video 
+                  ref={videoRef}
+                  autoPlay 
+                  playsInline 
+                  muted 
+                  className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 ${isBreached ? 'brightness-110 saturate-150' : ''}`} 
+               />
+            ) : (
+                <img 
+                  src="/border_fence.jpg" 
+                  alt="Camera Feed" 
+                  className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 ${isBreached ? 'brightness-110 saturate-150' : ''}`} 
+                />
+            )}
+            
+            {(!streamActive && selectedCamera.startsWith('Hardware')) && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50">
+                   <div className="text-center text-slate-400">
+                      <CameraIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>Hardware Camera Disconnected or Loading...</p>
+                      <p className="text-xs mt-1">Please allow camera permissions.</p>
+                   </div>
+                </div>
+            )}
+            
             {isBreached && <div className="absolute inset-0 bg-red-900/20 mix-blend-color animate-pulse pointer-events-none" />}
             
             {/* Interactive SVG Canvas */}
@@ -165,12 +199,7 @@ export default function VirtualFences() {
               preserveAspectRatio="none" 
               viewBox="0 0 100 100"
               onClick={handleSvgClick}
-              onMouseMove={(e) => {
-                // If drawing, we could show a line to the cursor.
-                // For simplicity, just handling clicks.
-              }}
             >
-              {/* Draw established polygon */}
               {points.length > 1 && (
                 <polygon 
                   points={points.map(p => `${p.x},${p.y}`).join(' ')} 
@@ -179,21 +208,9 @@ export default function VirtualFences() {
                   strokeWidth="0.5" 
                 />
               )}
-              
-              {/* Draw nodes */}
               {points.map((p, i) => (
-                <circle 
-                  key={i} 
-                  cx={p.x} 
-                  cy={p.y} 
-                  r="1" 
-                  fill="white" 
-                  stroke={i === 0 && isDrawing ? "yellow" : "black"} 
-                  strokeWidth="0.2" 
-                />
+                <circle key={i} cx={p.x} cy={p.y} r="1" fill="white" stroke={i === 0 && isDrawing ? "yellow" : "black"} strokeWidth="0.2" />
               ))}
-
-              {/* Draw Breach Point Indicator */}
               {isBreached && breachPoint && (
                 <g>
                   <circle cx={breachPoint.x} cy={breachPoint.y} r="3" fill="rgba(239, 68, 68, 0.5)" className="animate-ping" />
@@ -204,7 +221,6 @@ export default function VirtualFences() {
               )}
             </svg>
 
-            {/* Instruction Overlay */}
             {isDrawing && points.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
                 <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700 px-6 py-4 rounded-xl shadow-2xl flex flex-col items-center animate-bounce">
@@ -215,7 +231,6 @@ export default function VirtualFences() {
               </div>
             )}
             
-            {/* Alert Overlay */}
             {isBreached && (
                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-red-600/90 backdrop-blur-md px-6 py-2 rounded-full border border-red-400 text-white font-bold tracking-widest text-sm shadow-[0_0_30px_rgba(239,68,68,0.6)] z-50 flex items-center gap-2">
                  <ShieldAlert className="w-5 h-5 animate-pulse" /> BREACH DETECTED IN SECTOR
@@ -223,27 +238,40 @@ export default function VirtualFences() {
             )}
           </div>
         ) : (
-          <div className="flex-1 relative z-10">
-             {/* Leaflet Map */}
-             <MapContainer center={currentCoords} zoom={17} style={{ height: '100%', width: '100%' }}>
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" // Dark theme map tiles
-                />
-                
-                <Marker position={currentCoords}>
-                  <Popup>
-                    {selectedCamera}
-                  </Popup>
-                </Marker>
+          <div className="flex-1 relative z-10 w-full h-full bg-slate-900">
+             {/* Google Maps Integration */}
+             {isLoaded ? (
+                 <GoogleMap
+                    mapContainerStyle={containerStyle}
+                    center={currentGeo}
+                    zoom={15}
+                    options={{ disableDefaultUI: true, mapTypeId: 'hybrid' }}
+                 >
+                    {Object.entries(cameraLocations).map(([camName, pos]) => (
+                        <MarkerF 
+                            key={camName} 
+                            position={pos} 
+                            onClick={() => setSelectedCamera(camName)}
+                            label={{ text: camName.includes('Hardware') ? 'Webcam' : 'CCTV', color: 'yellow', fontSize: '10px', className: 'mt-10' }}
+                        />
+                    ))}
 
-                {!isDrawing && mapPolygonPositions.length > 2 && (
-                  <LeafletPolygon 
-                    positions={mapPolygonPositions} 
-                    pathOptions={{ color: isBreached ? 'red' : 'cyan', fillColor: isBreached ? 'red' : 'cyan', fillOpacity: 0.2 }} 
-                  />
-                )}
-             </MapContainer>
+                    {!isDrawing && mapPolygonPositions.length > 2 && (
+                        <PolygonF 
+                            paths={mapPolygonPositions}
+                            options={{
+                                fillColor: isBreached ? '#ef4444' : '#06b6d4',
+                                fillOpacity: 0.35,
+                                strokeColor: isBreached ? '#ef4444' : '#06b6d4',
+                                strokeOpacity: 0.8,
+                                strokeWeight: 2
+                            }}
+                        />
+                    )}
+                 </GoogleMap>
+             ) : (
+                 <div className="flex items-center justify-center h-full w-full text-slate-400">Loading Map...</div>
+             )}
              
              {isBreached && (
                 <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1000]">
@@ -259,30 +287,36 @@ export default function VirtualFences() {
       {/* Right Column (30%) - Configuration Sidebar */}
       <div className="w-80 lg:w-96 bg-[#131722] flex flex-col h-full z-10 overflow-y-auto custom-scrollbar">
         
-        {/* Header */}
         <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#1a1d27]">
           <h2 className="text-sm font-medium text-slate-200">Fence Configuration</h2>
           <MoreHorizontal className="w-4 h-4 text-slate-500" />
         </div>
 
-        {/* Camera Selector */}
-        <div className="p-4 border-b border-slate-800">
-           <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Select Camera Target</label>
+        <div className="p-4 border-b border-slate-800 bg-[#0b0f19]">
+           <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
+             Select Camera Target
+             {selectedCamera.startsWith('Hardware') && <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px]">Customize</span>}
+           </label>
            <div className="relative">
              <select 
                value={selectedCamera}
                onChange={(e) => { setSelectedCamera(e.target.value); clearPolygon(); }}
-               className="w-full bg-[#0b0f19] border border-slate-700 text-slate-200 text-sm font-medium rounded-lg px-3 py-2.5 appearance-none focus:outline-none focus:border-blue-500"
+               className="w-full bg-[#131722] border border-slate-700 text-slate-200 text-sm font-medium rounded-lg px-3 py-2.5 appearance-none focus:outline-none focus:border-blue-500"
              >
-               {Object.keys(cameraLocations).map(cam => (
-                 <option key={cam} value={cam}>{cam}</option>
-               ))}
+               <optgroup label="Punjab Border Mock Cameras">
+                   <option value="Cam 1 - Border Sector A">Cam 1 - Border Sector A</option>
+                   <option value="Cam 2 - Checkpoint Alpha">Cam 2 - Checkpoint Alpha</option>
+                   <option value="Cam 3 - Outpost Delta">Cam 3 - Outpost Delta</option>
+               </optgroup>
+               <optgroup label="Custom / Hardware Connectivity">
+                   <option value="Hardware Device (Webcam 1)">Connect Local Webcam 1</option>
+                   <option value="Hardware Device (Webcam 2)">Connect Local Webcam 2</option>
+               </optgroup>
              </select>
              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
            </div>
         </div>
 
-        {/* Drawing Controls */}
         <div className="p-4 border-b border-slate-800 space-y-3">
            <label className="block text-xs font-bold uppercase tracking-widest text-slate-500">Geometry Tools</label>
            
@@ -308,7 +342,6 @@ export default function VirtualFences() {
               )}
            </div>
 
-           {/* SIMULATE BUTTON */}
            <button 
               onClick={simulateBreach}
               disabled={points.length < 3 || isDrawing}
@@ -322,7 +355,6 @@ export default function VirtualFences() {
            </button>
         </div>
 
-        {/* AI Feature Activation Accordion */}
         <div className="border-b border-slate-800">
           <button 
             onClick={() => setAiExpanded(!aiExpanded)}
@@ -340,7 +372,6 @@ export default function VirtualFences() {
           )}
         </div>
 
-        {/* Settings Block */}
         <div className="p-4 space-y-5">
            <div>
              <label className="block text-xs font-medium text-slate-400 mb-2">Sensitivity Threshold</label>
@@ -351,7 +382,6 @@ export default function VirtualFences() {
              </div>
            </div>
         </div>
-
       </div>
     </div>
   );

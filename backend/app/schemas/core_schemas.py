@@ -218,3 +218,16 @@ class Evidence(EvidenceBase):
     id: str
     created_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
+    
+class WatchlistRecordBase(BaseModel):
+    plate_number: str
+    description: Optional[str] = None
+
+class WatchlistRecordCreate(WatchlistRecordBase):
+    pass
+
+class WatchlistRecord(WatchlistRecordBase):
+    id: str
+    added_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+

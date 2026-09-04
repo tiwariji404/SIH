@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database.base import get_db
-from app.database.models import AlertModel, CameraModel, DetectionModel, EventModel, TrackingModel, ZoneModel
-from app.models.schemas import CameraCreateRequest, HealthSummary, VideoUploadResponse, ZoneCreateRequest
+from app.database.models import AlertModel, CameraModel, DetectionModel, EventModel, TrackingModel, ZoneModel, WatchlistModel
+from app.models.schemas import CameraCreateRequest, HealthSummary, VideoUploadResponse, ZoneCreateRequest, WatchlistCreateRequest
 from app.services.camera_service import CameraManager, safe_json_loads
 
 
@@ -122,6 +122,15 @@ def zone_to_dict(record: ZoneModel) -> dict:
         "coordinates": safe_json_loads(record.coordinates_json, []),
         "rule": record.rule,
     }
+
+def watchlist_to_dict(record: WatchlistModel) -> dict:
+    return {
+        "id": record.id,
+        "plate_number": record.plate_number,
+        "description": record.description,
+        "added_at": record.added_at.isoformat(),
+    }
+
 
 
 def tracking_to_dict(record: TrackingModel) -> dict:
@@ -312,6 +321,78 @@ def delete_zone(zone_id: str, request: Request, db: Session = Depends(get_db)) -
     db.commit()
     request.app.state.websocket_manager.broadcast_from_thread({"event": "zone_deleted", "zone_id": zone_id})
     return {"ok": True, "zoneId": zone_id}
+
+@router.get("/api/watchlist")
+def list_watchlist(db: Session = Depends(get_db)) -> list[dict]:
+    records = db.query(WatchlistModel).order_by(WatchlistModel.added_at.desc()).all()
+    return [watchlist_to_dict(r) for r in records]
+
+@router.post("/api/watchlist")
+def add_to_watchlist(payload: WatchlistCreateRequest, db: Session = Depends(get_db)) -> dict:
+    record = db.query(WatchlistModel).filter(WatchlistModel.plate_number == payload.plate_number).first()
+    if not record:
+        record = WatchlistModel(
+            id=f"W-{uuid.uuid4().hex[:8]}",
+            plate_number=payload.plate_number,
+            description=payload.description
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+    return watchlist_to_dict(record)
+
+@router.delete("/api/watchlist/{watchlist_id}")
+def delete_watchlist(watchlist_id: str, db: Session = Depends(get_db)) -> dict:
+    record = db.get(WatchlistModel, watchlist_id)
+    if record:
+        db.delete(record)
+        db.commit()
+    return {"ok": True}
+
+@router.post("/api/watchlist/upload")
+async def upload_plate_image(file: UploadFile = File(...), db: Session = Depends(get_db)) -> dict:
+    try:
+        import easyocr
+        import numpy as np
+        import cv2
+    except ImportError:
+        raise HTTPException(status_code=500, detail="OCR engine not installed or failed to load")
+    
+    contents = await file.read()
+    nparr = np.frombuffer(contents, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None:
+        raise HTTPException(status_code=400, detail="Invalid image file format")
+        
+    try:
+        reader = easyocr.Reader(['en'], gpu=False) # CPU mode for compatibility
+        results = reader.readtext(img)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
+        
+    if not results:
+        raise HTTPException(status_code=400, detail="No text detected in the image")
+        
+    # Get the text with highest confidence
+    best_text = max(results, key=lambda r: r[2])[1]
+    
+    # Store it in DB
+    plate_number = "".join(c for c in best_text if c.isalnum()).upper()
+    if not plate_number:
+        raise HTTPException(status_code=400, detail="Extracted text contains no valid alphanumeric characters")
+        
+    record = db.query(WatchlistModel).filter(WatchlistModel.plate_number == plate_number).first()
+    if not record:
+        record = WatchlistModel(
+            id=f"W-{uuid.uuid4().hex[:8]}",
+            plate_number=plate_number,
+            description="Auto-added via Image Upload"
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        
+    return {"ok": True, "plate_number": plate_number, "record": watchlist_to_dict(record)}
 
 
 @router.get("/api/system/health")

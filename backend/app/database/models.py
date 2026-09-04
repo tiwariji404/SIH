@@ -139,3 +139,12 @@ class AuditLogModel(Base):
     details: Mapped[str] = mapped_column(Text, default="")
     result: Mapped[str] = mapped_column(String(20), default="SUCCESS")
     ip: Mapped[str] = mapped_column(String(80), default="127.0.0.1")
+
+class WatchlistModel(Base):
+    __tablename__ = "watchlist"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    plate_number: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+

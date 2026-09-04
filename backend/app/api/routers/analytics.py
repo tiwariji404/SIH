@@ -10,7 +10,8 @@ from app.models.core_models import (
     TrackRecord as DB_Track,
     AuditLog as DB_AuditLog,
     Incident as DB_Incident,
-    Evidence as DB_Evidence
+    Evidence as DB_Evidence,
+    WatchlistRecord as DB_Watchlist
 )
 from app.schemas.core_schemas import (
     VehicleRecord, VehicleRecordCreate,
@@ -19,8 +20,11 @@ from app.schemas.core_schemas import (
     TrackRecord, TrackRecordCreate,
     AuditLog, AuditLogCreate,
     Incident, IncidentCreate,
-    Evidence, EvidenceCreate
+    Evidence, EvidenceCreate,
+    WatchlistRecord, WatchlistRecordCreate
 )
+from fastapi import File, UploadFile
+import uuid
 from app.models.user import User
 from app.api.deps import get_current_user, get_current_active_supervisor
 
@@ -33,10 +37,39 @@ def get_vehicles(db: Session = Depends(get_db), current_user: User = Depends(get
 
 @router.post("/vehicles", response_model=VehicleRecord)
 def create_vehicle(vehicle: VehicleRecordCreate, db: Session = Depends(get_db)):
+    # Watchlist check
+    in_watchlist = db.query(DB_Watchlist).filter(DB_Watchlist.plate_number == vehicle.plateNumber).first()
+    if in_watchlist:
+        vehicle.status = "WATCHLIST"
+        
     db_item = DB_Vehicle(**vehicle.model_dump())
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
+    
+    if in_watchlist:
+        # Import ws manager dynamically to prevent circular imports if needed
+        from app.ws_manager import manager
+        import asyncio
+        payload = {
+            "type": "NEW_ALERT",
+            "data": {
+                "id": f"ALRT-{uuid.uuid4().hex[:6]}",
+                "severity": "CRITICAL",
+                "title": "Watchlist Match Detected",
+                "reason": f"Vehicle plate {vehicle.plateNumber} matches watchlist.",
+                "status": "NEW",
+                "timestamp": db_item.timestamp
+            }
+        }
+        # In a generic fastAPI thread we don't have async event loop directly. We can create bg tasks, but for simple broadcast:
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(manager.broadcast_json(payload))
+        except:
+            pass
+            
     return db_item
 
 # Faces (Facial Recognition)
@@ -149,6 +182,66 @@ def verify_evidence(evidence_id: str, db: Session = Depends(get_db), current_use
         "ledger_integrity": ledger_status,
         "ledger_record": ledger_record
     }
+
+# Watchlist
+@router.get("/watchlist", response_model=List[WatchlistRecord])
+def get_watchlist(db: Session = Depends(get_db)):
+    return db.query(DB_Watchlist).order_by(DB_Watchlist.added_at.desc()).all()
+
+@router.post("/watchlist", response_model=WatchlistRecord)
+def create_watchlist(watchlist: WatchlistRecordCreate, db: Session = Depends(get_db)):
+    db_item = db.query(DB_Watchlist).filter(DB_Watchlist.plate_number == watchlist.plate_number).first()
+    if not db_item:
+        db_item = DB_Watchlist(plate_number=watchlist.plate_number, description=watchlist.description)
+        db.add(db_item)
+        db.commit()
+        db.refresh(db_item)
+    return db_item
+
+@router.post("/watchlist/upload", response_model=WatchlistRecord)
+async def upload_watchlist_image(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    try:
+        import easyocr
+        import numpy as np
+        import cv2
+    except ImportError:
+        raise HTTPException(status_code=500, detail="OCR engine not installed or failed to load")
+    
+    contents = await file.read()
+    nparr = np.frombuffer(contents, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None:
+        raise HTTPException(status_code=400, detail="Invalid image file format")
+        
+    try:
+        reader = easyocr.Reader(['en'], gpu=False) # Keep GPU false for compatibility on diverse hackathon hardware
+        results = reader.readtext(img)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
+        
+    if not results:
+        raise HTTPException(status_code=400, detail="No text detected in the image")
+        
+    # Get the text with highest confidence
+    best_text = max(results, key=lambda r: r[2])[1]
+    
+    # Clean it up for plate processing
+    plate_number = "".join(c for c in best_text if c.isalnum()).upper()
+    if not plate_number:
+        raise HTTPException(status_code=400, detail="Extracted text contains no valid alphanumeric characters")
+        
+    db_item = db.query(DB_Watchlist).filter(DB_Watchlist.plate_number == plate_number).first()
+    if not db_item:
+        db_item = DB_Watchlist(
+            plate_number=plate_number,
+            description="Auto-added via Image Upload (ANPR Target)"
+        )
+        db.add(db_item)
+        db.commit()
+        db.refresh(db_item)
+        
+    return db_item
+
 
 @router.post("/evidence", response_model=Evidence)
 def create_evidence(evidence: EvidenceCreate, db: Session = Depends(get_db)):

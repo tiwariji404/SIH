@@ -43,3 +43,7 @@ class HealthSummary(BaseModel):
 class VideoUploadResponse(BaseModel):
     filename: str
     source_path: str
+
+class WatchlistCreateRequest(BaseModel):
+    plate_number: str
+    description: str | None = None

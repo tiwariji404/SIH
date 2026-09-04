@@ -85,6 +85,26 @@ export const api = {
     verifyEvidence: (id: string) => request<any>(`/api/v1/analytics/evidence/${id}/verify`),
     faces: () => request<any[]>('/api/v1/analytics/faces'),
     tracks: () => request<any[]>('/api/v1/analytics/tracks'),
+    watchlist: () => request<any[]>('/api/v1/analytics/watchlist'),
+    addWatchlist: (data: any) => request<any>('/api/v1/analytics/watchlist', { method: 'POST', body: JSON.stringify(data) }),
+    uploadWatchlistPhoto: async (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const token = getToken();
+        return fetch(`${BASE_URL}/api/v1/analytics/watchlist/upload`, {
+            method: 'POST',
+            body: formData,
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        }).then(async res => {
+            if (!res.ok) {
+                let msg = `HTTP ${res.status}`;
+                try { const d = await res.json(); msg = d.detail || msg; } catch {}
+                throw new Error(msg);
+            }
+            return res.json();
+        });
+    },
+    deleteWatchlist: (id: string) => request<any>(`/api/v1/analytics/watchlist/${id}`, { method: 'DELETE' }),
   },
   health: () => request<any>('/health'),
 };

@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react';
 import { useApp } from '../store';
-import { Search, ShieldAlert, CheckCircle, HelpCircle, Plus, Camera, Car } from 'lucide-react';
+import { Search, ShieldAlert, CheckCircle, HelpCircle, Plus, Camera, Car, Loader2 } from 'lucide-react';
+import { api } from '../lib/api';
 
 export default function ANPR() {
-  const { vehicles, showToast, addToWatchlist } = useApp();
+  const { vehicles, showToast, addToWatchlist, watchlistPlates } = useApp();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -11,6 +12,7 @@ export default function ANPR() {
   // Registration Form State
   const [regPlate, setRegPlate] = useState('');
   const [regReason, setRegReason] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,19 +26,39 @@ export default function ANPR() {
     setRegReason('');
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setIsUploading(true);
+    try {
+        const res = await api.analytics.uploadWatchlistPhoto(file);
+        if (res.ok) {
+            setRegPlate(res.plate_number);
+            showToast({ type: 'success', title: 'OCR Successful', message: `Extracted plate ${res.plate_number} from image.` });
+            addToWatchlist(res.plate_number);
+        }
+    } catch (err: any) {
+        showToast({ type: 'alert', title: 'OCR Failed', message: err.message || 'Failed to extract text from photo.' });
+    } finally {
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const filtered = vehicles.filter(v => {
     if (search && !v.plateNumber.toLowerCase().includes(search.toLowerCase())) return false;
     if (statusFilter !== 'ALL' && v.status !== statusFilter) return false;
     return true;
   });
 
-  const watchlisted = vehicles.filter(v => v.status === 'WATCHLIST');
+  const watchlisted = vehicles.filter(v => watchlistPlates.includes(v.plateNumber.toUpperCase()) || v.status === 'WATCHLIST');
 
   return (
     <div className="space-y-4 animate-fade-in">
       <div>
         <h1 className="text-xl font-bold text-slate-900">ANPR — Automatic Number Plate Recognition</h1>
-        <p className="text-xs text-slate-600">{vehicles.length} plate captures • {watchlisted.length} watchlist matches • Demo data</p>
+        <p className="text-xs text-slate-600">{vehicles.length} plate captures • {watchlistPlates.length} watchlist plates</p>
       </div>
 
       {/* Watchlist alert */}
@@ -86,17 +108,18 @@ export default function ANPR() {
                   ></textarea>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Reference Image (Optional)</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Upload Reference Photo</label>
                   <div 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-slate-300 rounded-lg p-6 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-accent-400 transition-colors cursor-pointer"
+                    onClick={() => !isUploading && fileInputRef.current?.click()}
+                    className={`border-2 border-dashed ${isUploading ? 'border-accent-200 bg-accent-50 text-accent-500' : 'border-slate-300 hover:border-accent-400 hover:bg-slate-50 text-slate-500'} rounded-lg p-6 flex flex-col items-center justify-center transition-colors cursor-pointer`}
                   >
-                    <Camera className="h-6 w-6 mb-2" />
-                    <span className="text-xs font-semibold">Click to upload photo</span>
+                    {isUploading ? <Loader2 className="h-6 w-6 mb-2 animate-spin" /> : <Camera className="h-6 w-6 mb-2" />}
+                    <span className="text-xs font-semibold">{isUploading ? 'Extracting Plate...' : 'Click to upload photo for Auto-OCR'}</span>
                   </div>
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={() => showToast({type: 'success', title: 'Image Added', message: 'Reference image attached.'})} />
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                 </div>
-                <button type="submit" className="btn-primary w-full p-3 uppercase tracking-widest font-bold">Register Vehicle</button>
+                <button type="submit" disabled={isUploading} className="btn-primary w-full p-3 uppercase tracking-widest font-bold disabled:opacity-50">Register Vehicle</button>
+
              </form>
           </div>
         </div>

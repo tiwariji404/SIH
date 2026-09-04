@@ -92,7 +92,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const fetchData = useCallback(async () => {
     if (!user) return;
     try {
-      const [cams, evts, alts, zns, vehs, logs, trks, fcs] = await Promise.all([
+      const [cams, evts, alts, zns, vehs, logs, trks, fcs, wl] = await Promise.all([
         api.cameras.list(),
         api.alerts.events(),
         api.alerts.list(),
@@ -101,6 +101,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         api.analytics.auditLogs(),
         api.analytics.tracks().catch(() => []),
         api.analytics.faces().catch(() => []),
+        api.analytics.watchlist().catch(() => []),
       ]);
       setCameras(cams);
       setEvents(evts);
@@ -110,6 +111,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAuditLogs(logs);
       setTracks(trks);
       setFaces(fcs);
+      if (wl) {
+        setWatchlistPlates(wl.map((w: any) => w.plate_number));
+      }
     } catch (e) {
       console.error('Initial data fetch failed', e);
     }
@@ -232,9 +236,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Demo only
   }, []);
 
-  const addToWatchlist = useCallback((plate: string) => {
-    setWatchlistPlates(prev => [...prev, plate.toUpperCase().trim()]);
-    showToast({ type: 'success', title: 'Plate Added', message: `${plate} added to watchlist.` });
+  const addToWatchlist = useCallback(async (plate: string) => {
+    try {
+      await api.analytics.addWatchlist({ plate_number: plate, description: "Manually registered" });
+      setWatchlistPlates(prev => [...prev, plate.toUpperCase().trim()]);
+      showToast({ type: 'success', title: 'Plate Added', message: `${plate} added to watchlist.` });
+    } catch (e: any) {
+      showToast({ type: 'alert', title: 'Error', message: e.message });
+    }
   }, [showToast]);
 
   // Dummy out the live demo simulation

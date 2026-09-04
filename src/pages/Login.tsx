@@ -4,8 +4,8 @@ import { Shield, Lock, User as UserIcon, Eye, EyeOff, CheckCircle2 } from 'lucid
 
 export default function Login() {
   const { login } = useApp();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('admin123');
   const [showPass, setShowPass] = useState(false);
   const [remember, setRemember] = useState(true);
   // activeRole removed for single role
@@ -17,14 +17,17 @@ export default function Login() {
     setError('');
     setLoading(true);
     
+    // Simulate RSA Key Exchange delay for Cybersecurity SIH Theme
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
     try {
       const ok = await login(username, password);
       if (!ok) {
-        setError('Invalid credentials.');
+        setError('Unauthorized Access. Invalid credentials.');
       }
     } catch (err: unknown) {
       console.error(err);
-      setError('Invalid credentials');
+      setError('Unauthorized Access. Invalid credentials.');
     } finally {
       setLoading(false);
     }
@@ -57,21 +60,7 @@ export default function Login() {
           </div>
         </div>
         
-        {/* Navigation Bar */}
-        <div className="bg-white border-t border-slate-100 shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)] relative z-20">
-          <div className="max-w-[1400px] mx-auto px-4 py-2.5 flex items-center justify-between">
-            <nav className="flex items-center gap-6 sm:gap-8 text-xs font-bold uppercase tracking-widest text-slate-700">
-              <span className="cursor-pointer hover:text-orange-500 transition-colors hidden sm:inline">About Us</span>
-              <span className="cursor-pointer hover:text-orange-500 transition-colors hidden sm:inline">System Overview</span>
-              <span className="cursor-pointer hover:text-orange-500 transition-colors">Operations</span>
-              <span className="cursor-pointer hover:text-orange-500 transition-colors">Reports</span>
-              <span className="cursor-pointer hover:text-orange-500 transition-colors">Contact Us</span>
-            </nav>
-            <div className="text-xs font-medium tracking-wide text-slate-600 hidden md:block">
-              Centralized Defense Command
-            </div>
-          </div>
-        </div>
+
       </header>
 
       {/* Main Content Area */}
@@ -81,70 +70,22 @@ export default function Login() {
           {/* Left Column (Content Grid) */}
           <div className="lg:col-span-8 flex flex-col gap-6 lg:gap-8">
             
-            {/* Top Row in Left Col */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-              
-              {/* Info Card */}
-              <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow">
-                <h2 className="text-lg sm:text-xl font-bold text-slate-800 uppercase leading-snug mb-4 tracking-wide">
-                  Intelligence Border Video Analysis Platform (IBVAP) Core
-                </h2>
-                <p className="text-[13px] sm:text-sm text-slate-600 leading-relaxed font-medium">
-                  A fully automated, advanced CCTV camera detection system. Designed for use by the Indian Army and Government to detect potential dangers or activities and generate immediate reports to Centralized Defense Command.
-                </p>
-              </div>
-
-              {/* Status Card */}
-              <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-center">
-                <h3 className="text-base sm:text-lg font-bold text-slate-800 uppercase tracking-wide mb-5">System Status</h3>
-                <div className="space-y-4 font-semibold text-slate-700 uppercase tracking-wide text-[13px]">
-                  <p className="flex justify-between items-center">
-                    <span>Active Cameras:</span> 
-                    <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded">1540</span>
-                  </p>
-                  <p className="flex justify-between items-center">
-                    <span>Total Alert Events:</span> 
-                    <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded">25</span>
-                  </p>
-                  <p className="flex justify-between items-center">
-                    <span>High Threat Alerts:</span> 
-                    <span className="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded">3</span>
-                  </p>
-                </div>
-                <div className="mt-6 pt-5 border-t border-slate-100 flex flex-col gap-2.5 font-bold uppercase tracking-wide text-xs">
-                  <div className="flex items-center gap-2.5 text-green-600">
-                    <CheckCircle2 className="w-[18px] h-[18px]" strokeWidth={2.5} />
-                    System Online
-                  </div>
-                  <div className="flex items-center gap-2.5 text-slate-600 tracking-wider">
-                    <Shield className="w-[18px] h-[18px]" strokeWidth={2.5} />
-                    Secure Channel Established
-                  </div>
-                </div>
-              </div>
+            {/* Info Card */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-800 uppercase leading-snug mb-4 tracking-wide">
+                Intelligence Border Video Analysis Platform (IBVAP) Core
+              </h2>
+              <p className="text-[13px] sm:text-sm text-slate-600 leading-relaxed font-medium">
+                A fully automated, advanced CCTV camera detection system. Designed for use by the Indian Army and Government to detect potential dangers or activities and generate immediate reports to Centralized Defense Command.
+              </p>
             </div>
 
-            {/* Bottom Row in Left Col */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 mb-4 lg:mb-0">
-              
-              {/* Units Card */}
-              <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow">
-                <h3 className="text-base sm:text-lg font-bold text-slate-800 uppercase tracking-wide mb-5">Important Operational Units:</h3>
-                <ul className="space-y-4 font-semibold text-slate-700 uppercase tracking-wide text-[13px]">
-                  <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> Northern Command</li>
-                  <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> Eastern Command</li>
-                  <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> Western Command</li>
-                  <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> Southern Command</li>
-                </ul>
-              </div>
-
-              {/* Live Feed Card */}
-              <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow">
-                <h3 className="text-base sm:text-lg font-bold text-slate-800 uppercase tracking-wide mb-4">Live Feed Preview</h3>
-                <div className="grid grid-cols-2 gap-3 aspect-[2/1] sm:aspect-auto sm:h-[140px]">
-                  <img src="/live_feed.jpg" className="w-full h-full object-cover rounded-lg grayscale brightness-75 contrast-125 border border-slate-200" alt="Feed 1" />
-                  <img src="/border_patrol.jpg" className="w-full h-full object-cover rounded-lg grayscale brightness-75 contrast-125 border border-slate-200" alt="Feed 2" />
-                </div>
+            {/* Live Feed Card */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow mb-4 lg:mb-0">
+              <h3 className="text-base sm:text-lg font-bold text-slate-800 uppercase tracking-wide mb-4">Live Feed Preview</h3>
+              <div className="grid grid-cols-2 gap-3 aspect-[2/1] sm:aspect-auto sm:h-[180px]">
+                <img src="/live_feed.jpg" className="w-full h-full object-cover rounded-lg grayscale brightness-75 contrast-125 border border-slate-200" alt="Feed 1" />
+                <img src="/border_patrol.jpg" className="w-full h-full object-cover rounded-lg grayscale brightness-75 contrast-125 border border-slate-200" alt="Feed 2" />
               </div>
             </div>
 
@@ -226,7 +167,7 @@ export default function Login() {
                       className="w-full py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl flex items-center justify-center gap-2.5 text-[13px] font-extrabold tracking-widest uppercase transition-all hover:shadow-[0_4px_12px_rgba(234,88,12,0.3)] min-h-[52px]"
                     >
                       <Shield className="w-[18px] h-[18px]" strokeWidth={2.5} />
-                      {loading ? 'Authenticating...' : 'Secure Login'}
+                      {loading ? 'Verifying RSA Keys...' : 'Secure Login'}
                     </button>
                   </div>
                 </form>

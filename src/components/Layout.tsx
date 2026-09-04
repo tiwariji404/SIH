@@ -12,6 +12,7 @@ import {
   TrafficCone,
   TriangleAlert,
   X,
+  Database,
 } from 'lucide-react';
 import { useApp } from '../store';
 
@@ -28,7 +29,8 @@ export type PageId =
   | 'people'
   | 'camera_health'
   | 'vehicles'
-  | 'intrusions';
+  | 'intrusions'
+  | 'blockchain';
 
 interface Props {
   current: PageId;
@@ -49,9 +51,10 @@ const NAV_ITEMS: Record<string, NavItem> = {
   anpr: { id: 'anpr', label: 'ANPR (Insert Capture)', icon: TrafficCone },
   live: { id: 'live', label: 'Live Surveillance', icon: Radio, accent: 'text-red-500' },
   events: { id: 'events', label: 'Event Log', icon: FileText },
+  blockchain: { id: 'blockchain', label: 'Blockchain Ledger', icon: Database, accent: 'text-emerald-500' },
   cameras: { id: 'cameras', label: 'Recording', icon: Camera },
-  faces: { id: 'faces', label: 'Face Detection', icon: ScanFace },
-  tracking: { id: 'tracking', label: 'Object Tracking', icon: Target },
+  faces: { id: 'faces', label: 'Face & Object Detection', icon: ScanFace },
+  tracking: { id: 'tracking', label: 'Object Tracking', icon: Target }, // Deprecated but kept in record for safety
 };
 
 function NavButton({
@@ -92,8 +95,8 @@ export default function Layout({ current, onNavigate, children }: Props) {
     NAV_ITEMS.fences,
     NAV_ITEMS.anpr,
     NAV_ITEMS.live,
-    NAV_ITEMS.tracking,
     NAV_ITEMS.faces,
+    NAV_ITEMS.blockchain,
     NAV_ITEMS.cameras,
     NAV_ITEMS.events
   ];
@@ -188,15 +191,7 @@ export default function Layout({ current, onNavigate, children }: Props) {
                 </div>
               </div>
 
-              <div className="hidden items-center gap-2 sm:flex">
-                <span className="badge border border-green-200 bg-green-50 text-green-700">
-                  <span className="status-dot animate-pulse bg-green-500" />
-                  System Secure
-                </span>
-                <span className="badge border border-slate-200 bg-white text-slate-600 shadow-sm">
-                  Full Camera Access
-                </span>
-              </div>
+              {/* Top Badges removed per user request */}
             </div>
           </header>
 

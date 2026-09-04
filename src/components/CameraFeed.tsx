@@ -48,7 +48,7 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
   const isNight = camera.scenario === 'night';
   const camDetections = detections.filter(d => d.cameraId === camera.id);
   const hasLive = !!liveStream;
-  const camZones = zones.filter(z => z.cameraId === camera.id);
+  const camZones = zones.filter(z => z.cameraIds?.includes(camera.id));
 
   return (
     <div className={`relative overflow-hidden rounded-lg border bg-black ${isOffline ? 'border-red-500/30' : hasLive ? 'border-emerald-500/40' : 'border-white/10'}`}>

@@ -87,6 +87,7 @@ export interface Alert {
   why: string;
   zone?: string;
   confidence: number;
+  image?: string;
 }
 
 export interface VehicleRecord {
@@ -98,6 +99,7 @@ export interface VehicleRecord {
   timestamp: string;
   status: 'AUTHORIZED' | 'WATCHLIST' | 'UNKNOWN';
   direction: string;
+  image?: string;
 }
 
 export interface Zone {

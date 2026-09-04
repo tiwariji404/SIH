@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useApp } from '../store';
 import CameraFeed from '../components/CameraFeed';
-import { Radio, Grid3x3, Cctv, Smartphone, X, RefreshCw } from 'lucide-react';
-import type { ScenarioType } from '../types';
+import { Radio, Grid3x3, Cctv, Smartphone, X, RefreshCw, Shield } from 'lucide-react';
+import type { ScenarioType, Camera } from '../types';
 
 const SCENARIOS: { value: ScenarioType; label: string; color: string }[] = [
   { value: 'normal', label: 'Normal', color: 'text-emerald-400' },
@@ -56,7 +56,58 @@ export default function LiveSurveillance() {
 
   const visibleCameras = selectedLiveCameraIds && selectedLiveCameraIds.length > 0
     ? cameras.filter(c => selectedLiveCameraIds.includes(c.id))
-    : cameras.filter(c => c.status !== 'OFFLINE');
+    : cameras.filter(c => c.status !== 'OFFLINE').slice(0, 2); // Show only 2 demo cameras by default
+
+  const [hardwareCameras, setHardwareCameras] = useState<MediaDeviceInfo[]>([]);
+  const hardwareStreamsRef = useRef<{ [deviceId: string]: MediaStream }>({});
+
+  useEffect(() => {
+    // Only standard component mounts here. Global Alarm handles timer.
+    const loadHardwareCameras = async () => {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        setHardwareCameras(videoDevices);
+        
+        // Auto-connect to them
+        for (const device of videoDevices) {
+          if (!hardwareStreamsRef.current[device.deviceId]) {
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: { exact: device.deviceId } },
+                audio: false
+              });
+              hardwareStreamsRef.current[device.deviceId] = stream;
+            } catch (e) {
+              console.error("Could not start hardware camera", device.label, e);
+            }
+          }
+        }
+        // Force a re-render to show streams
+        setHardwareCameras([...videoDevices]); 
+      } catch (err) {
+        console.error("Hardware enumeration failed", err);
+      }
+    };
+    
+    loadHardwareCameras();
+    
+    if (navigator.mediaDevices) {
+      navigator.mediaDevices.addEventListener('devicechange', loadHardwareCameras);
+    }
+    
+    return () => {
+      if (navigator.mediaDevices) {
+        navigator.mediaDevices.removeEventListener('devicechange', loadHardwareCameras);
+      }
+      // Stop streams on unmount
+      Object.values(hardwareStreamsRef.current).forEach(stream => {
+        stream.getTracks().forEach(t => t.stop());
+      });
+      hardwareStreamsRef.current = {};
+    };
+  }, []);
 
   return (
     <div className="space-y-4 animate-fade-in relative block">
@@ -157,6 +208,50 @@ export default function LiveSurveillance() {
 
       {/* Camera grid */}
       <div className={`grid gap-3 ${gridSize === '2x2' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
+        
+        {/* Render Hardware (USB/System) Cameras */}
+        {hardwareCameras.map((device, index) => {
+          const hwStream = hardwareStreamsRef.current[device.deviceId];
+          // Mock camera object for CameraFeed props
+          const mockHwCam = {
+             id: `HW-${index + 1}`,
+             name: device.label || `USB Camera ${index + 1}`,
+             location: 'Local System',
+             bop: 'Command Center',
+             status: 'ONLINE' as const,
+             fps: 30,
+             scenario: 'normal' as const,
+             recording: false
+          };
+          return (
+            <div key={device.deviceId} className="space-y-2">
+              <CameraFeed
+                camera={mockHwCam as unknown as Camera}
+                detections={[]}
+                liveStream={hwStream || null}
+              />
+              {/* CyberSec SIH Theme: AES-256 E2E Encrypted Badge */}
+              <div className="absolute top-2 right-2 z-10 bg-emerald-950/80 text-emerald-400 text-[9px] font-bold px-2 py-1 rounded tracking-wider flex items-center gap-1.5 backdrop-blur-md border border-emerald-500/30">
+                <Shield className="w-3 h-3" />
+                AES-256 E2E
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-slate-800 truncate">
+                    {mockHwCam.id} — {mockHwCam.name}
+                    <span className="text-blue-500 ml-1">(Hardware)</span>
+                  </p>
+                  <p className="text-[10px] text-slate-600 truncate">{mockHwCam.bop} • {mockHwCam.location}</p>
+                </div>
+                <select disabled className="bg-ink-900 border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-700 opacity-50">
+                   <option>Normal</option>
+                </select>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Render System Mock Cameras */}
         {visibleCameras.map(cam => (
           <div key={cam.id} className="space-y-2">
             <CameraFeed

@@ -16,6 +16,7 @@ import PeopleDetected from './pages/PeopleDetected';
 import CameraHealth from './pages/CameraHealth';
 import VehicleDetection from './pages/VehicleDetection';
 import IntrusionLogs from './pages/IntrusionLogs';
+import BlockchainLedger from './pages/BlockchainLedger';
 
 function AppContent() {
   const { user, setSelectedLiveCameraIds } = useApp();
@@ -65,6 +66,7 @@ function AppContent() {
       case 'camera_health': return <CameraHealth />;
       case 'vehicles': return <VehicleDetection />;
       case 'intrusions': return <IntrusionLogs />;
+      case 'blockchain': return <BlockchainLedger />;
       default: return <Overview onNavigate={setPage} />;
     }
   };

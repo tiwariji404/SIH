@@ -67,15 +67,20 @@ function NavButton({
   onNavigate: (page: PageId) => void;
 }) {
   const Icon = item.icon;
+  const isActive = current === item.id;
 
   return (
     <button
       type="button"
       onClick={() => onNavigate(item.id)}
-      className={`nav-item w-full justify-start ${current === item.id ? 'nav-item-active' : ''}`}
+      className={`nav-item w-full justify-start ${isActive ? 'nav-item-active' : ''}`}
+      aria-current={isActive ? 'page' : undefined}
     >
-      <Icon className={`h-4 w-4 ${item.accent ?? ''}`} />
-      <span>{item.label}</span>
+      <span className={`nav-icon ${isActive ? 'nav-icon-active' : ''}`}>
+        <Icon className={`h-4 w-4 ${item.accent ?? ''}`} />
+      </span>
+      <span className="flex-1 text-left">{item.label}</span>
+      {isActive && <span className="h-2.5 w-2.5 rounded-full bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.7)]" />}
     </button>
   );
 }
@@ -88,7 +93,7 @@ export default function Layout({ current, onNavigate, children }: Props) {
     setMobileOpen(false);
     onNavigate(page);
   };
-  
+
   // The user is exclusively an Operator now. No need for complex role logic.
   const PRIMARY_NAV = [
     NAV_ITEMS.overview,
@@ -98,85 +103,106 @@ export default function Layout({ current, onNavigate, children }: Props) {
     NAV_ITEMS.faces,
     NAV_ITEMS.blockchain,
     NAV_ITEMS.cameras,
-    NAV_ITEMS.events
+    NAV_ITEMS.events,
   ];
 
   return (
     <div className="h-screen bg-tactical text-slate-800 font-sans relative overflow-hidden">
       <div className="flex h-screen overflow-hidden">
         <aside
-          className={`fixed inset-y-0 left-0 z-40 w-72 transform border-r border-slate-200 bg-white px-4 py-5 transition-transform duration-200 lg:static lg:translate-x-0 shadow-xl overflow-y-auto ${
+          className={`liquid-sidebar fixed inset-y-0 left-0 z-40 w-[290px] transform transition-transform duration-300 lg:static lg:translate-x-0 ${
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
-          <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-4 relative">
-            <div className="absolute top-[-20px] left-[-16px] right-[-16px] h-[5px] bg-gradient-to-r from-orange-500 via-green-500 to-green-600 opacity-90"></div>
-            <div>
-              <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-orange-600 font-extrabold">
-                IBVAP
-              </p>
-              <h1 className="mt-1 text-lg font-black text-slate-800 tracking-tight uppercase">
-                Operator Console
-              </h1>
-              <p className="text-xs font-bold text-slate-600 mt-1 uppercase tracking-wider">
-                Border Security Force
-              </p>
-            </div>
-            <button
-              type="button"
-              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-800 lg:hidden"
-              onClick={() => setMobileOpen(false)}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          <nav className="mt-5 space-y-1">
-            {PRIMARY_NAV.map(item => (
-              <NavButton
-                key={item.id}
-                item={item}
-                current={current}
-                onNavigate={handleNavigate}
-              />
-            ))}
-          </nav>
-
-          {user && (
-            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-extrabold text-slate-800">{user.name}</p>
-                  <p className="text-[10px] font-bold uppercase text-orange-600 tracking-widest mt-0.5">Operator</p>
+          <div className="relative flex h-full flex-col overflow-y-auto px-4 py-5">
+            <div className="liquid-shell pb-4">
+              <div className="brand-row">
+                <div className="brand-badge">
+                  <Shield className="h-5 w-5" />
                 </div>
+                <div>
+                  <p className="brand-kicker">IBVAP</p>
+                  <h1 className="brand-title">Operator Console</h1>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="close-btn lg:hidden"
+                onClick={() => setMobileOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mission-card">
+              <div className="mission-header">
+                <span>Mission</span>
+                <span className="mission-chip">
+                  <span className="mission-dot" />
+                  Active
+                </span>
+              </div>
+              <p className="mission-title">Border Security Force</p>
+              <p className="mission-subtitle">Tactical surveillance & response management</p>
+            </div>
+
+            <div className="nav-heading-row">
+              <p>Navigation</p>
+              <span>{PRIMARY_NAV.length} modules</span>
+            </div>
+
+            <nav className="mt-3 space-y-2">
+              {PRIMARY_NAV.map((item) => (
+                <NavButton
+                  key={item.id}
+                  item={item}
+                  current={current}
+                  onNavigate={handleNavigate}
+                />
+              ))}
+            </nav>
+
+            {user && (
+              <div className="user-card">
+                <div className="flex items-center gap-3">
+                  <div className="user-icon">
+                    <Shield className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-extrabold text-slate-800">{user.name}</p>
+                    <p className="user-role">Operator</p>
+                  </div>
+                </div>
+
                 <button
                   type="button"
-                  className="btn-ghost px-2 py-1 text-[10px] hover:text-red-600 hover:bg-red-50"
+                  className="logout-button"
                   onClick={logout}
                 >
                   <LogOut className="h-3.5 w-3.5" />
                   Logout
                 </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </aside>
 
         {mobileOpen && (
           <button
             type="button"
-            className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+            className="fixed inset-0 z-30 bg-slate-900/20 backdrop-blur-[2px] lg:hidden"
             onClick={() => setMobileOpen(false)}
           />
         )}
 
         <div className="flex h-full min-w-0 flex-1 flex-col overflow-y-auto bg-slate-50">
-          <header className="sticky top-0 z-20 border-b border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 bg-slate-50/50">
+          <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/75 backdrop-blur-md shadow-sm">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-800 lg:hidden"
+                  className="rounded-lg border border-slate-200 bg-white/70 p-2 text-slate-600 shadow-sm hover:bg-slate-100 hover:text-slate-800 lg:hidden"
                   onClick={() => setMobileOpen(true)}
                 >
                   <Menu className="h-4 w-4" />
@@ -190,8 +216,6 @@ export default function Layout({ current, onNavigate, children }: Props) {
                   </p>
                 </div>
               </div>
-
-              {/* Top Badges removed per user request */}
             </div>
           </header>
 

@@ -110,168 +110,237 @@ export default function LiveSurveillance() {
   }, []);
 
   return (
-    <div className="space-y-4 animate-fade-in relative block">
-      
-      {/* ALARM OVERLAY IS NOW HANDLED GLOBALLY IN App.tsx */}
-
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Live Surveillance</h1>
-          <p className="text-xs text-slate-600">Real-time CCTV monitoring with AI detection overlay</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Phone camera connect button */}
-          {liveStream ? (
-            <button onClick={disconnectPhoneCamera} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors">
-              <X className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-mono">DISCONNECT PHONE</span>
-            </button>
-          ) : (
-            <button
-              onClick={connectPhoneCamera}
-              disabled={connecting}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
-            >
-              <Smartphone className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-mono">{connecting ? 'CONNECTING...' : 'CONNECT PHONE'}</span>
-            </button>
-          )}
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-white border border-slate-200">
-            <button onClick={() => setGridSize('2x2')} className={`p-1.5 rounded ${gridSize === '2x2' ? 'bg-accent-500/20 text-accent-300' : 'text-slate-600'}`}>
-              <Grid3x3 className="h-4 w-4" />
-            </button>
-            <button onClick={() => setGridSize('3x3')} className={`px-2 py-1.5 rounded text-[10px] font-mono ${gridSize === '3x3' ? 'bg-accent-500/20 text-accent-300' : 'text-slate-600'}`}>
-              3×3
-            </button>
+    <div className="live-shell space-y-5 animate-fade-in relative pb-8">
+      <div className="glass-panel live-hero p-5 sm:p-6">
+        <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="section-kicker">Operations view</p>
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-800">Live Surveillance</h1>
+            <p className="mt-2 text-sm text-slate-600">Real-time CCTV monitoring with AI detection overlay and tactical response cues.</p>
           </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20">
-            <Radio className="h-3 w-3 text-red-400 animate-pulse" />
-            <span className="text-[10px] font-mono text-red-400">LIVE</span>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="glass-chip glass-chip-success">
+              <span className="status-dot bg-emerald-500 animate-pulse" />
+              <span>LIVE</span>
+            </div>
+            <div className="glass-chip glass-chip-slate">
+              <Radio className="h-3.5 w-3.5 text-red-500" />
+              <span>12 channels active</span>
+            </div>
+            <div className="glass-chip glass-chip-slate">
+              <Shield className="h-3.5 w-3.5 text-emerald-500" />
+              <span>Encrypted</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Phone camera status / error */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="glass-metric-card border-orange-200">
+          <div className="metric-top">
+            <div className="metric-icon bg-orange-500/10">
+              <Cctv className="h-5 w-5 text-orange-500" />
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-600">Feeds</span>
+          </div>
+          <p className="metric-value mt-5">{visibleCameras.length}</p>
+          <p className="metric-label">Active monitored</p>
+        </div>
+
+        <div className="glass-metric-card border-emerald-200">
+          <div className="metric-top">
+            <div className="metric-icon bg-emerald-500/10">
+              <Shield className="h-5 w-5 text-emerald-500" />
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-600">Status</span>
+          </div>
+          <p className="metric-value mt-5">{cameras.filter(c => c.status === 'ONLINE').length}</p>
+          <p className="metric-label">Online cameras</p>
+        </div>
+
+        <div className="glass-metric-card border-indigo-200">
+          <div className="metric-top">
+            <div className="metric-icon bg-indigo-500/10">
+              <Grid3x3 className="h-5 w-5 text-indigo-500" />
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-600">Layout</span>
+          </div>
+          <p className="metric-value mt-5">{gridSize}</p>
+          <p className="metric-label">Current grid</p>
+        </div>
+
+        <div className="glass-metric-card border-red-200">
+          <div className="metric-top">
+            <div className="metric-icon bg-red-500/10">
+              <Radio className="h-5 w-5 text-red-500" />
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-600">Signal</span>
+          </div>
+          <p className="metric-value mt-5">{liveStream ? 'Phone' : 'Network'}</p>
+          <p className="metric-label">Input source</p>
+        </div>
+      </div>
+
+      <div className="glass-panel live-toolbar p-4 sm:p-5">
+        <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-1">
+            <button
+              onClick={() => setSelectedLiveCameraIds(null)}
+              className={`glass-chip whitespace-nowrap ${!selectedLiveCameraIds || selectedLiveCameraIds.length === 0 ? 'glass-chip-active' : 'glass-chip-slate'}`}
+            >
+              All Cameras
+            </button>
+            {cameras.map(cam => {
+              const isSelected = selectedLiveCameraIds?.includes(cam.id);
+              return (
+                <button
+                  key={cam.id}
+                  onClick={() => setSelectedLiveCameraIds([cam.id])}
+                  className={`glass-chip whitespace-nowrap ${isSelected ? 'glass-chip-active' : 'glass-chip-slate'} ${cam.status === 'OFFLINE' ? 'opacity-50' : ''}`}
+                >
+                  <span className={`status-dot ${liveStream ? 'bg-emerald-400' : cam.status === 'ONLINE' ? 'bg-emerald-400' : cam.status === 'DEGRADED' ? 'bg-amber-400' : 'bg-red-500'}`} />
+                  {cam.id}
+                  {liveStream && <Smartphone className="ml-0.5 h-2.5 w-2.5 inline" />}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-2 self-end lg:self-auto">
+            {liveStream ? (
+              <button
+                onClick={disconnectPhoneCamera}
+                className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-red-600 transition-colors hover:bg-red-100"
+              >
+                <X className="h-3.5 w-3.5" />
+                Disconnect phone
+              </button>
+            ) : (
+              <button
+                onClick={connectPhoneCamera}
+                disabled={connecting}
+                className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
+              >
+                <Smartphone className="h-3.5 w-3.5" />
+                {connecting ? 'Connecting...' : 'Connect phone'}
+              </button>
+            )}
+
+            <div className="glass-toggle">
+              <button
+                onClick={() => setGridSize('2x2')}
+                className={`rounded-lg p-2 ${gridSize === '2x2' ? 'bg-orange-50 text-orange-600' : 'text-slate-600 hover:bg-slate-100'}`}
+                aria-label="2x2 grid"
+              >
+                <Grid3x3 className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setGridSize('3x3')}
+                className={`rounded-lg px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.2em] ${gridSize === '3x3' ? 'bg-orange-50 text-orange-600' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                3×3
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {camError && (
-        <div className="card p-3 border-red-500/20 bg-red-500/5">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-3 shadow-sm">
           <div className="flex items-start gap-2">
-            <X className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />
+            <X className="mt-0.5 h-4 w-4 text-red-500" />
             <div className="flex-1">
-              <p className="text-xs font-semibold text-red-300">Camera Access Failed</p>
-              <p className="text-[11px] text-slate-600 mt-0.5">{camError}</p>
-              <p className="text-[10px] text-slate-600 mt-1">
-                Tip: The browser needs camera permission. On phone, open this page over HTTPS and allow camera access when prompted.
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-600">Camera access failed</p>
+              <p className="mt-1 text-sm text-red-700">{camError}</p>
+              <p className="mt-1 text-[11px] text-slate-600">
+                Tip: The browser needs camera permission. On phone, allow access over HTTPS and retry.
               </p>
             </div>
-            <button onClick={connectPhoneCamera} className="flex items-center gap-1 text-[10px] text-accent-400 hover:text-accent-300">
-              <RefreshCw className="h-3 w-3" /> Retry
+            <button onClick={connectPhoneCamera} className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-600 hover:text-red-700">
+              Retry
             </button>
           </div>
         </div>
       )}
 
       {liveStream && (
-        <div className="card p-3 border-emerald-500/20 bg-emerald-500/5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Smartphone className="h-4 w-4 text-emerald-400 flex-shrink-0" />
-            <p className="text-xs text-emerald-300">
-              <span className="font-semibold">Phone camera connected.</span> Broadcasting live feed to all camera channels.
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Smartphone className="h-4 w-4 text-emerald-600" />
+            <p className="text-sm text-emerald-700">
+              <span className="font-bold">Phone camera connected.</span> Broadcasting live feed to all camera viewports.
             </p>
           </div>
         </div>
       )}
 
-      {/* Camera selector */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        <button
-          onClick={() => setSelectedLiveCameraIds(null)}
-          className={`badge whitespace-nowrap ${!selectedLiveCameraIds || selectedLiveCameraIds.length === 0 ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white text-slate-600 border border-slate-200'}`}
-        >
-          All Cameras
-        </button>
-        {cameras.map(cam => {
-          const isSelected = selectedLiveCameraIds?.includes(cam.id);
-          return (
-            <button
-              key={cam.id}
-              onClick={() => setSelectedLiveCameraIds([cam.id])}
-              className={`badge whitespace-nowrap ${isSelected ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30' : 'bg-white text-slate-600 border border-slate-200'} ${cam.status === 'OFFLINE' ? 'opacity-50' : ''}`}
-            >
-              <span className={`status-dot ${liveStream ? 'bg-emerald-400' : cam.status === 'ONLINE' ? 'bg-emerald-400' : cam.status === 'DEGRADED' ? 'bg-amber-400' : 'bg-red-500'}`} />
-              {cam.id}
-              {liveStream && <Smartphone className="h-2.5 w-2.5 ml-0.5 inline" />}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Camera grid */}
-      <div className={`grid gap-3 ${gridSize === '2x2' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
-        
-        {/* Render Hardware (USB/System) Cameras */}
+      <div className={`grid gap-4 ${gridSize === '2x2' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
         {hardwareCameras.map((device, index) => {
           const hwStream = hardwareStreamsRef.current[device.deviceId];
-          // Mock camera object for CameraFeed props
           const mockHwCam = {
-             id: `HW-${index + 1}`,
-             name: device.label || `USB Camera ${index + 1}`,
-             location: 'Local System',
-             bop: 'Command Center',
-             status: 'ONLINE' as const,
-             fps: 30,
-             scenario: 'normal' as const,
-             recording: false
+            id: `HW-${index + 1}`,
+            name: device.label || `USB Camera ${index + 1}`,
+            location: 'Local System',
+            bop: 'Command Center',
+            status: 'ONLINE' as const,
+            fps: 30,
+            scenario: 'normal' as const,
+            recording: false,
           };
+
           return (
             <div key={device.deviceId} className="space-y-2">
-              <CameraFeed
-                camera={mockHwCam as unknown as Camera}
-                detections={[]}
-                liveStream={hwStream || null}
-              />
-              {/* CyberSec SIH Theme: AES-256 E2E Encrypted Badge */}
-              <div className="absolute top-2 right-2 z-10 bg-emerald-950/80 text-emerald-400 text-[9px] font-bold px-2 py-1 rounded tracking-wider flex items-center gap-1.5 backdrop-blur-md border border-emerald-500/30">
-                <Shield className="w-3 h-3" />
-                AES-256 E2E
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-slate-800 truncate">
-                    {mockHwCam.id} — {mockHwCam.name}
-                    <span className="text-blue-500 ml-1">(Hardware)</span>
-                  </p>
-                  <p className="text-[10px] text-slate-600 truncate">{mockHwCam.bop} • {mockHwCam.location}</p>
+              <div className="camera-card relative">
+                <CameraFeed
+                  camera={mockHwCam as unknown as Camera}
+                  detections={[]}
+                  liveStream={hwStream || null}
+                />
+                <div className="absolute right-2 top-2 z-20 flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-950/80 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-emerald-300 backdrop-blur-md">
+                  <Shield className="h-3 w-3" />
+                  AES-256
                 </div>
-                <select disabled className="bg-ink-900 border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-700 opacity-50">
-                   <option>Normal</option>
+              </div>
+
+              <div className="camera-meta">
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-bold text-slate-800">
+                    {mockHwCam.id} — {mockHwCam.name}
+                    <span className="ml-1 text-blue-500">(Hardware)</span>
+                  </p>
+                  <p className="truncate text-[10px] text-slate-600">{mockHwCam.bop} • {mockHwCam.location}</p>
+                </div>
+                <select disabled className="glass-select opacity-50">
+                  <option>Normal</option>
                 </select>
               </div>
             </div>
           );
         })}
 
-        {/* Render System Mock Cameras */}
         {visibleCameras.map(cam => (
           <div key={cam.id} className="space-y-2">
-            <CameraFeed
-              camera={cam}
-              detections={detections}
-              liveStream={liveStream}
-            />
-            {/* Camera info + scenario selector */}
-            <div className="flex items-center justify-between gap-2">
+            <div className="camera-card relative">
+              <CameraFeed
+                camera={cam}
+                detections={detections}
+                liveStream={liveStream}
+              />
+            </div>
+
+            <div className="camera-meta">
               <div className="min-w-0">
-                <p className="text-xs font-medium text-slate-800 truncate">
+                <p className="truncate text-xs font-bold text-slate-800">
                   {cam.id} — {cam.name}
-                  {liveStream && <span className="text-emerald-400"> (Phone)</span>}
+                  {liveStream && <span className="ml-1 text-emerald-500">(Phone)</span>}
                 </p>
-                <p className="text-[10px] text-slate-600 truncate">{cam.bop} • {cam.location}</p>
+                <p className="truncate text-[10px] text-slate-600">{cam.bop} • {cam.location}</p>
               </div>
               <select
                 value={cam.scenario}
                 onChange={e => setCameraScenario(cam.id, e.target.value as ScenarioType)}
-                className="bg-ink-900 border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-700 focus:outline-none focus:border-accent-500/50"
+                className="glass-select"
                 disabled={cam.status === 'OFFLINE'}
               >
                 {SCENARIOS.map(s => (
@@ -283,12 +352,11 @@ export default function LiveSurveillance() {
         ))}
       </div>
 
-      {/* Offline cameras notice */}
       {cameras.some(c => c.status === 'OFFLINE') && (
-        <div className="card p-3 border-red-500/20 bg-red-500/5">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-3 shadow-sm">
           <div className="flex items-center gap-2">
-            <Cctv className="h-4 w-4 text-red-400" />
-            <p className="text-xs text-red-300">
+            <Cctv className="h-4 w-4 text-red-500" />
+            <p className="text-sm text-red-700">
               {cameras.filter(c => c.status === 'OFFLINE').length} camera(s) offline: {cameras.filter(c => c.status === 'OFFLINE').map(c => c.id).join(', ')}
             </p>
           </div>

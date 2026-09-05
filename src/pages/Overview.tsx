@@ -19,7 +19,6 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
   const avgHealth = Math.round(cameras.reduce((s, c) => s + c.health, 0) / (cameras.length || 1));
 
   const kpis: { label: string; value: number | string; icon: React.ElementType; color: string; bg: string; border: string; page: PageId }[] = [
-    { label: 'Blockchain Evidence', value: 'Immutable', icon: Database, color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-200', page: 'blockchain' },
     { label: 'Cyber Threat Blocked', value: 142, icon: Shield, color: 'text-indigo-500', bg: 'bg-indigo-500/10', border: 'border-indigo-200', page: 'events' },
     { label: 'Activity Alerts', value: activeAlerts, icon: Bell, color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-200', page: 'events' },
     { label: 'Vehicles Detected', value: vehiclesDetected, icon: Car, color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-200', page: 'vehicles' },
@@ -50,51 +49,6 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
           <span>All systems operational</span>
         </div>
       </div>
-
-      <section className="glass-panel relative overflow-hidden rounded-[28px] border border-white/80 bg-white/60 p-5 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:p-6">
-        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-orange-700">
-              <RadioTower className="h-3.5 w-3.5" />
-              Live perimeter scan
-            </div>
-
-            <div>
-              <h3 className="text-3xl font-black tracking-tight text-slate-900">Border integrity is stable across critical sectors.</h3>
-              <p className="mt-2 max-w-xl text-sm text-slate-600">
-                Surveillance feeds, detection intelligence, and asset health are synchronized for rapid operator response.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-2.5 py-1.5">
-                <Cctv className="h-4 w-4 text-orange-500" />
-                <span>{onlineCameras} online cameras</span>
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-2.5 py-1.5">
-                <Clock3 className="h-4 w-4 text-emerald-500" />
-                <span>Response latency: 1.4s</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-center lg:justify-end">
-            <div className="w-full max-w-[220px] rounded-[26px] border border-white/80 bg-white/50 p-4 shadow-[0_12px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
-                <span>Threat score</span>
-                <span className="text-emerald-600">Low</span>
-              </div>
-
-              <div className="mt-4 flex items-center justify-center">
-                <div className="flex h-28 w-28 flex-col items-center justify-center rounded-full border-[10px] border-orange-200 bg-gradient-to-br from-orange-50 to-emerald-50 shadow-inner shadow-white" style={{ backgroundImage: 'conic-gradient(#fb923c 0 76%, #e2e8f0 76% 100%)' }}>
-                  <span className="relative z-10 text-3xl font-black text-slate-800">14</span>
-                  <span className="relative z-10 text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500">risk index</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {kpis.map(kpi => {

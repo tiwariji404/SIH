@@ -327,6 +327,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCameras(prev => prev.map(camera => (
       camera.id === cameraId ? { ...camera, scenario } : camera
     )));
+    
+    // Notify the backend of the mode change
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          type: 'set_scenario',
+          camera_id: cameraId,
+          scenario: scenario
+        }));
+      } catch (e) {
+        console.error("Failed to send scenario change to backend", e);
+      }
+    }
   }, []);
 
   const value: AppState = {

@@ -135,17 +135,6 @@ export default function Layout({ current, onNavigate, children }: Props) {
               </button>
             </div>
 
-            <div className="mission-card">
-              <div className="mission-header">
-                <span>Mission</span>
-                <span className="mission-chip">
-                  <span className="mission-dot" />
-                  Active
-                </span>
-              </div>
-              <p className="mission-title">Border Security Force</p>
-              <p className="mission-subtitle">Tactical surveillance & response management</p>
-            </div>
 
             <div className="nav-heading-row">
               <p>Navigation</p>
@@ -207,14 +196,7 @@ export default function Layout({ current, onNavigate, children }: Props) {
                 >
                   <Menu className="h-4 w-4" />
                 </button>
-                <div>
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.3em] text-orange-600">
-                    Live Status
-                  </p>
-                  <p className="text-sm font-semibold text-slate-600">
-                    Tactical surveillance & monitoring active.
-                  </p>
-                </div>
+
               </div>
             </div>
           </header>

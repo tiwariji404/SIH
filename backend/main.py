@@ -64,6 +64,7 @@ class ConnectionManager:
                 pass
 
 manager = ConnectionManager()
+camera_scenarios = {}
 
 @app.websocket("/ws/detections")
 async def websocket_endpoint(websocket: WebSocket):
@@ -80,6 +81,13 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
             payload = json.loads(data)
             
+            if payload.get("type") == "set_scenario":
+                cam_id = payload.get("camera_id")
+                scenario = payload.get("scenario")
+                if cam_id and scenario:
+                    camera_scenarios[cam_id] = scenario
+                continue
+
             if payload.get("type") == "frame":
                 cam_id = payload.get("camera_id", "Unknown Camera")
                 base64_str = payload.get("image", "")
@@ -102,6 +110,24 @@ async def websocket_endpoint(websocket: WebSocket):
                 if frame is None:
                     continue
                 
+                cam_scenario = camera_scenarios.get(cam_id, "normal")
+                
+                # 1. Pre-processing based on scenario
+                if cam_scenario == "night":
+                    # Simulate Night Vision Enhancement (Gamma Correction)
+                    invGamma = 1.0 / 0.4 # Brighten image
+                    table = np.array([((i / 255.0) ** invGamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
+                    frame = cv2.LUT(frame, table)
+                
+                # 2. Filter classes based on scenario
+                current_targets = TARGET_CLASSES.copy()
+                if cam_scenario == "intrusion":
+                    current_targets = {0: "Human"}
+                elif cam_scenario in ["vehicle", "anpr"]:
+                    current_targets = {2: "Vehicle (Car)", 3: "Vehicle (Motorcycle)", 5: "Vehicle (Bus)", 7: "Vehicle (Truck)"}
+                elif cam_scenario == "suspicious":
+                    current_targets = {0: "Human", 4: "Drone", 33: "Drone"}
+
                 # Check for rate limit on alerts (max 1 alert every 5 seconds)
                 current_time = time.time()
                 if current_time - last_alert_time < 5.0:
@@ -110,20 +136,20 @@ async def websocket_endpoint(websocket: WebSocket):
                 alert_trigger = None
                 face_trigger = None
                 
-                # 1. YOLO Detection
+                # 3. YOLO Detection
                 results = model(frame, verbose=False)
                 for r in results:
                     boxes = r.boxes
                     for box in boxes:
                         cls = int(box.cls[0])
                         conf = float(box.conf[0])
-                        if cls in TARGET_CLASSES and conf > 0.4:
+                        if cls in current_targets and conf > 0.4:
                             is_human = (cls == 0)
                             # Standard Alert
                             alert_trigger = {
-                                "type": TARGET_CLASSES[cls] if not force_watchlist else "WATCHLIST MATCH: Dawood Ibrahim",
+                                "type": current_targets[cls] if not force_watchlist else "WATCHLIST MATCH: Dawood Ibrahim",
                                 "severity": "CRITICAL" if (is_human or cls == 4) else "WARNING",
-                                "reason": f"AI detected {TARGET_CLASSES[cls]} with {int(conf*100)}% confidence" if not force_watchlist else "Biometric match found in Interpol Database"
+                                "reason": f"AI detected {current_targets[cls]} with {int(conf*100)}% confidence" if not force_watchlist else "Biometric match found in Interpol Database"
                             }
                             # Face specific for Humans
                             if is_human:

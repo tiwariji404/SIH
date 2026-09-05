@@ -223,6 +223,19 @@ export default function LiveSurveillance() {
               All Cameras
             </button>
 
+            {/* Face Detection Entry/Exit Group */}
+            <button
+              onClick={() => setSelectedLiveCameraIds(['CAM-01', 'CAM-05'])}
+              className={`glass-chip whitespace-nowrap flex items-center gap-1.5 ${
+                selectedLiveCameraIds?.length === 2 && selectedLiveCameraIds.includes('CAM-01') && selectedLiveCameraIds.includes('CAM-05') 
+                  ? 'glass-chip-active border-indigo-500 text-indigo-400' 
+                  : 'glass-chip-slate border-indigo-500/30'
+              }`}
+            >
+              <span className={`status-dot ${selectedLiveCameraIds?.includes('CAM-01') && selectedLiveCameraIds.includes('CAM-05') ? 'bg-indigo-400' : 'bg-slate-500'}`} />
+              Face Detection (Entry/Exit)
+            </button>
+
             {/* Fencing Group Chips */}
             {savedFences.map(fence => {
               const isSelected = selectedLiveCameraIds?.length === fence.cameras.length && fence.cameras.every(c => selectedLiveCameraIds?.includes(c));

@@ -327,7 +327,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCameras(prev => prev.map(camera => (
       camera.id === cameraId ? { ...camera, scenario } : camera
     )));
-    
     // Notify the backend of the mode change
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       try {

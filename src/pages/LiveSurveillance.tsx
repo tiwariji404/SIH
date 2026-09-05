@@ -384,7 +384,10 @@ export default function LiveSurveillance() {
                   <p className="truncate text-[10px] text-slate-600">{mockHwCam.bop} • {mockHwCam.location}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <ModeSelector value="normal" onChange={() => {}} disabled />
+                  <ModeSelector 
+                    value={mockHwCam.scenario} 
+                    onChange={(val) => setCameraScenario(mockHwCam.id, val)}
+                  />
                   <button 
                     onClick={() => setExpandedCameraId(isExpanded ? null : mockHwCam.id)} 
                     className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded"

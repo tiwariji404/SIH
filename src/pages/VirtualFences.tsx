@@ -135,7 +135,18 @@ export default function VirtualFences() {
                if (video && video.readyState >= 2) {
                   ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
                   const base64 = canvas.toDataURL('image/jpeg', 0.6);
-                  ws?.send(JSON.stringify({ type: 'frame', camera_id: camId, image: base64 }));
+                  
+                  // Get active polygons matching this camera
+                  const activeZonesForCam = savedFences
+                     .filter(f => f.active && f.cameras.includes(camId))
+                     .map(f => ({ id: f.id, name: f.name, points: f.points }));
+
+                  ws?.send(JSON.stringify({ 
+                     type: 'frame', 
+                     camera_id: camId, 
+                     image: base64,
+                     zones: activeZonesForCam 
+                  }));
                }
             });
          }, 500); // 2 FPS per camera

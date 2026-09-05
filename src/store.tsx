@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import type {
   Camera, EventItem, Alert, VehicleRecord, Zone, TrackRecord, AuditLog, FaceRecord,
-  Detection, User, AlertStatus, ScenarioType, Role,
+  Detection, User, AlertStatus, ScenarioType, Role, SavedFence
 } from './types';
 import { api, WS_BASE_URL } from './lib/api';
 
@@ -42,6 +42,8 @@ interface AppState {
   refreshData: () => Promise<void>;
   selectedLiveCameraIds: string[] | null;
   setSelectedLiveCameraIds: (ids: string[] | null) => void;
+  savedFences: SavedFence[];
+  setSavedFences: (fences: SavedFence[]) => void;
 }
 
 export interface ToastMsg {
@@ -80,6 +82,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activeAlarm, setActiveAlarm] = useState<Alert | null>(null);
   const [watchlistPlates, setWatchlistPlates] = useState<string[]>([]);
   const [selectedLiveCameraIds, setSelectedLiveCameraIds] = useState<string[] | null>(null);
+  const [savedFences, setSavedFences] = useState<SavedFence[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -155,7 +158,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         { id: 'CAM-02', name: 'Perimeter West', location: 'West Wall', bop: 'Command', status: 'ONLINE', fps: 30, scenario: 'normal', recording: false, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 400, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } },
         { id: 'CAM-03', name: 'Sector Alpha', location: 'Watchtower 1', bop: 'Alpha', status: 'ONLINE', fps: 30, scenario: 'normal', recording: true, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 120, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } },
         { id: 'CAM-04', name: 'Sector Bravo', location: 'Checkpoint 2', bop: 'Bravo', status: 'OFFLINE', fps: 0, scenario: 'normal', recording: false, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 0, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } },
-        { id: 'CAM-05', name: 'Back Entry', location: 'South Gate', bop: 'Command', status: 'ONLINE', fps: 30, scenario: 'normal', recording: true, latency: 30, storage: 150, health: 100, lastHeartbeat: new Date().toISOString(), signalQuality: 98, detectionCount: 500, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } }
+        { id: 'CAM-05', name: 'Back Entry', location: 'South Gate', bop: 'Command', status: 'ONLINE', fps: 30, scenario: 'normal', recording: true, latency: 30, storage: 150, health: 100, lastHeartbeat: new Date().toISOString(), signalQuality: 98, detectionCount: 500, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } },
+        { id: 'Punjab Sector - Cam 1', name: 'Punjab Sector - Cam 1', location: 'Punjab Border', bop: 'Sector North', status: 'ONLINE', fps: 30, scenario: 'normal', recording: true, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 10, coords: { x: 50, y: 50 }, mapCoord: { lat: 31.60450, lng: 74.57680 } },
+        { id: 'Punjab Sector - Cam 2', name: 'Punjab Sector - Cam 2', location: 'Punjab Border', bop: 'Sector North', status: 'ONLINE', fps: 30, scenario: 'normal', recording: false, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 5, coords: { x: 50, y: 50 }, mapCoord: { lat: 31.60550, lng: 74.57780 } },
+        { id: 'Punjab Sector - Cam 3', name: 'Punjab Sector - Cam 3', location: 'Punjab Border', bop: 'Sector North', status: 'ONLINE', fps: 30, scenario: 'normal', recording: true, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 120, coords: { x: 50, y: 50 }, mapCoord: { lat: 31.60650, lng: 74.57880 } },
+        { id: 'Punjab Sector - Cam 4', name: 'Punjab Sector - Cam 4', location: 'Punjab Border', bop: 'Sector North', status: 'ONLINE', fps: 30, scenario: 'normal', recording: true, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 120, coords: { x: 50, y: 50 }, mapCoord: { lat: 31.60750, lng: 74.57980 } },
+        { id: 'Rajasthan Desert - Cam 1', name: 'Rajasthan Desert - Cam 1', location: 'Rajasthan Desert', bop: 'Sector West', status: 'ONLINE', fps: 30, scenario: 'normal', recording: true, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 120, coords: { x: 50, y: 50 }, mapCoord: { lat: 26.9124, lng: 70.9083 } },
       ]);
       setVehicles([
         { id: 'V-101', cameraId: 'CAM-01', vehicleType: 'SUV', plateNumber: 'DL 4C AB 1234', confidence: 98, timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(), status: 'AUTHORIZED', direction: 'Inbound' },
@@ -330,6 +338,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     activeAlarm, setActiveAlarm, watchlistPlates, addToWatchlist,
     refreshData: fetchData,
     selectedLiveCameraIds, setSelectedLiveCameraIds,
+    savedFences, setSavedFences,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

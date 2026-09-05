@@ -97,13 +97,13 @@ export default function Layout({ current, onNavigate, children }: Props) {
   // The user is exclusively an Operator now. No need for complex role logic.
   const PRIMARY_NAV = [
     NAV_ITEMS.overview,
-    NAV_ITEMS.fences,
-    NAV_ITEMS.anpr,
     NAV_ITEMS.live,
     NAV_ITEMS.faces,
-    NAV_ITEMS.blockchain,
+    NAV_ITEMS.fences,
+    NAV_ITEMS.anpr,
     NAV_ITEMS.cameras,
     NAV_ITEMS.events,
+    NAV_ITEMS.blockchain,
   ];
 
   return (

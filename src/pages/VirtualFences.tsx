@@ -5,14 +5,6 @@ import { GoogleMap, useJsApiLoader, MarkerF, PolygonF } from '@react-google-maps
 
 type Point = { x: number; y: number };
 
-interface SavedFence {
-  id: string;
-  name: string;
-  cameras: string[];
-  points: Point[];
-  active: boolean;
-}
-
 const containerStyle = {
   width: '100%',
   height: '100%'
@@ -40,13 +32,12 @@ const cameraLocations: Record<string, { lat: number, lng: number }> = {
 const defaultCenter = { lat: 31.6045, lng: 74.5768 };
 
 export default function VirtualFences() {
-  const { showToast, activeAlarm } = useApp();
+  const { showToast, activeAlarm, savedFences, setSavedFences } = useApp();
   
   const [hardwareDevices, setHardwareDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedCameras, setSelectedCameras] = useState<string[]>([]); // Immediately stream when ticked
   const [fenceName, setFenceName] = useState('');
   
-  const [savedFences, setSavedFences] = useState<SavedFence[]>([]);
   const [showFenceGroups, setShowFenceGroups] = useState(false);
 
   // Drawing State
@@ -184,7 +175,7 @@ export default function VirtualFences() {
       return;
     }
     
-    const newFence: SavedFence = {
+    const newFence = {
       id: Date.now().toString(),
       name: fenceName,
       cameras: [...selectedCameras],
@@ -209,7 +200,7 @@ export default function VirtualFences() {
   };
 
   const deleteFence = (id: string) => {
-    setSavedFences(prev => prev.filter(f => f.id !== id));
+    setSavedFences(savedFences.filter(f => f.id !== id));
   };
 
   const [aiExpanded, setAiExpanded] = useState(true);
@@ -270,10 +261,12 @@ export default function VirtualFences() {
                             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-700 pb-1">Assigned Cameras</p>
                             <div className="flex flex-col gap-2">
                               {fence.cameras.map(c => (
-                                <div key={c} className="flex items-center gap-2 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-300 font-medium">
+                                <button key={c} onClick={() => {
+                                  window.dispatchEvent(new CustomEvent('appNavigate', { detail: { page: 'live', cameraId: c } }));
+                                }} className="flex items-center gap-2 px-3 py-2 bg-slate-900 hover:bg-slate-800 transition-colors border border-slate-700 rounded-lg text-xs text-slate-300 font-medium cursor-pointer text-left focus:outline-none">
                                   {c.startsWith('HW:') ? <Video className="w-3.5 h-3.5 text-emerald-400" /> : <CameraIcon className="w-3.5 h-3.5 text-blue-400" />}
                                   {c.startsWith('HW:') ? c.replace('HW:', 'Hardware: ') : c}
-                                </div>
+                                </button>
                               ))}
                             </div>
                           </div>
@@ -361,39 +354,7 @@ export default function VirtualFences() {
              )
            )}
 
-           {/* Live Video Overlays for active Hardware Cameras */}
-           <div className="absolute top-16 right-4 flex flex-col gap-3 z-[1000]">
-             {Object.entries(hwStreams).map(([camId, stream], idx) => (
-               <div key={camId} className="w-64 h-48 bg-black rounded-lg border-2 border-emerald-500 shadow-2xl overflow-hidden relative group">
-                 <video 
-                   ref={el => {
-                     videoRefs.current[camId] = el;
-                     if (el && el.srcObject !== stream) {
-                       el.srcObject = stream;
-                     }
-                   }}
-                   autoPlay 
-                   muted 
-                   playsInline
-                   className="w-full h-full object-cover" 
-                 />
-                 <div className="absolute top-2 left-2 bg-black/80 text-white text-[10px] font-bold px-2 py-1 rounded tracking-wider flex items-center gap-1.5 backdrop-blur-md">
-                   <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                   LIVE HARDWARE CAMERA
-                 </div>
-                 
-                 {/* CyberSec SIH Theme: AES-256 E2E Encrypted Badge */}
-                 <div className="absolute top-2 right-2 bg-emerald-950/80 text-emerald-400 text-[9px] font-bold px-2 py-1 rounded tracking-wider flex items-center gap-1.5 backdrop-blur-md border border-emerald-500/30">
-                   <Shield className="w-3 h-3" />
-                   AES-256 E2E
-                 </div>
-                 
-                 {activeAlarm && activeAlarm.status !== 'RESOLVED' && (
-                   <div className="absolute inset-0 border-4 border-red-500 bg-red-500/20 pointer-events-none animate-pulse" />
-                 )}
-               </div>
-             ))}
-           </div>
+
            
            {activeAlarm && activeAlarm.status !== 'RESOLVED' && (
               <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1000]">

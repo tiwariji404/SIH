@@ -1,25 +1,50 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../store';
 import CameraFeed from '../components/CameraFeed';
-import { Radio, Grid3x3, Cctv, Smartphone, X, RefreshCw, Shield } from 'lucide-react';
+import { Video, Camera as CameraIcon, Shield, AlertTriangle, AlertCircle, Phone, WifiOff, Smartphone, X, Layers, Grid3x3, Activity, Loader, Maximize, Minimize, Cctv, Radio } from 'lucide-react';
 import type { ScenarioType, Camera } from '../types';
 
 const SCENARIOS: { value: ScenarioType; label: string; color: string }[] = [
-  { value: 'normal', label: 'Normal', color: 'text-emerald-400' },
-  { value: 'intrusion', label: 'Intrusion', color: 'text-red-400' },
-  { value: 'night', label: 'Night Movement', color: 'text-indigo-400' },
-  { value: 'suspicious', label: 'Suspicious Activity', color: 'text-amber-400' },
-  { value: 'vehicle', label: 'Vehicle', color: 'text-blue-400' },
-  { value: 'anpr', label: 'ANPR', color: 'text-purple-400' },
+  { value: 'normal', label: 'NORMAL', color: 'emerald' },
+  { value: 'intrusion', label: 'INTRUSION ALERT', color: 'red' },
+  { value: 'night', label: 'NIGHT VISION', color: 'indigo' },
+  { value: 'suspicious', label: 'SUSPICIOUS ACTIVITY', color: 'amber' },
+  { value: 'vehicle', label: 'VEHICLE TRACKING', color: 'blue' },
+  { value: 'anpr', label: 'ANPR MODE', color: 'purple' },
 ];
 
+function HardwareVideoPlayer({ stream }: { stream: MediaStream }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  
+  useEffect(() => {
+    if (ref.current && stream) {
+      ref.current.srcObject = stream;
+      ref.current.play().catch(e => console.log('Fullscreen HW camera play error', e));
+    }
+  }, [stream]);
+  
+  return (
+    <video
+      ref={ref}
+      autoPlay
+      muted
+      playsInline
+      className="absolute inset-0 h-full w-full object-cover bg-black"
+    />
+  );
+}
+
 export default function LiveSurveillance() {
-  const { cameras, setCameraScenario, detections, selectedLiveCameraIds, setSelectedLiveCameraIds } = useApp();
+  const { cameras, setCameraScenario, detections, selectedLiveCameraIds, setSelectedLiveCameraIds, savedFences } = useApp();
   const [gridSize, setGridSize] = useState<'2x2' | '3x3'>('2x2');
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [camError, setCamError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [expandedCameraId, setExpandedCameraId] = useState<string | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  const isExpanded = expandedCameraId !== null;
 
   useEffect(() => {
     // Only standard component mounts here. Global Alarm handles timer.
@@ -56,10 +81,16 @@ export default function LiveSurveillance() {
 
   const visibleCameras = selectedLiveCameraIds && selectedLiveCameraIds.length > 0
     ? cameras.filter(c => selectedLiveCameraIds.includes(c.id))
-    : cameras.filter(c => c.status !== 'OFFLINE').slice(0, 2); // Show only 2 demo cameras by default
+    : cameras.filter(c => c.status === 'ONLINE' || c.recording);
 
   const [hardwareCameras, setHardwareCameras] = useState<MediaDeviceInfo[]>([]);
   const hardwareStreamsRef = useRef<{ [deviceId: string]: MediaStream }>({});
+
+  const visibleHwCameras = hardwareCameras.filter(device => 
+    !selectedLiveCameraIds || selectedLiveCameraIds.length === 0 || selectedLiveCameraIds.includes(`HW:${device.deviceId}`)
+  );
+
+  const isSingleCamera = (visibleCameras.length + visibleHwCameras.length) === 1;
 
   useEffect(() => {
     // Only standard component mounts here. Global Alarm handles timer.
@@ -184,24 +215,58 @@ export default function LiveSurveillance() {
 
       <div className="glass-panel live-toolbar p-4 sm:p-5">
         <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-1">
+          <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-1 w-full">
             <button
               onClick={() => setSelectedLiveCameraIds(null)}
               className={`glass-chip whitespace-nowrap ${!selectedLiveCameraIds || selectedLiveCameraIds.length === 0 ? 'glass-chip-active' : 'glass-chip-slate'}`}
             >
               All Cameras
             </button>
-            {cameras.map(cam => {
-              const isSelected = selectedLiveCameraIds?.includes(cam.id);
+
+            {/* Fencing Group Chips */}
+            {savedFences.map(fence => {
+              const isSelected = selectedLiveCameraIds?.length === fence.cameras.length && fence.cameras.every(c => selectedLiveCameraIds?.includes(c));
               return (
                 <button
-                  key={cam.id}
-                  onClick={() => setSelectedLiveCameraIds([cam.id])}
-                  className={`glass-chip whitespace-nowrap ${isSelected ? 'glass-chip-active' : 'glass-chip-slate'} ${cam.status === 'OFFLINE' ? 'opacity-50' : ''}`}
+                  key={fence.id}
+                  onClick={() => setSelectedLiveCameraIds(fence.cameras)}
+                  className={`glass-chip whitespace-nowrap ${isSelected ? 'glass-chip-active border-blue-500 text-blue-400' : 'glass-chip-slate border-blue-500/30'} flex items-center gap-1.5`}
                 >
-                  <span className={`status-dot ${liveStream ? 'bg-emerald-400' : cam.status === 'ONLINE' ? 'bg-emerald-400' : cam.status === 'DEGRADED' ? 'bg-amber-400' : 'bg-red-500'}`} />
-                  {cam.id}
-                  {liveStream && <Smartphone className="ml-0.5 h-2.5 w-2.5 inline" />}
+                  <Layers className="w-3.5 h-3.5 text-blue-500" />
+                  {fence.name}
+                </button>
+              );
+            })}
+
+            {/* Location Group Chips */}
+            {Array.from(new Set(cameras.map(c => c.location))).sort().map(loc => {
+              const locCameras = cameras.filter(c => c.location === loc).map(c => c.id);
+              const isSelected = selectedLiveCameraIds && selectedLiveCameraIds.length === locCameras.length && locCameras.every(c => selectedLiveCameraIds.includes(c));
+              
+              return (
+                <button
+                  key={loc}
+                  onClick={() => setSelectedLiveCameraIds(locCameras)}
+                  className={`glass-chip whitespace-nowrap flex items-center gap-1.5 ${isSelected ? 'glass-chip-active' : 'glass-chip-slate'}`}
+                >
+                  <span className={`status-dot ${isSelected ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+                  {loc}
+                </button>
+              );
+            })}
+
+            {/* Hardware Cameras */}
+            {hardwareCameras.map((device, index) => {
+              const hwId = `HW:${device.deviceId}`;
+              const isSelected = selectedLiveCameraIds?.length === 1 && selectedLiveCameraIds.includes(hwId);
+              return (
+                <button
+                  key={device.deviceId}
+                  onClick={() => setSelectedLiveCameraIds([hwId])}
+                  className={`glass-chip whitespace-nowrap flex items-center gap-1.5 ${isSelected ? 'glass-chip-active border-emerald-500 text-emerald-400' : 'glass-chip-slate border-emerald-500/30'}`}
+                >
+                  <span className={`status-dot ${isSelected ? 'bg-emerald-400' : 'bg-emerald-400/50'}`} />
+                  {device.label || `USB Camera ${index + 1}`}
                 </button>
               );
             })}
@@ -275,8 +340,8 @@ export default function LiveSurveillance() {
         </div>
       )}
 
-      <div className={`grid gap-4 ${gridSize === '2x2' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
-        {hardwareCameras.map((device, index) => {
+      <div className={`grid gap-4 ${gridSize === '2x2' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'} [&_.camera-card]:h-56`}>
+        {visibleHwCameras.map((device, index) => {
           const hwStream = hardwareStreamsRef.current[device.deviceId];
           const mockHwCam = {
             id: `HW-${index + 1}`,
@@ -303,17 +368,26 @@ export default function LiveSurveillance() {
                 </div>
               </div>
 
-              <div className="camera-meta">
-                <div className="min-w-0">
+              <div className="camera-meta flex items-center justify-between">
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-bold text-slate-800">
                     {mockHwCam.id} — {mockHwCam.name}
                     <span className="ml-1 text-blue-500">(Hardware)</span>
                   </p>
                   <p className="truncate text-[10px] text-slate-600">{mockHwCam.bop} • {mockHwCam.location}</p>
                 </div>
-                <select disabled className="glass-select opacity-50">
-                  <option>Normal</option>
-                </select>
+                <div className="flex items-center gap-2">
+                  <select disabled className="glass-select opacity-50 w-24">
+                    <option>Normal</option>
+                  </select>
+                  <button 
+                    onClick={() => setExpandedCameraId(isExpanded ? null : mockHwCam.id)} 
+                    className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded"
+                    title={isExpanded ? "Exit Full Screen" : "Full Screen"}
+                  >
+                    {isExpanded ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -329,24 +403,33 @@ export default function LiveSurveillance() {
               />
             </div>
 
-            <div className="camera-meta">
-              <div className="min-w-0">
+            <div className="camera-meta flex items-center justify-between">
+              <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-bold text-slate-800">
                   {cam.id} — {cam.name}
                   {liveStream && <span className="ml-1 text-emerald-500">(Phone)</span>}
                 </p>
                 <p className="truncate text-[10px] text-slate-600">{cam.bop} • {cam.location}</p>
               </div>
-              <select
-                value={cam.scenario}
-                onChange={e => setCameraScenario(cam.id, e.target.value as ScenarioType)}
-                className="glass-select"
-                disabled={cam.status === 'OFFLINE'}
-              >
-                {SCENARIOS.map(s => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2">
+                <select
+                  value={cam.scenario}
+                  onChange={e => setCameraScenario(cam.id, e.target.value as ScenarioType)}
+                  className="glass-select w-28"
+                  disabled={cam.status === 'OFFLINE'}
+                >
+                  {SCENARIOS.map(s => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+                <button 
+                  onClick={() => setExpandedCameraId(isExpanded ? null : cam.id)} 
+                  className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded"
+                  title={isExpanded ? "Exit Full Screen" : "Full Screen"}
+                >
+                  {isExpanded ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -361,6 +444,81 @@ export default function LiveSurveillance() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* FIXED FULLSCREEN MODAL */}
+      {isExpanded && createPortal(
+        <div className="fixed inset-0 z-[9999] flex flex-col bg-black/95 backdrop-blur-xl">
+          <div className="flex h-16 items-center justify-between px-6 bg-gradient-to-b from-black/80 to-transparent">
+            {/* Modal Header content, e.g. camera name */}
+            {(() => {
+              const hwMatch = visibleHwCameras.find(d => `HW:${d.deviceId}` === expandedCameraId);
+              const camMatch = visibleCameras.find(c => c.id === expandedCameraId);
+              
+              if (hwMatch) {
+                return (
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-500"></span>
+                    <span className="text-lg font-black tracking-widest text-emerald-400">HARDWARE FEED</span>
+                    <span className="text-sm font-medium text-slate-400">/ {hwMatch.label || 'USB Camera'}</span>
+                  </div>
+                );
+              }
+              if (camMatch) {
+                return (
+                   <div className="flex items-center gap-3">
+                    <span className="flex h-2.5 w-2.5 animate-pulse rounded-full bg-red-500"></span>
+                    <span className="text-lg font-black tracking-widest text-red-500">LIVE FEED</span>
+                    <span className="text-sm font-medium text-slate-400">/ {camMatch.id} - {camMatch.name}</span>
+                  </div>
+                );
+              }
+              return <div></div>;
+            })()}
+
+            <button
+              onClick={() => setExpandedCameraId(null)}
+              className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-bold tracking-widest text-white shadow-xl transition-all hover:bg-white/20 hover:scale-105"
+            >
+              <Minimize className="h-4 w-4" />
+              CLOSE FULLSCREEN
+            </button>
+          </div>
+          
+          <div className="flex-1 w-full bg-black flex flex-col p-4 md:p-8 pb-8">
+            {/* Fullscreen Video Rendering */}
+            <div className="w-full flex-1 mx-auto max-w-[1600px] relative">
+            {(() => {
+              const hwMatch = visibleHwCameras.find(d => `HW:${d.deviceId}` === expandedCameraId);
+              if (hwMatch) {
+                const stream = hardwareStreamsRef.current[hwMatch.deviceId];
+                return (
+                  <div className="absolute inset-0 border border-emerald-500/30 rounded-xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.1)] bg-black">
+                    <HardwareVideoPlayer stream={stream} />
+                  </div>
+                );
+              }
+
+              const camMatch = visibleCameras.find(c => c.id === expandedCameraId);
+              if (camMatch) {
+                return (
+                  <div className="absolute inset-0 border border-slate-700/50 rounded-xl overflow-hidden shadow-2xl bg-black">
+                     <CameraFeed
+                        camera={camMatch}
+                        detections={detections}
+                        liveStream={liveStream}
+                        showOverlay={true}
+                        fit="cover"
+                      />
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

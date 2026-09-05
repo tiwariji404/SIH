@@ -146,6 +146,15 @@ export interface FaceRecord {
   image?: string;
 }
 
+export interface SavedFence {
+  id: string;
+  name: string;
+  cameras: string[];
+  points: { x: number; y: number }[];
+  active: boolean;
+}
+
+
 export const riskColor: Record<RiskLevel, string> = {
   LOW: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
   MEDIUM: 'text-amber-400 bg-amber-500/10 border-amber-500/30',

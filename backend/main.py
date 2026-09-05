@@ -135,35 +135,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 
                 alert_trigger = None
                 face_trigger = None
-                mode = camera_modes.get(cam_id, "normal")
-                frame_counters[cam_id] = frame_counters.get(cam_id, 0) + 1
-                
-                # Filter for NIGHT VISION mode
-                if mode == "night":
-                    lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-                    l_channel, a, b = cv2.split(lab)
-                    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-                    cl = clahe.apply(l_channel)
-                    limg = cv2.merge((cl,a,b))
-                    frame = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+                mode = camera_scenarios.get(cam_id, "normal")
                 
                 # Check frame skip for NORMAL mode (process every 5th frame)
                 run_yolo = True
-                if mode == "normal" and frame_counters[cam_id] % 5 != 0:
-                    run_yolo = False
-
                 
-<<<<<<< HEAD
-                # 3. YOLO Detection
-                results = model(frame, verbose=False)
-                for r in results:
-                    boxes = r.boxes
-                    for box in boxes:
-                        cls = int(box.cls[0])
-                        conf = float(box.conf[0])
-                        if cls in current_targets and conf > 0.4:
-                            is_human = (cls == 0)
-=======
                 # 1. YOLO Detection
                 if run_yolo:
                     results = model(frame, verbose=False)
@@ -181,7 +157,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 
                             if cls in TARGET_CLASSES and conf > 0.4:
                                 is_human = (cls == 0)
->>>>>>> origin/main
+
                             # Standard Alert
                             alert_trigger = {
                                 "type": current_targets[cls] if not force_watchlist else "WATCHLIST MATCH: Dawood Ibrahim",

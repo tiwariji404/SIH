@@ -1,246 +1,283 @@
-import { useState } from 'react';
-import { Search, Users, CheckCircle, HelpCircle, AlertCircle, Box, Camera, User as UserIcon, Calendar, MapPin, Clock } from 'lucide-react';
-
-// Combined mock data type for the merged view
-type DetectedEntity = {
-  id: string;
-  type: 'PERSON' | 'OBJECT';
-  identity: string; // 'Unknown Person', 'Unattended Baggage', 'Rajendra Tiwari', etc.
-  status: 'AUTHORIZED' | 'UNKNOWN' | 'FLAGGED' | 'DANGEROUS';
-  confidence: number;
-  cameraId: string;
-  location: string;
-  timestamp: string;
-  details: string;
-  photos: string[]; // 3-4 angles
-};
-
-// Generate realistic mock data for today
-const todayStr = new Date().toLocaleDateString('en-IN');
-const mockData: DetectedEntity[] = [
-  {
-    id: 'ENT-001',
-    type: 'PERSON',
-    identity: 'Unknown Person A',
-    status: 'UNKNOWN',
-    confidence: 89,
-    cameraId: 'Cam 1 - Border Sector A',
-    location: 'North Fence',
-    timestamp: `${todayStr}, 09:15 AM`,
-    details: 'Unrecognized individual lingering near the border fence. Face partially covered.',
-    photos: [
-      'https://images.unsplash.com/photo-1542909168-82c3e7fdca5c?w=150&h=150&fit=crop',
-      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop',
-      'https://images.unsplash.com/photo-1488161628813-04466f872be2?w=150&h=150&fit=crop'
-    ]
-  },
-  {
-    id: 'ENT-002',
-    type: 'PERSON',
-    identity: 'Rahul Sharma',
-    status: 'AUTHORIZED',
-    confidence: 98,
-    cameraId: 'Cam 3 - Outpost Delta',
-    location: 'Main Entry Gate',
-    timestamp: `${todayStr}, 10:45 AM`,
-    details: 'Authorized personnel. ID matched with centralized database. Shift started.',
-    photos: [
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop',
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop'
-    ]
-  },
-  {
-    id: 'ENT-003',
-    type: 'OBJECT',
-    identity: 'Suspicious Backpack',
-    status: 'FLAGGED',
-    confidence: 94,
-    cameraId: 'Cam 2 - Checkpoint Alpha',
-    location: 'Checkpoint Alpha Waiting Area',
-    timestamp: `${todayStr}, 11:20 AM`,
-    details: 'Unattended dark backpack left on the bench for over 15 minutes. Heat signature matches standard non-biological.',
-    photos: [
-      'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=150&h=150&fit=crop',
-      'https://images.unsplash.com/photo-1491336477066-31156b5e4f35?w=150&h=150&fit=crop',
-      'https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?w=150&h=150&fit=crop',
-      'https://images.unsplash.com/photo-1547949003-9792a18a2601?w=150&h=150&fit=crop'
-    ]
-  },
-  {
-    id: 'ENT-004',
-    type: 'OBJECT',
-    identity: 'Concealed Weapon / Rifle',
-    status: 'DANGEROUS',
-    confidence: 99,
-    cameraId: 'Cam 1 - Border Sector A',
-    location: 'Sector A Bushes',
-    timestamp: `${todayStr}, 01:10 PM`,
-    details: 'Long metallic object detected matching the thermal and shape profile of an assault rifle.',
-    photos: [
-      'https://images.unsplash.com/photo-1595590424283-b8f1784cb2c8?w=150&h=150&fit=crop',
-      'https://images.unsplash.com/photo-1584281729424-65123011e4cb?w=150&h=150&fit=crop'
-    ]
-  }
-];
+import { useState, useRef, useEffect } from 'react';
+import { useApp } from '../store';
+import CameraFeed from '../components/CameraFeed';
+import { ScanFace, UserCheck, UserX, AlertTriangle, Clock, MapPin, ArrowRightLeft, Camera as CameraIcon, Maximize2, Minimize2, ShieldAlert, Route } from 'lucide-react';
+import type { FaceRecord } from '../types';
+import { WS_BASE_URL } from '../lib/api';
 
 export default function FaceDetection() {
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const { cameras, faces } = useApp();
+  const [demoStream, setDemoStream] = useState<MediaStream | null>(null);
+  const [isDemoActive, setIsDemoActive] = useState(false);
+  const [forceWatchlist, setForceWatchlist] = useState(false);
+  const [forceReid, setForceReid] = useState(false);
+  const [fullscreenCam, setFullscreenCam] = useState<string | null>(null);
 
-  const filtered = mockData.filter(f => {
-    if (search && !f.identity.toLowerCase().includes(search.toLowerCase())) return false;
-    if (statusFilter !== 'ALL' && f.status !== statusFilter) return false;
-    return true;
-  });
+  const demoWsRef = useRef<WebSocket | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const flagsRef = useRef({ forceWatchlist, forceReid });
+
+  useEffect(() => {
+    flagsRef.current = { forceWatchlist, forceReid };
+  }, [forceWatchlist, forceReid]);
+
+  const entryCameras = cameras.filter(c => c.id === 'CAM-01' || c.id === 'CAM-05');
+  const sortedFaces = [...faces].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  const getStatusBadge = (status: FaceRecord['status']) => {
+    switch (status) {
+      case 'AUTHORIZED': return <span className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded text-xs font-bold uppercase tracking-widest border border-emerald-100 flex items-center gap-1"><UserCheck className="w-3 h-3" /> Authorized</span>;
+      case 'FLAGGED': return <span className="px-2 py-1 bg-red-50 text-red-600 rounded text-xs font-bold uppercase tracking-widest border border-red-100 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Flagged</span>;
+      case 'UNKNOWN': return <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs font-bold uppercase tracking-widest border border-slate-200 flex items-center gap-1"><UserX className="w-3 h-3" /> Unknown</span>;
+    }
+  };
+
+  const getDirectionBadge = (dir: FaceRecord['direction']) => {
+    return (
+      <span className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-widest border ${dir === 'Inbound' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
+        {dir}
+      </span>
+    );
+  };
+
+  const startDemo = async () => {
+    if (isDemoActive) {
+      if (demoStream) {
+        demoStream.getTracks().forEach(t => t.stop());
+        setDemoStream(null);
+      }
+      if (demoWsRef.current) demoWsRef.current.close();
+      setIsDemoActive(false);
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setDemoStream(stream);
+      setIsDemoActive(true);
+
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.play();
+      videoRef.current = video;
+      
+      const canvas = document.createElement('canvas');
+      canvasRef.current = canvas;
+
+      const ws = new WebSocket(`${WS_BASE_URL}/ws/detections`);
+      demoWsRef.current = ws;
+
+      const sendFrame = () => {
+        if (!isDemoActive || !demoWsRef.current || demoWsRef.current.readyState !== WebSocket.OPEN) return;
+        if (videoRef.current && canvasRef.current) {
+          const v = videoRef.current;
+          const c = canvasRef.current;
+          if (v.videoWidth > 0) {
+            c.width = v.videoWidth;
+            c.height = v.videoHeight;
+            const ctx = c.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(v, 0, 0, c.width, c.height);
+              const base64 = c.toDataURL('image/jpeg', 0.5);
+              demoWsRef.current.send(JSON.stringify({
+                type: 'frame',
+                camera_id: 'CAM-01',
+                image: base64,
+                force_watchlist: flagsRef.current.forceWatchlist,
+                force_reid: flagsRef.current.forceReid
+              }));
+            }
+          }
+        }
+      };
+
+      ws.onopen = () => setInterval(sendFrame, 1000);
+    } catch (e) {
+      console.error("Camera access denied", e);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (demoStream) demoStream.getTracks().forEach(t => t.stop());
+      if (demoWsRef.current) demoWsRef.current.close();
+      setIsDemoActive(false);
+    };
+  }, [demoStream]);
 
   return (
-    <div className="space-y-6 animate-fade-in pb-10">
-      <div>
-        <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Face & Object Detection</h1>
-        <p className="text-sm font-semibold text-slate-600 mt-1">Unified centralized view of all recognized faces and suspicious objects per day</p>
-      </div>
-
-      <div className="bg-orange-50 border border-orange-200 p-4 rounded-xl flex items-start gap-3 shadow-sm">
-        <AlertCircle className="h-5 w-5 text-orange-500 flex-shrink-0 mt-0.5" />
+    <div className="space-y-6">
+      
+      {/* Header */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h4 className="text-sm font-bold text-slate-800">Unified Detection Protocol Active</h4>
-          <p className="text-xs font-semibold text-slate-600 mt-1">
-            System automatically merges duplicate faces captured on the same day into a single profile with multiple angles (3-4 photos). Suspicious objects are tracked alongside identities for rapid threat assessment.
-          </p>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+            <ScanFace className="h-8 w-8 text-indigo-600" />
+            Entry/Exit Access Control
+          </h1>
+          <p className="text-slate-500 font-medium mt-1">Facial recognition access logs restricted to perimeter entry points.</p>
         </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div className="relative flex-1 min-w-[250px]">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Search identity or object..." 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 text-slate-800 font-semibold transition-all" 
-          />
-        </div>
-        {['ALL', 'AUTHORIZED', 'UNKNOWN', 'FLAGGED', 'DANGEROUS'].map(s => (
+        
+        {/* Demo Controls */}
+        <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-4 px-2">
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-600 hover:text-indigo-600 transition-colors">
+              <input type="checkbox" className="accent-red-500 w-4 h-4" checked={forceWatchlist} onChange={e => setForceWatchlist(e.target.checked)} />
+              <ShieldAlert className="w-4 h-4 text-red-500" /> Watchlist
+            </label>
+            <div className="w-px h-6 bg-slate-200"></div>
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-600 hover:text-indigo-600 transition-colors">
+              <input type="checkbox" className="accent-purple-500 w-4 h-4" checked={forceReid} onChange={e => setForceReid(e.target.checked)} />
+              <Route className="w-4 h-4 text-purple-500" /> Track (Re-ID)
+            </label>
+          </div>
           <button 
-            key={s} 
-            onClick={() => setStatusFilter(s)} 
-            className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors border ${
-              statusFilter === s 
-                ? 'bg-slate-800 text-white border-slate-800 shadow-md' 
-                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            onClick={startDemo}
+            className={`flex items-center gap-2 px-4 py-2 font-bold rounded-lg shadow-sm transition-colors ${
+              isDemoActive 
+                ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100' 
+                : 'bg-indigo-600 text-white hover:bg-indigo-700'
             }`}
           >
-            {s}
+            <CameraIcon className="w-5 h-5" />
+            {isDemoActive ? 'Stop Webcam' : 'Start Webcam Demo'}
           </button>
-        ))}
+        </div>
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filtered.map(item => (
-          <div key={item.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col md:flex-row group hover:shadow-md transition-shadow">
-            
-            {/* Multiple Photos Gallery */}
-            <div className="md:w-2/5 p-4 bg-slate-50 border-r border-slate-100 flex flex-col gap-2">
-              {item.photos.length > 0 ? (
-                <>
-                  <div className="relative aspect-square w-full rounded-lg overflow-hidden border border-slate-200 shadow-sm">
-                    <img src={item.photos[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Primary Angle" />
-                    <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm text-white px-2 py-1 rounded text-[10px] font-bold tracking-wider uppercase">
-                      Angle 1
-                    </div>
-                  </div>
-                  {item.photos.length > 1 && (
-                    <div className="grid grid-cols-3 gap-2">
-                      {item.photos.slice(1, 4).map((photo, idx) => (
-                        <div key={idx} className="relative aspect-square rounded-md overflow-hidden border border-slate-200">
-                          <img src={photo} className="w-full h-full object-cover" alt={`Angle ${idx + 2}`} />
-                          <div className="absolute top-1 left-1 bg-black/60 text-white px-1 py-0.5 rounded text-[8px] font-bold">
-                            A{idx + 2}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : (
-                 <div className="flex-1 flex items-center justify-center bg-slate-200 rounded-lg">
-                   <Camera className="w-8 h-8 text-slate-400" />
-                 </div>
-              )}
+      {/* Fullscreen Overlay */}
+      {fullscreenCam && (
+        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex flex-col p-4 animate-in fade-in duration-200">
+          <div className="flex justify-end mb-4">
+            <button onClick={() => setFullscreenCam(null)} className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-bold tracking-wider text-sm">
+              <Minimize2 className="w-5 h-5" /> CLOSE FULLSCREEN
+            </button>
+          </div>
+          <div className="flex-1 w-full relative">
+            <CameraFeed camera={entryCameras.find(c => c.id === fullscreenCam)!} liveStream={fullscreenCam === 'CAM-01' ? demoStream : null} fullHeight={true} />
+            <div className="absolute top-6 left-6 flex items-center gap-3">
+              <div className="bg-red-600 animate-pulse w-3 h-3 rounded-full shadow-[0_0_10px_red]"></div>
+              <span className="text-white font-mono font-bold tracking-widest text-lg drop-shadow-md">LIVE / {fullscreenCam}</span>
             </div>
+          </div>
+        </div>
+      )}
 
-            {/* Details */}
-            <div className="p-5 flex-1 flex flex-col">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    {item.type === 'PERSON' ? <UserIcon className="w-4 h-4 text-slate-500" /> : <Box className="w-4 h-4 text-slate-500" />}
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{item.type}</span>
-                  </div>
-                  <h3 className="text-lg font-black text-slate-800 leading-tight">{item.identity}</h3>
-                </div>
-                
-                {item.status === 'AUTHORIZED' ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold uppercase tracking-wider"><CheckCircle className="w-3 h-3" /> Authorized</span>
-                ) : item.status === 'FLAGGED' ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold uppercase tracking-wider"><AlertCircle className="w-3 h-3" /> Flagged</span>
-                ) : item.status === 'DANGEROUS' ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold uppercase tracking-wider animate-pulse"><AlertCircle className="w-3 h-3" /> Dangerous</span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-bold uppercase tracking-wider"><HelpCircle className="w-3 h-3" /> Unknown</span>
-                )}
+      {/* Live Feeds Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {entryCameras.map(cam => (
+          <div key={cam.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 group transition-all duration-300">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-indigo-700 font-bold tracking-widest uppercase text-sm">
+                <MapPin className="w-4 h-4" />
+                {cam.name} ({cam.location})
               </div>
-
-              <p className="text-sm text-slate-600 font-medium leading-relaxed mb-6 flex-1">
-                {item.details}
-              </p>
-
-              <div className="grid grid-cols-2 gap-y-3 gap-x-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-slate-400" />
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Location</p>
-                    <p className="text-xs font-semibold text-slate-800 truncate" title={item.location}>{item.location}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-slate-400" />
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Source Camera</p>
-                    <p className="text-xs font-semibold text-slate-800 truncate" title={item.cameraId}>{item.cameraId}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-slate-400" />
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">First Spotted</p>
-                    <p className="text-xs font-semibold text-slate-800 truncate">{item.timestamp}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-500" />
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">AI Confidence</p>
-                    <p className="text-xs font-semibold text-slate-800 truncate">{item.confidence}% Match</p>
-                  </div>
-                </div>
+              <button 
+                onClick={() => setFullscreenCam(cam.id)}
+                className="p-1.5 bg-slate-100 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg border border-slate-200 transition-colors opacity-0 group-hover:opacity-100"
+                title="Fullscreen"
+              >
+                <Maximize2 className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-inner relative">
+              <CameraFeed camera={cam} liveStream={cam.id === 'CAM-01' ? demoStream : null} />
+              <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm text-white px-2 py-1 rounded text-xs font-mono border border-white/10">
+                LIVENESS CHECK: ACTIVE
               </div>
-
             </div>
           </div>
         ))}
       </div>
 
-      {filtered.length === 0 && (
-        <div className="bg-white border border-slate-200 p-12 rounded-xl text-center shadow-sm">
-          <Users className="h-10 w-10 text-slate-400 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-slate-800">No detections found</h3>
-          <p className="text-sm text-slate-500 font-medium mt-1">Try adjusting your filters or search query.</p>
+      {/* Access Logs Table */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-slate-800 font-bold text-lg">
+            <ArrowRightLeft className="w-5 h-5 text-indigo-500" />
+            Recent Access Logs
+          </div>
+          <div className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+            {sortedFaces.length} Records
+          </div>
         </div>
-      )}
+        
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-slate-50 text-xs uppercase tracking-widest text-slate-500 font-bold">
+              <tr>
+                <th className="px-6 py-4">Subject</th>
+                <th className="px-6 py-4">Snapshot</th>
+                <th className="px-6 py-4">Node</th>
+                <th className="px-6 py-4">Flow</th>
+                <th className="px-6 py-4">Match Score</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Time</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {sortedFaces.map(face => {
+                const cam = cameras.find(c => c.id === face.cameraId);
+                return (
+                  <tr key={face.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className={`font-bold text-base ${face.status === 'FLAGGED' ? 'text-red-600' : 'text-slate-800'}`}>
+                        {face.identity}
+                      </div>
+                      <div className="text-xs text-slate-500 font-medium mt-0.5">DB: {face.database}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {face.image ? (
+                        <img src={face.image} alt="Face" className="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-sm" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center">
+                          <ScanFace className="w-5 h-5 text-slate-400" />
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-indigo-600">
+                        {cam?.name || face.cameraId}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {getDirectionBadge(face.direction)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full rounded-full ${face.confidence > 90 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                            style={{ width: `${face.confidence}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-bold text-slate-600">{face.confidence}%</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {getStatusBadge(face.status)}
+                    </td>
+                    <td className="px-6 py-4 text-slate-500 font-medium">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" />
+                        {new Date(face.timestamp).toLocaleTimeString()}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {sortedFaces.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-6 py-8 text-center text-slate-500 font-medium">
+                    No access records available.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

@@ -83,6 +83,8 @@ async def websocket_endpoint(websocket: WebSocket):
             if payload.get("type") == "frame":
                 cam_id = payload.get("camera_id", "Unknown Camera")
                 base64_str = payload.get("image", "")
+                force_watchlist = payload.get("force_watchlist", False)
+                force_reid = payload.get("force_reid", False)
                 
                 # Strip header if present
                 if "," in base64_str:
@@ -106,6 +108,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     continue
                 
                 alert_trigger = None
+                face_trigger = None
                 
                 # 1. YOLO Detection
                 results = model(frame, verbose=False)
@@ -115,11 +118,48 @@ async def websocket_endpoint(websocket: WebSocket):
                         cls = int(box.cls[0])
                         conf = float(box.conf[0])
                         if cls in TARGET_CLASSES and conf > 0.4:
+                            is_human = (cls == 0)
+                            # Standard Alert
                             alert_trigger = {
-                                "type": TARGET_CLASSES[cls],
-                                "severity": "CRITICAL" if cls == 0 or cls == 4 else "WARNING",
-                                "reason": f"AI detected {TARGET_CLASSES[cls]} with {int(conf*100)}% confidence"
+                                "type": TARGET_CLASSES[cls] if not force_watchlist else "WATCHLIST MATCH: Dawood Ibrahim",
+                                "severity": "CRITICAL" if (is_human or cls == 4) else "WARNING",
+                                "reason": f"AI detected {TARGET_CLASSES[cls]} with {int(conf*100)}% confidence" if not force_watchlist else "Biometric match found in Interpol Database"
                             }
+                            # Face specific for Humans
+                            if is_human:
+                                face_trigger = {
+                                    "id": f"FC-{int(current_time)}",
+                                    "cameraId": cam_id,
+                                    "identity": "Dawood Ibrahim (WANTED)" if force_watchlist else "Unknown Human",
+                                    "confidence": int(conf * 100),
+                                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
+                                    "database": "Interpol" if force_watchlist else "Live Capture",
+                                    "status": "FLAGGED" if force_watchlist else "UNKNOWN",
+                                    "direction": "Inbound",
+                                    "image": f"data:image/jpeg;base64,{base64_str}"
+                                }
+                                
+                                # Launch Re-ID Simulation Background Task
+                                if force_reid:
+                                    async def simulate_reid(tracked_img):
+                                        await asyncio.sleep(5)
+                                        # Camera 2
+                                        reid_face = face_trigger.copy()
+                                        reid_face["id"] = f"FC-REID-{int(time.time())}"
+                                        reid_face["cameraId"] = "CAM-02"
+                                        reid_face["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
+                                        reid_face["direction"] = "Internal"
+                                        await manager.broadcast({"type": "NEW_FACE", "data": reid_face})
+                                        
+                                        await asyncio.sleep(8)
+                                        # Camera 3
+                                        reid_face["id"] = f"FC-REID-{int(time.time())}"
+                                        reid_face["cameraId"] = "CAM-03"
+                                        reid_face["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
+                                        await manager.broadcast({"type": "NEW_FACE", "data": reid_face})
+                                    
+                                    asyncio.create_task(simulate_reid(base64_str))
+
                             break
                     if alert_trigger:
                         break
@@ -157,7 +197,11 @@ async def websocket_endpoint(websocket: WebSocket):
                         "image": f"data:image/jpeg;base64,{base64_str}"
                     }
                     print("Sending Alert:", alert_payload["title"])
-                    await manager.broadcast(alert_payload)
+                    await manager.broadcast({"type": "NEW_ALERT", "data": alert_payload})
+                
+                # Send face if human triggered
+                if face_trigger:
+                    await manager.broadcast({"type": "NEW_FACE", "data": face_trigger})
                     
     except WebSocketDisconnect:
         manager.disconnect(websocket)

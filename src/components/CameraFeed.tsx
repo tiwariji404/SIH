@@ -8,6 +8,7 @@ interface Props {
   showOverlay?: boolean;
   compact?: boolean;
   liveStream?: MediaStream | null;
+  fullHeight?: boolean;
 }
 
 const scenarioLabels: Record<string, string> = {
@@ -20,7 +21,7 @@ const scenarioLabels: Record<string, string> = {
   camera_failure: 'OFFLINE',
 };
 
-export default function CameraFeed({ camera, detections = [], showOverlay = true, compact = false, liveStream = null }: Props) {
+export default function CameraFeed({ camera, detections = [], showOverlay = true, compact = false, liveStream = null, fullHeight = false }: Props) {
   const { zones } = useApp();
   const [time, setTime] = useState(new Date());
   const [scanY, setScanY] = useState(0);
@@ -51,8 +52,8 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
   const camZones = zones.filter(z => z.cameraIds?.includes(camera.id));
 
   return (
-    <div className={`relative overflow-hidden rounded-lg border bg-black ${isOffline ? 'border-red-500/30' : hasLive ? 'border-emerald-500/40' : 'border-white/10'}`}>
-      <div className={`relative ${compact ? 'h-40' : 'h-56'} w-full overflow-hidden`}>
+    <div className={`relative overflow-hidden rounded-lg border bg-black ${isOffline ? 'border-red-500/30' : hasLive ? 'border-emerald-500/40' : 'border-white/10'} ${fullHeight ? 'h-full w-full' : ''}`}>
+      <div className={`relative ${fullHeight ? 'h-full' : compact ? 'h-40' : 'h-56'} w-full overflow-hidden`}>
         {isOffline ? (
           <div className="flex h-full w-full items-center justify-center bg-black">
             <div className="text-center">

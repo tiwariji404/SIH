@@ -154,7 +154,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         { id: 'CAM-01', name: 'Main Gate', location: 'North Entrance', bop: 'Command', status: 'ONLINE', fps: 30, scenario: 'normal', recording: true, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 1400, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } },
         { id: 'CAM-02', name: 'Perimeter West', location: 'West Wall', bop: 'Command', status: 'ONLINE', fps: 30, scenario: 'normal', recording: false, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 400, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } },
         { id: 'CAM-03', name: 'Sector Alpha', location: 'Watchtower 1', bop: 'Alpha', status: 'ONLINE', fps: 30, scenario: 'normal', recording: true, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 120, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } },
-        { id: 'CAM-04', name: 'Sector Bravo', location: 'Checkpoint 2', bop: 'Bravo', status: 'OFFLINE', fps: 0, scenario: 'normal', recording: false, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 0, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } }
+        { id: 'CAM-04', name: 'Sector Bravo', location: 'Checkpoint 2', bop: 'Bravo', status: 'OFFLINE', fps: 0, scenario: 'normal', recording: false, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 0, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } },
+        { id: 'CAM-05', name: 'Back Entry', location: 'South Gate', bop: 'Command', status: 'ONLINE', fps: 30, scenario: 'normal', recording: true, latency: 30, storage: 150, health: 100, lastHeartbeat: new Date().toISOString(), signalQuality: 98, detectionCount: 500, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } }
       ]);
       setVehicles([
         { id: 'V-101', cameraId: 'CAM-01', vehicleType: 'SUV', plateNumber: 'DL 4C AB 1234', confidence: 98, timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(), status: 'AUTHORIZED', direction: 'Inbound' },
@@ -163,6 +164,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         { id: 'V-104', cameraId: 'CAM-02', vehicleType: 'Motorcycle', plateNumber: 'UP 16 BD 4321', confidence: 85, timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(), status: 'UNKNOWN', direction: 'Cross-Border' },
         { id: 'V-105', cameraId: 'CAM-01', vehicleType: 'Van', plateNumber: 'DL 8C LM 7788', confidence: 96, timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(), status: 'AUTHORIZED', direction: 'Outbound' },
         { id: 'V-106', cameraId: 'CAM-03', vehicleType: 'Jeep', plateNumber: 'RJ 14 CC 1122', confidence: 91, timestamp: new Date(Date.now() - 1000 * 60 * 240).toISOString(), status: 'UNKNOWN', direction: 'Inbound' },
+      ]);
+      setFaces([
+        { id: 'FC-101', cameraId: 'CAM-01', identity: 'Ramesh Singh', confidence: 99, timestamp: new Date(Date.now() - 1000 * 60 * 2).toISOString(), database: 'Employee', status: 'AUTHORIZED', direction: 'Inbound' },
+        { id: 'FC-102', cameraId: 'CAM-01', identity: 'Unknown', confidence: 85, timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(), database: 'None', status: 'UNKNOWN', direction: 'Outbound' },
+        { id: 'FC-103', cameraId: 'CAM-05', identity: 'Suresh Kumar', confidence: 97, timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(), database: 'Contractor', status: 'AUTHORIZED', direction: 'Inbound' },
+        { id: 'FC-104', cameraId: 'CAM-01', identity: 'Watchlist Match', confidence: 94, timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(), database: 'Watchlist', status: 'FLAGGED', direction: 'Inbound' },
       ]);
       setWatchlistPlates(['MH 12 XY 9090']);
     }
@@ -202,6 +209,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
               } else {
                 showToast({ type: 'warning', title: `Alert: ${data.data.severity}`, message: data.data.title || data.data.reason });
               }
+            } else if (data.type === 'NEW_FACE' && data.data) {
+              setFaces(prev => [data.data, ...prev]);
             } else if (data.type === 'intrusion') {
               const alarmItem = { ...data, timestamp: new Date().toISOString(), status: 'NEW' };
               setActiveAlarm(alarmItem);

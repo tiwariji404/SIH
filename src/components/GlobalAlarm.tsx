@@ -53,6 +53,11 @@ export default function GlobalAlarm() {
          </h2>
          <p className="text-xl font-bold text-slate-800 mb-4">{activeAlarm.what} at {activeAlarm.where}</p>
          <div className="w-full bg-slate-100 p-4 rounded-xl border border-slate-200 mb-8 text-left">
+            {activeAlarm.image && (
+               <div className="mb-4 rounded-lg overflow-hidden border border-slate-300">
+                 <img src={activeAlarm.image} alt="Detection Evidence" className="w-full h-auto object-cover max-h-48" />
+               </div>
+            )}
             <p className="text-sm font-bold text-red-600 mb-1 tracking-wider uppercase">Detection Confidence: {activeAlarm.confidence}%</p>
             <p className="text-sm font-medium text-slate-600 mb-1">Reason: {activeAlarm.reason}</p>
             <div className="mt-4 flex items-center justify-between bg-red-50 p-3 rounded-lg border border-red-200">

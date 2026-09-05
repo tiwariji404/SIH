@@ -11,6 +11,7 @@ interface Block {
   evidenceId: string;
   cameraId: string;
   verified: boolean;
+  image?: string;
 }
 
 export default function BlockchainLedger() {
@@ -26,8 +27,8 @@ export default function BlockchainLedger() {
     const newBlocks: Block[] = [];
     
     const allEvents = [
-      ...alerts.map(a => ({ type: 'Intrusion Alert', id: a.id, cam: a.cameraId, time: a.createdAt })),
-      ...vehicles.map(v => ({ type: 'ANPR Log', id: v.id, cam: v.cameraId, time: v.timestamp }))
+      ...alerts.map(a => ({ type: 'Intrusion Alert', id: a.id, cam: a.cameraId, time: a.createdAt, image: a.image })),
+      ...vehicles.map(v => ({ type: 'ANPR Log', id: v.id, cam: v.cameraId, time: v.timestamp, image: v.image }))
     ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 
     allEvents.forEach((ev, i) => {
@@ -42,7 +43,8 @@ export default function BlockchainLedger() {
         eventType: ev.type,
         evidenceId: ev.id,
         cameraId: ev.cam,
-        verified: true
+        verified: true,
+        image: ev.image
       });
       prevHash = hash;
     });
@@ -131,6 +133,17 @@ export default function BlockchainLedger() {
                       <span className="font-mono text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded border border-slate-200">
                         {block.hash.substring(0, 16)}...{block.hash.substring(block.hash.length - 8)}
                       </span>
+                      {block.image && (
+                        <div className="relative group cursor-pointer ml-2">
+                          <div className="w-6 h-6 rounded bg-emerald-100 border border-emerald-300 flex items-center justify-center overflow-hidden">
+                            <img src={block.image} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 bg-white border border-slate-200 shadow-xl rounded-lg p-1 opacity-0 group-hover:opacity-100 pointer-events-none transition-all z-50">
+                            <img src={block.image} className="w-full h-auto rounded" />
+                            <p className="text-[10px] text-center font-bold text-slate-600 mt-1 uppercase tracking-widest">Evidence Snapshot</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4">

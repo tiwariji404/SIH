@@ -142,6 +142,8 @@ export interface FaceRecord {
   timestamp: string;
   database: string;
   status: 'AUTHORIZED' | 'UNKNOWN' | 'FLAGGED';
+  direction: 'Inbound' | 'Outbound';
+  image?: string;
 }
 
 export const riskColor: Record<RiskLevel, string> = {

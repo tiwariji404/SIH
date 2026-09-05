@@ -3,7 +3,7 @@ import type {
   Camera, EventItem, Alert, VehicleRecord, Zone, TrackRecord, AuditLog, FaceRecord,
   Detection, User, AlertStatus, ScenarioType, Role,
 } from './types';
-import { api } from './lib/api';
+import { api, WS_BASE_URL } from './lib/api';
 
 interface AppState {
   user: User | null;
@@ -39,6 +39,7 @@ interface AppState {
   setActiveAlarm: (alarm: Alert | null) => void;
   watchlistPlates: string[];
   addToWatchlist: (plate: string) => void;
+  refreshData: () => Promise<void>;
   selectedLiveCameraIds: string[] | null;
   setSelectedLiveCameraIds: (ids: string[] | null) => void;
 }
@@ -109,17 +110,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Fetch real data when user logs in
   const fetchData = useCallback(async () => {
     if (!user) return;
+    let failedRequests = 0;
+    const safe = async <T,>(promise: Promise<T>, fallback: T): Promise<T> => {
+      try {
+        return await promise;
+      } catch (e) {
+        failedRequests += 1;
+        return fallback;
+      }
+    };
+
     try {
       const [cams, evts, alts, zns, vehs, logs, trks, fcs, wl] = await Promise.all([
-        api.cameras.list(),
-        api.alerts.events(),
-        api.alerts.list(),
-        api.zones.list(),
-        api.analytics.vehicles(),
-        api.analytics.auditLogs(),
-        api.analytics.tracks().catch(() => []),
-        api.analytics.faces().catch(() => []),
-        api.analytics.watchlist().catch(() => []),
+        safe(api.cameras.list(), []),
+        safe(api.alerts.events(), []),
+        safe(api.alerts.list(), []),
+        safe(api.zones.list(), []),
+        safe(api.analytics.vehicles(), []),
+        safe(api.analytics.auditLogs(), []),
+        safe(api.analytics.tracks(), []),
+        safe(api.analytics.faces(), []),
+        safe(api.analytics.watchlist(), []),
       ]);
       setCameras(cams);
       setEvents(evts);
@@ -130,7 +141,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setTracks(trks);
       setFaces(fcs);
       if (wl) {
-        setWatchlistPlates(wl.map((w: any) => w.plate_number));
+        setWatchlistPlates(Array.from(new Set(wl.map((w: any) => String(w.plate_number || '').toUpperCase()).filter(Boolean))));
+      }
+
+      if (failedRequests >= 7 && cams.length === 0 && vehs.length === 0) {
+        throw new Error('Backend unavailable');
       }
     } catch (e) {
       console.error('Initial data fetch failed, using fallback mock data for frontend demo', e);
@@ -175,7 +190,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!user) { wsRef.current?.close(); return; }
     const connect = () => {
       try {
-        const ws = new WebSocket('ws://localhost:8000/ws/detections');
+        const ws = new WebSocket(`${WS_BASE_URL}/ws/detections`);
         wsRef.current = ws;
         ws.onmessage = (e) => {
           try {
@@ -191,7 +206,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               const alarmItem = { ...data, timestamp: new Date().toISOString(), status: 'NEW' };
               setActiveAlarm(alarmItem);
             } else if (data.type === 'vehicle' && data.vehicle) {
-              setVehicles(prev => [data.vehicle, ...prev]);
+              setVehicles(prev => [data.vehicle, ...prev.filter(v => v.id !== data.vehicle.id)]);
             }
           } catch {}
         };
@@ -279,9 +294,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addToWatchlist = useCallback(async (plate: string) => {
     try {
-      await api.analytics.addWatchlist({ plate_number: plate, description: "Manually registered" });
-      setWatchlistPlates(prev => [...prev, plate.toUpperCase().trim()]);
-      showToast({ type: 'success', title: 'Plate Added', message: `${plate} added to watchlist.` });
+      const record = await api.analytics.addWatchlist({ plate_number: plate, description: "Manually registered" });
+      const storedPlate = String(record.plate_number || plate).toUpperCase().trim();
+      setWatchlistPlates(prev => Array.from(new Set([...prev, storedPlate])));
+      showToast({ type: 'success', title: 'Plate Added', message: `${storedPlate} added to watchlist.` });
     } catch (e: any) {
       showToast({ type: 'alert', title: 'Error', message: e.message });
     }
@@ -290,7 +306,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Dummy out the live demo simulation
   const startLiveDemo = useCallback(() => setLiveDemoRunning(true), []);
   const stopLiveDemo = useCallback(() => setLiveDemoRunning(false), []);
-  const setCameraScenario = useCallback(() => {}, []);
+  const setCameraScenario = useCallback((cameraId: string, scenario: ScenarioType) => {
+    setCameras(prev => prev.map(camera => (
+      camera.id === cameraId ? { ...camera, scenario } : camera
+    )));
+  }, []);
 
   const value: AppState = {
     user, token, login, logout, demoMode, setDemoMode,
@@ -299,6 +319,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCameraScenario, acknowledgeAlert, escalateAlert, resolveAlert,
     addZone, deleteZone, addAuditLog, addAlert, triggerCameraOffline, toast, showToast,
     activeAlarm, setActiveAlarm, watchlistPlates, addToWatchlist,
+    refreshData: fetchData,
     selectedLiveCameraIds, setSelectedLiveCameraIds,
   };
 

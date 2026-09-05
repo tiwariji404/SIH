@@ -100,6 +100,7 @@ class VehicleRecordCreate(VehicleRecordBase):
 
 class VehicleRecord(VehicleRecordBase):
     id: str
+    image: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class FaceRecordBase(BaseModel):

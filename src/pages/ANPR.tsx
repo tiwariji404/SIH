@@ -1,18 +1,21 @@
 import { useState, useRef } from 'react';
 import { useApp } from '../store';
-import { Search, ShieldAlert, CheckCircle, HelpCircle, Plus, Camera, Car, Loader2 } from 'lucide-react';
+import { Search, ShieldAlert, CheckCircle, HelpCircle, Plus, Camera, Car, Loader2, Upload, FileVideo, Image as ImageIcon } from 'lucide-react';
 import { api } from '../lib/api';
 
 export default function ANPR() {
-  const { vehicles, showToast, addToWatchlist, watchlistPlates } = useApp();
+  const { vehicles, showToast, addToWatchlist, watchlistPlates, refreshData } = useApp();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const vehicleImageInputRef = useRef<HTMLInputElement>(null);
+  const recordedVideoInputRef = useRef<HTMLInputElement>(null);
   
   // Registration Form State
   const [regPlate, setRegPlate] = useState('');
   const [regReason, setRegReason] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [analysisBusy, setAnalysisBusy] = useState<'image' | 'video' | null>(null);
   
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,12 +40,41 @@ export default function ANPR() {
             setRegPlate(res.plate_number);
             showToast({ type: 'success', title: 'OCR Successful', message: `Extracted plate ${res.plate_number} from image.` });
             addToWatchlist(res.plate_number);
+            refreshData();
         }
     } catch (err: any) {
         showToast({ type: 'alert', title: 'OCR Failed', message: err.message || 'Failed to extract text from photo.' });
     } finally {
         setIsUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleAnalyzeMedia = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'image' | 'video') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setAnalysisBusy(mode);
+    try {
+      const res = mode === 'image'
+        ? await api.analytics.analyzeAnprImage(file)
+        : await api.analytics.analyzeAnprVideo(file);
+
+      const captures = res.captures || [];
+      const count = Number(res.count ?? captures.length);
+      if (count > 0) {
+        const firstPlate = captures[0]?.plateNumber ? ` First plate: ${captures[0].plateNumber}.` : '';
+        showToast({ type: 'success', title: 'ANPR Complete', message: `${count} vehicle capture${count === 1 ? '' : 's'} stored.${firstPlate}` });
+      } else {
+        showToast({ type: 'warning', title: 'No Plate Found', message: res.message || 'No readable number plate was found in the media.' });
+      }
+      await refreshData();
+    } catch (err: any) {
+      showToast({ type: 'alert', title: 'ANPR Failed', message: err.message || 'Failed to analyze media.' });
+    } finally {
+      setAnalysisBusy(null);
+      if (mode === 'image' && vehicleImageInputRef.current) vehicleImageInputRef.current.value = '';
+      if (mode === 'video' && recordedVideoInputRef.current) recordedVideoInputRef.current.value = '';
     }
   };
 
@@ -57,8 +89,8 @@ export default function ANPR() {
   return (
     <div className="space-y-4 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">ANPR — Automatic Number Plate Recognition</h1>
-        <p className="text-xs text-slate-600">{vehicles.length} plate captures • {watchlistPlates.length} watchlist plates</p>
+        <h1 className="text-xl font-bold text-slate-900">ANPR - Automatic Number Plate Recognition</h1>
+        <p className="text-xs text-slate-600">{vehicles.length} plate captures - {watchlistPlates.length} watchlist plates</p>
       </div>
 
       {/* Watchlist alert */}
@@ -122,6 +154,34 @@ export default function ANPR() {
 
              </form>
           </div>
+
+          <div className="card p-6 border-slate-200 shadow-sm bg-white">
+             <h2 className="text-lg font-black text-slate-800 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
+                <Upload className="h-5 w-5 text-blue-600" /> Analyze Vehicle Media
+             </h2>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => !analysisBusy && vehicleImageInputRef.current?.click()}
+                  disabled={!!analysisBusy}
+                  className="btn-ghost border border-slate-200 p-3 justify-center disabled:opacity-50"
+                >
+                  {analysisBusy === 'image' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+                  Image
+                </button>
+                <button
+                  type="button"
+                  onClick={() => !analysisBusy && recordedVideoInputRef.current?.click()}
+                  disabled={!!analysisBusy}
+                  className="btn-ghost border border-slate-200 p-3 justify-center disabled:opacity-50"
+                >
+                  {analysisBusy === 'video' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileVideo className="h-4 w-4" />}
+                  Recorded Feed
+                </button>
+             </div>
+             <input type="file" ref={vehicleImageInputRef} className="hidden" accept="image/*" onChange={e => handleAnalyzeMedia(e, 'image')} />
+             <input type="file" ref={recordedVideoInputRef} className="hidden" accept="video/*" onChange={e => handleAnalyzeMedia(e, 'video')} />
+          </div>
         </div>
 
         {/* Right Col: Live Feed */}
@@ -143,14 +203,18 @@ export default function ANPR() {
             {filtered.slice(0, 30).map(v => {
               return (
             <div key={v.id} className={`card p-4 ${v.status === 'WATCHLIST' ? 'border-red-500/30 bg-red-500/5' : ''}`}>
-              {/* Simulated vehicle image */}
               <div className="relative h-28 rounded-lg bg-gradient-to-b from-slate-700/40 to-slate-900/60 mb-3 overflow-hidden border border-slate-200">
-                <div className="absolute inset-0 grid-overlay opacity-30" />
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2">
-                  <div className="h-6 w-24 rounded bg-slate-600/60" />
-                  <div className="mx-auto -mt-4 h-4 w-20 rounded-t bg-slate-500/50" />
-                </div>
-                {/* Plate highlight */}
+                {v.image ? (
+                  <img src={v.image} alt={`${v.vehicleType} ${v.plateNumber}`} className="absolute inset-0 h-full w-full object-cover" />
+                ) : (
+                  <>
+                    <div className="absolute inset-0 grid-overlay opacity-30" />
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2">
+                      <div className="h-6 w-24 rounded bg-slate-600/60" />
+                      <div className="mx-auto -mt-4 h-4 w-20 rounded-t bg-slate-500/50" />
+                    </div>
+                  </>
+                )}
                 <div className="absolute bottom-1 right-2 bg-amber-400/20 border border-amber-400/50 rounded px-1.5 py-0.5">
                   <span className="text-[9px] font-mono text-amber-300">{v.plateNumber}</span>
                 </div>

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -23,26 +23,46 @@ from app.schemas.core_schemas import (
     Evidence, EvidenceCreate,
     WatchlistRecord, WatchlistRecordCreate
 )
-from fastapi import File, UploadFile
 import uuid
 from app.models.user import User
 from app.api.deps import get_current_user, get_current_active_supervisor
+from app.services.anpr_pipeline import (
+    decode_image_bytes,
+    format_plate,
+    normalize_plate,
+    process_anpr_frame,
+    process_recorded_video,
+    save_upload_file,
+    vehicle_to_payload,
+)
+from app.vision.anpr import anpr_service
 
 router = APIRouter()
 
 # Vehicles (ANPR)
 @router.get("/vehicles", response_model=List[VehicleRecord])
-def get_vehicles(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return db.query(DB_Vehicle).order_by(DB_Vehicle.timestamp.desc()).all()
+def get_vehicles(db: Session = Depends(get_db)):
+    vehicles = db.query(DB_Vehicle).order_by(DB_Vehicle.timestamp.desc()).all()
+    return [vehicle_to_payload(db, vehicle) for vehicle in vehicles]
 
 @router.post("/vehicles", response_model=VehicleRecord)
 def create_vehicle(vehicle: VehicleRecordCreate, db: Session = Depends(get_db)):
     # Watchlist check
-    in_watchlist = db.query(DB_Watchlist).filter(DB_Watchlist.plate_number == vehicle.plateNumber).first()
+    normalized_plate = normalize_plate(vehicle.plateNumber)
+    in_watchlist = next(
+        (
+            record
+            for record in db.query(DB_Watchlist).all()
+            if normalize_plate(record.plate_number) == normalized_plate
+        ),
+        None,
+    )
+    vehicle_data = vehicle.model_dump()
+    vehicle_data["plateNumber"] = format_plate(normalized_plate or vehicle.plateNumber)
     if in_watchlist:
-        vehicle.status = "WATCHLIST"
+        vehicle_data["status"] = "WATCHLIST"
         
-    db_item = DB_Vehicle(**vehicle.model_dump())
+    db_item = DB_Vehicle(**vehicle_data)
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
@@ -66,11 +86,11 @@ def create_vehicle(vehicle: VehicleRecordCreate, db: Session = Depends(get_db)):
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                loop.create_task(manager.broadcast_json(payload))
+                loop.create_task(manager.broadcast(payload))
         except:
             pass
             
-    return db_item
+    return vehicle_to_payload(db, db_item)
 
 # Faces (Facial Recognition)
 @router.get("/faces", response_model=List[FaceRecord])
@@ -190,47 +210,49 @@ def get_watchlist(db: Session = Depends(get_db)):
 
 @router.post("/watchlist", response_model=WatchlistRecord)
 def create_watchlist(watchlist: WatchlistRecordCreate, db: Session = Depends(get_db)):
-    db_item = db.query(DB_Watchlist).filter(DB_Watchlist.plate_number == watchlist.plate_number).first()
+    plate_number = format_plate(watchlist.plate_number)
+    db_item = next(
+        (
+            record
+            for record in db.query(DB_Watchlist).all()
+            if normalize_plate(record.plate_number) == normalize_plate(plate_number)
+        ),
+        None,
+    )
     if not db_item:
-        db_item = DB_Watchlist(plate_number=watchlist.plate_number, description=watchlist.description)
+        db_item = DB_Watchlist(plate_number=plate_number, description=watchlist.description)
         db.add(db_item)
         db.commit()
         db.refresh(db_item)
     return db_item
 
-@router.post("/watchlist/upload", response_model=WatchlistRecord)
+@router.post("/watchlist/upload")
 async def upload_watchlist_image(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    try:
-        import easyocr
-        import numpy as np
-        import cv2
-    except ImportError:
-        raise HTTPException(status_code=500, detail="OCR engine not installed or failed to load")
-    
     contents = await file.read()
-    nparr = np.frombuffer(contents, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    if img is None:
-        raise HTTPException(status_code=400, detail="Invalid image file format")
-        
     try:
-        reader = easyocr.Reader(['en'], gpu=False) # Keep GPU false for compatibility on diverse hackathon hardware
-        results = reader.readtext(img)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
-        
-    if not results:
-        raise HTTPException(status_code=400, detail="No text detected in the image")
-        
-    # Get the text with highest confidence
-    best_text = max(results, key=lambda r: r[2])[1]
-    
-    # Clean it up for plate processing
-    plate_number = "".join(c for c in best_text if c.isalnum()).upper()
-    if not plate_number:
-        raise HTTPException(status_code=400, detail="Extracted text contains no valid alphanumeric characters")
-        
-    db_item = db.query(DB_Watchlist).filter(DB_Watchlist.plate_number == plate_number).first()
+        img = decode_image_bytes(contents)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid image file format")
+
+    captures = anpr_service.analyze_frame(img)
+    if captures:
+        normalized_plate = captures[0].plate_number
+    else:
+        ocr_result = anpr_service.process_plate_crop(img)
+        if not ocr_result:
+            detail = anpr_service.ocr_error or "No readable number plate detected in the image"
+            raise HTTPException(status_code=422, detail=detail)
+        normalized_plate = ocr_result.normalized
+
+    plate_number = format_plate(normalized_plate)
+    db_item = next(
+        (
+            record
+            for record in db.query(DB_Watchlist).all()
+            if normalize_plate(record.plate_number) == normalize_plate(plate_number)
+        ),
+        None,
+    )
     if not db_item:
         db_item = DB_Watchlist(
             plate_number=plate_number,
@@ -240,7 +262,75 @@ async def upload_watchlist_image(file: UploadFile = File(...), db: Session = Dep
         db.commit()
         db.refresh(db_item)
         
-    return db_item
+    return {"ok": True, "plate_number": plate_number, "record": db_item}
+
+
+@router.post("/anpr/image")
+async def analyze_anpr_image(
+    file: UploadFile = File(...),
+    camera_id: str = Form("ANPR-UPLOAD"),
+    direction: str = Form("Unknown"),
+    db: Session = Depends(get_db),
+):
+    contents = await file.read()
+    try:
+        frame = decode_image_bytes(contents)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid image file format")
+
+    try:
+        captures, alerts = process_anpr_frame(
+            db,
+            frame,
+            camera_id=camera_id,
+            direction=direction,
+            source="image",
+            dedupe_seconds=0,
+        )
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"ANPR image processing failed: {exc}")
+
+    if not captures:
+        detail = anpr_service.ocr_error or "No readable number plate detected in the image"
+        raise HTTPException(status_code=422, detail=detail)
+
+    return {"ok": True, "count": len(captures), "captures": captures, "alerts": alerts}
+
+
+@router.post("/anpr/video")
+async def analyze_anpr_video(
+    file: UploadFile = File(...),
+    camera_id: str = Form("ANPR-RECORDED"),
+    direction: str = Form("Unknown"),
+    sample_every_n_frames: int = Form(15),
+    max_captures: int = Form(50),
+    db: Session = Depends(get_db),
+):
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Uploaded video is empty")
+
+    video_path = save_upload_file(contents, file.filename)
+    try:
+        result = process_recorded_video(
+            db,
+            video_path,
+            camera_id=camera_id,
+            direction=direction,
+            sample_every_n_frames=sample_every_n_frames,
+            max_captures=max_captures,
+        )
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"ANPR video processing failed: {exc}")
+
+    if result["count"] == 0:
+        result["message"] = anpr_service.ocr_error or "No readable number plate detected in sampled video frames"
+    return result
 
 
 @router.post("/evidence", response_model=Evidence)

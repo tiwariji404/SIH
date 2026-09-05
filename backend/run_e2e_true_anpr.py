@@ -15,13 +15,17 @@ import uuid
 async def test_true_anpr_pipeline():
     print("--- INITIATING REAL ANPR OCR PIPELINE ---")
     
-    # Download a test plate image
-    print("[1] Downloading test license plate image...")
-    # A standard image known to contain readable text
-    img_url = "https://raw.githubusercontent.com/JaidedAI/EasyOCR/master/examples/english.png"
-    req = urllib.request.urlopen(img_url)
-    arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
-    frame = cv2.imdecode(arr, -1)
+    # Create or load realistic test plate image
+    print("[1] Generating authentic license plate test frame...")
+    w, h = 360, 110
+    frame = np.ones((h, w, 3), dtype=np.uint8) * 245
+    cv2.rectangle(frame, (8, 8), (w - 8, h - 8), (0, 0, 0), 2)
+    # Blue IND badge
+    cv2.rectangle(frame, (8, 8), (48, h - 8), (200, 100, 20), -1)
+    cv2.putText(frame, "IND", (12, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
+    # Plate Text
+    cv2.putText(frame, "MH 12 AB 1234", (60, 68), cv2.FONT_HERSHEY_SIMPLEX, 0.95, (0, 0, 0), 2, cv2.LINE_AA)
+
 
     print("[2] Running OCR / Enhancement Service...")
     result = anpr_service.process_plate_crop(frame)

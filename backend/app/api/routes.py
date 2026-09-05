@@ -351,12 +351,10 @@ def delete_watchlist(watchlist_id: str, db: Session = Depends(get_db)) -> dict:
 
 @router.post("/api/watchlist/upload")
 async def upload_plate_image(file: UploadFile = File(...), db: Session = Depends(get_db)) -> dict:
-    try:
-        import easyocr
-        import numpy as np
-        import cv2
-    except ImportError:
-        raise HTTPException(status_code=500, detail="OCR engine not installed or failed to load")
+    from app.vision.anpr import anpr_service
+    from app.services.anpr_pipeline import format_plate, normalize_plate
+    import numpy as np
+    import cv2
     
     contents = await file.read()
     nparr = np.frombuffer(contents, np.uint8)
@@ -364,24 +362,17 @@ async def upload_plate_image(file: UploadFile = File(...), db: Session = Depends
     if img is None:
         raise HTTPException(status_code=400, detail="Invalid image file format")
         
-    try:
-        reader = easyocr.Reader(['en'], gpu=False) # CPU mode for compatibility
-        results = reader.readtext(img)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
+    ocr_result = anpr_service.process_plate_crop(img)
+    if not ocr_result:
+        raise HTTPException(status_code=400, detail="No readable plate number detected in the image")
         
-    if not results:
-        raise HTTPException(status_code=400, detail="No text detected in the image")
-        
-    # Get the text with highest confidence
-    best_text = max(results, key=lambda r: r[2])[1]
-    
-    # Store it in DB
-    plate_number = "".join(c for c in best_text if c.isalnum()).upper()
+    plate_number = format_plate(ocr_result.normalized)
     if not plate_number:
         raise HTTPException(status_code=400, detail="Extracted text contains no valid alphanumeric characters")
         
-    record = db.query(WatchlistModel).filter(WatchlistModel.plate_number == plate_number).first()
+    norm_target = normalize_plate(plate_number)
+    record = next((r for r in db.query(WatchlistModel).all() if normalize_plate(r.plate_number) == norm_target), None)
+
     if not record:
         record = WatchlistModel(
             id=f"W-{uuid.uuid4().hex[:8]}",

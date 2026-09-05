@@ -302,6 +302,7 @@ export function generateFaces(cameras: Camera[], count: number): FaceRecord[] {
       timestamp: timeAgo(rand(1, 1440)),
       database: 'Authorized Personnel',
       status: Math.random() > 0.7 ? 'UNKNOWN' : 'AUTHORIZED' as FaceRecord['status'],
+      direction: Math.random() > 0.5 ? 'Inbound' : 'Outbound',
     });
   }
   return faces.sort((a, b) => b.timestamp.localeCompare(a.timestamp));

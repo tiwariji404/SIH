@@ -222,9 +222,31 @@ def create_watchlist(watchlist: WatchlistRecordCreate, db: Session = Depends(get
     if not db_item:
         db_item = DB_Watchlist(plate_number=plate_number, description=watchlist.description)
         db.add(db_item)
+        # Update any existing vehicles with this plate to WATCHLIST status
+        for veh in db.query(DB_Vehicle).all():
+            if normalize_plate(veh.plateNumber) == normalize_plate(plate_number):
+                veh.status = "WATCHLIST"
         db.commit()
         db.refresh(db_item)
     return db_item
+
+@router.delete("/watchlist/{watchlist_id}")
+def delete_watchlist(watchlist_id: str, db: Session = Depends(get_db)):
+    item = db.query(DB_Watchlist).filter(DB_Watchlist.id == watchlist_id).first()
+    if not item:
+        item = next(
+            (
+                record
+                for record in db.query(DB_Watchlist).all()
+                if normalize_plate(record.plate_number) == normalize_plate(watchlist_id)
+            ),
+            None,
+        )
+    if not item:
+        raise HTTPException(status_code=404, detail="Watchlist record not found")
+    db.delete(item)
+    db.commit()
+    return {"ok": True, "message": "Watchlist record removed"}
 
 @router.post("/watchlist/upload")
 async def upload_watchlist_image(file: UploadFile = File(...), db: Session = Depends(get_db)):

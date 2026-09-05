@@ -38,7 +38,7 @@ interface AppState {
   activeAlarm: Alert | null;
   setActiveAlarm: (alarm: Alert | null) => void;
   watchlistPlates: string[];
-  addToWatchlist: (plate: string) => void;
+  addToWatchlist: (plate: string, description?: string) => Promise<void>;
   refreshData: () => Promise<void>;
   selectedLiveCameraIds: string[] | null;
   setSelectedLiveCameraIds: (ids: string[] | null) => void;
@@ -309,16 +309,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Demo only
   }, []);
 
-  const addToWatchlist = useCallback(async (plate: string) => {
+  const addToWatchlist = useCallback(async (plate: string, description?: string) => {
     try {
-      const record = await api.analytics.addWatchlist({ plate_number: plate, description: "Manually registered" });
+      const desc = description?.trim() || "Manually registered";
+      const record = await api.analytics.addWatchlist({ plate_number: plate, description: desc });
       const storedPlate = String(record.plate_number || plate).toUpperCase().trim();
       setWatchlistPlates(prev => Array.from(new Set([...prev, storedPlate])));
       showToast({ type: 'success', title: 'Plate Added', message: `${storedPlate} added to watchlist.` });
+      await fetchData();
     } catch (e: any) {
       showToast({ type: 'alert', title: 'Error', message: e.message });
     }
-  }, [showToast]);
+  }, [showToast, fetchData]);
 
   // Dummy out the live demo simulation
   const startLiveDemo = useCallback(() => setLiveDemoRunning(true), []);

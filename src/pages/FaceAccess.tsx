@@ -55,7 +55,7 @@ export default function FaceAccess() {
               </div>
             </div>
             <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-inner relative">
-              <CameraFeed cameraId={cam.id} />
+              <CameraFeed camera={cam} />
               <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm text-white px-2 py-1 rounded text-xs font-mono border border-white/10">
                 LIVENESS CHECK: ACTIVE
               </div>
@@ -116,7 +116,7 @@ export default function FaceAccess() {
                         <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden">
                           <div 
                             className={`h-full rounded-full ${face.confidence > 90 ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                            style={{ width: \`\${face.confidence}%\` }}
+                            style={{ width: `${face.confidence}%` }}
                           />
                         </div>
                         <span className="text-xs font-bold text-slate-600">{face.confidence}%</span>

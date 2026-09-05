@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Search, Car, MapPin, Clock, Camera } from 'lucide-react';
+import { useApp } from '../store';
 
 export default function VehicleDetection() {
+  const { vehicles, cameras } = useApp();
   const [search, setSearch] = useState('');
   
-  // Realistic Mock Data for Vehicles & Drivers
+  // Fallback Mock Data for Vehicles & Drivers if empty
   const mockVehicles = [
     {
       id: 'VD-001',
@@ -44,7 +46,26 @@ export default function VehicleDetection() {
     },
   ];
 
-  const filtered = mockVehicles.filter(v => 
+  const displayVehicles = vehicles && vehicles.length > 0
+    ? vehicles.map(v => {
+        const cam = cameras.find(c => c.id === v.cameraId);
+        const dt = new Date(v.timestamp);
+        return {
+          id: v.id,
+          plate: v.plateNumber,
+          type: v.vehicleType || 'Vehicle',
+          date: isNaN(dt.getTime()) ? 'Recent' : dt.toLocaleDateString('en-IN'),
+          time: isNaN(dt.getTime()) ? 'Live' : dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
+          camera: cam ? `${cam.id} ${cam.name}` : v.cameraId,
+          location: cam?.location || v.direction || 'Checkpoint Alpha',
+          vehiclePhoto: v.image || 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400&q=80',
+          driverPhoto: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop',
+          status: v.status || 'UNKNOWN',
+        };
+      })
+    : mockVehicles;
+
+  const filtered = displayVehicles.filter(v => 
     v.plate.toLowerCase().includes(search.toLowerCase()) || 
     v.type.toLowerCase().includes(search.toLowerCase())
   );

@@ -49,7 +49,7 @@ export default function Tracking() {
     }
 
     try {
-      const q = query(collection(db, 'face_logs'), orderBy('timestamp', 'desc'), limit(50));
+      const q = query(collection(db as any, 'face_logs'), orderBy('timestamp', 'desc'), limit(50));
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const fetchedLogs: FaceLog[] = [];
         snapshot.forEach((doc) => {

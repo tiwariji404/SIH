@@ -100,6 +100,11 @@ export interface VehicleRecord {
   status: 'AUTHORIZED' | 'WATCHLIST' | 'UNKNOWN';
   direction: string;
   image?: string;
+  annotatedImage?: string;
+  plateImage?: string;
+  stateCode?: string;
+  sharpness?: number;
+  rawText?: string;
 }
 
 export interface Zone {

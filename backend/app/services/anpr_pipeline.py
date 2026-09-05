@@ -142,31 +142,74 @@ def _crop_vehicle(frame: np.ndarray, capture: ANPRCapture) -> np.ndarray:
     return crop if crop.size else frame
 
 
-def _save_vehicle_crop(frame: np.ndarray, capture: ANPRCapture, camera_id: str, timestamp: datetime) -> tuple[str, str, str]:
+def _save_anpr_artifacts(
+    frame: np.ndarray,
+    capture: ANPRCapture,
+    camera_id: str,
+    timestamp: datetime,
+    is_watchlist: bool = False,
+) -> tuple[str, str, str, str | None, str | None]:
+    """Saves vehicle crop, zoomed plate crop, and annotated HUD frame."""
     day_dir = ANPR_DIR / timestamp.strftime("%Y%m%d")
     day_dir.mkdir(parents=True, exist_ok=True)
-
+    time_prefix = timestamp.strftime("%H%M%S_%f")
     safe_plate = normalize_plate(capture.plate_number) or "UNKNOWN"
-    filename = f"{timestamp.strftime('%H%M%S_%f')}_{safe_filename_part(camera_id)}_{safe_plate}.jpg"
-    file_path = day_dir / filename
+    cam_part = safe_filename_part(camera_id)
 
+    # 1. Clean vehicle crop
+    crop_filename = f"{time_prefix}_{cam_part}_{safe_plate}_crop.jpg"
+    crop_path = day_dir / crop_filename
     crop = _crop_vehicle(frame, capture)
-    if not cv2.imwrite(str(file_path), crop):
-        raise RuntimeError("Failed to store ANPR vehicle image")
+    cv2.imwrite(str(crop_path), crop)
+    digest = hashlib.sha256(crop_path.read_bytes()).hexdigest()
+    crop_url = f"/media/anpr/{timestamp.strftime('%Y%m%d')}/{crop_filename}"
 
-    contents = file_path.read_bytes()
-    digest = hashlib.sha256(contents).hexdigest()
-    relative_url = f"/media/anpr/{timestamp.strftime('%Y%m%d')}/{filename}"
-    return str(file_path), relative_url, digest
+    # 2. Plate tight crop (zoom on plate numbers)
+    plate_url = None
+    if capture.plate_bbox_xyxy:
+        px1, py1, px2, py2 = capture.plate_bbox_xyxy
+        plate_tight = frame[max(0, py1):min(frame.shape[0], py2), max(0, px1):min(frame.shape[1], px2)]
+        if plate_tight.size > 0:
+            plate_filename = f"{time_prefix}_{cam_part}_{safe_plate}_plate.jpg"
+            plate_path = day_dir / plate_filename
+            cv2.imwrite(str(plate_path), plate_tight)
+            plate_url = f"/media/anpr/{timestamp.strftime('%Y%m%d')}/{plate_filename}"
+
+    # 3. Full Annotated HUD Frame
+    annotated = anpr_service.draw_annotations(
+        frame,
+        [capture],
+        camera_id=camera_id,
+        timestamp_str=timestamp.strftime("%d %b %Y, %H:%M:%S"),
+        watchlist_plates={capture.plate_number} if is_watchlist else set(),
+    )
+    annotated_filename = f"{time_prefix}_{cam_part}_{safe_plate}_annotated.jpg"
+    annotated_path = day_dir / annotated_filename
+    cv2.imwrite(str(annotated_path), annotated)
+    annotated_url = f"/media/anpr/{timestamp.strftime('%Y%m%d')}/{annotated_filename}"
+
+    return str(crop_path), crop_url, digest, plate_url, annotated_url
 
 
 def vehicle_to_payload(db: Session, vehicle: VehicleRecord) -> dict:
     plate_record = db.query(Plate).filter(Plate.vehicle_id == vehicle.id).order_by(Plate.timestamp.desc()).first()
+    event_record = db.query(EventItem).filter(EventItem.trackingId == vehicle.id).first()
     image = None
+    annotated_image = None
+    plate_image = None
+    details = {}
+
+    if event_record and event_record.details and isinstance(event_record.details, dict):
+        details = event_record.details
+        annotated_image = media_url(details.get("annotated_image_url"))
+        plate_image = media_url(details.get("plate_crop_url"))
+
     if plate_record and plate_record.evidence_id:
         evidence = db.query(Evidence).filter(Evidence.id == plate_record.evidence_id).first()
         if evidence:
             image = media_url(evidence.file_url)
+
+    state_code = anpr_service.get_state_code(vehicle.plateNumber)
 
     return {
         "id": vehicle.id,
@@ -178,6 +221,11 @@ def vehicle_to_payload(db: Session, vehicle: VehicleRecord) -> dict:
         "status": vehicle.status,
         "direction": vehicle.direction or "Unknown",
         "image": image,
+        "annotatedImage": annotated_image or image,
+        "plateImage": plate_image,
+        "stateCode": state_code,
+        "sharpness": round(float(details.get("sharpness", 0.0)), 1),
+        "rawText": details.get("raw_ocr_text", vehicle.plateNumber),
     }
 
 
@@ -217,7 +265,9 @@ def _persist_capture(
     event_id = f"EVT-{uuid.uuid4().hex[:12].upper()}"
     timestamp_iso = timestamp.isoformat() + "Z"
 
-    file_path, file_url, sha256_hash = _save_vehicle_crop(frame, capture, camera_id, timestamp)
+    file_path, file_url, sha256_hash, plate_crop_url, annotated_url = _save_anpr_artifacts(
+        frame, capture, camera_id, timestamp, is_watchlist=bool(matched_watchlist)
+    )
 
     vehicle = VehicleRecord(
         id=vehicle_id,
@@ -249,6 +299,7 @@ def _persist_capture(
             f"Plate OCR confidence {confidence}%",
             f"Vehicle type: {_vehicle_type_label(capture.vehicle_type)}",
             f"Source: {source}",
+            f"Sharpness index: {round(capture.sharpness, 1)}",
         ],
         confidence=float(confidence),
         details={
@@ -258,6 +309,10 @@ def _persist_capture(
             "vehicle_confidence": round(capture.vehicle_confidence * 100, 1),
             "raw_ocr_text": capture.raw_text,
             "image_url": file_url,
+            "annotated_image_url": annotated_url,
+            "plate_crop_url": plate_crop_url,
+            "sharpness": round(capture.sharpness, 1),
+            "state_code": capture.state_code,
         },
     )
     db.add(event)
@@ -336,6 +391,7 @@ def _persist_capture(
             "why": alert.why,
             "confidence": confidence,
             "image": media_url(file_url),
+            "annotatedImage": media_url(annotated_url),
         }
 
     db.flush()
@@ -370,6 +426,20 @@ def process_anpr_frame(
             alert_payloads.append(alert_payload)
 
     db.commit()
+
+    # Broadcast to connected clients if an asyncio loop is active
+    try:
+        import asyncio
+        from app.ws_manager import manager
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            for p in payloads:
+                loop.create_task(manager.broadcast({"type": "vehicle", "vehicle": p}))
+            for a in alert_payloads:
+                loop.create_task(manager.broadcast({"type": "NEW_ALERT", "data": a}))
+    except Exception:
+        pass
+
     return payloads, alert_payloads
 
 
@@ -381,18 +451,23 @@ def process_recorded_video(
     sample_every_n_frames: int = 15,
     max_captures: int = 50,
 ) -> dict:
+    """High-precision video processing with multi-frame temporal consensus and quality scoring."""
     capture = cv2.VideoCapture(str(video_path))
     if not capture.isOpened():
         raise ValueError("Could not open recorded video")
 
+    fps = capture.get(cv2.CAP_PROP_FPS) or 25.0
+    total_video_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    duration_sec = round(total_video_frames / fps, 1) if fps > 0 else 0.0
+
     frame_index = 0
     processed_frames = 0
-    seen_plates: set[str] = set()
-    payloads: list[dict] = []
-    alert_payloads: list[dict] = []
+    
+    # Store candidate detections across frames: plate -> list of (score, capture, frame)
+    plate_candidates: dict[str, list[tuple[float, ANPRCapture, np.ndarray]]] = {}
 
     try:
-        while len(payloads) < max_captures:
+        while True:
             ok, frame = capture.read()
             if not ok or frame is None:
                 break
@@ -402,24 +477,40 @@ def process_recorded_video(
                 continue
 
             processed_frames += 1
-            frame_payloads, frame_alerts = process_anpr_frame(
-                db,
-                frame,
-                camera_id=camera_id,
-                direction=direction,
-                source="recorded",
-                dedupe_seconds=0,
-                seen_plate_numbers=seen_plates,
-            )
-            for payload in frame_payloads:
-                payloads.append(payload)
-            alert_payloads.extend(frame_alerts)
+            frame_captures = anpr_service.analyze_frame(frame)
+            
+            for cap in frame_captures:
+                norm_plate = normalize_plate(cap.plate_number)
+                # Quality score combines OCR confidence and sharpness
+                quality_score = cap.plate_confidence * 0.75 + min(cap.sharpness / 200.0, 0.25)
+                plate_candidates.setdefault(norm_plate, []).append((quality_score, cap, frame.copy()))
+
     finally:
         capture.release()
+
+    # Temporal Consensus: for each unique plate, pick the frame with highest quality score
+    payloads: list[dict] = []
+    alert_payloads: list[dict] = []
+    timestamp = utcnow()
+
+    sorted_plates = sorted(plate_candidates.keys(), key=lambda p: max(c[0] for c in plate_candidates[p]), reverse=True)
+    for norm_plate in sorted_plates[:max_captures]:
+        best_candidate = max(plate_candidates[norm_plate], key=lambda item: item[0])
+        _, best_cap, best_frame = best_candidate
+        payload, alert_payload = _persist_capture(
+            db, best_cap, best_frame, camera_id=camera_id, direction=direction, source="recorded_video", timestamp=timestamp
+        )
+        payloads.append(payload)
+        if alert_payload:
+            alert_payloads.append(alert_payload)
+
+    db.commit()
 
     return {
         "ok": True,
         "source_path": str(video_path),
+        "fps": round(fps, 1),
+        "duration_seconds": duration_sec,
         "frames_read": frame_index,
         "frames_processed": processed_frames,
         "count": len(payloads),

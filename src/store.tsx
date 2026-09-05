@@ -327,6 +327,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCameras(prev => prev.map(camera => (
       camera.id === cameraId ? { ...camera, scenario } : camera
     )));
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: 'CHANGE_MODE', camera_id: cameraId, mode: scenario }));
+    }
   }, []);
 
   const value: AppState = {

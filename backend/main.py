@@ -64,6 +64,8 @@ class ConnectionManager:
                 pass
 
 manager = ConnectionManager()
+camera_modes: dict[str, str] = {}
+frame_counters: dict[str, int] = {}
 
 @app.websocket("/ws/detections")
 async def websocket_endpoint(websocket: WebSocket):
@@ -79,6 +81,15 @@ async def websocket_endpoint(websocket: WebSocket):
             # Receive frame as Base64 JSON
             data = await websocket.receive_text()
             payload = json.loads(data)
+            
+            if payload.get("event") == "CHANGE_MODE":
+                cam_id = payload.get("camera_id")
+                mode = payload.get("mode")
+                if cam_id and mode:
+                    camera_modes[cam_id] = mode
+                    print(f"Mode instantly changed for {cam_id} to {mode.upper()}")
+                continue
+
             
             if payload.get("type") == "frame":
                 cam_id = payload.get("camera_id", "Unknown Camera")
@@ -109,16 +120,41 @@ async def websocket_endpoint(websocket: WebSocket):
                 
                 alert_trigger = None
                 face_trigger = None
+                mode = camera_modes.get(cam_id, "normal")
+                frame_counters[cam_id] = frame_counters.get(cam_id, 0) + 1
+                
+                # Filter for NIGHT VISION mode
+                if mode == "night":
+                    lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+                    l_channel, a, b = cv2.split(lab)
+                    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+                    cl = clahe.apply(l_channel)
+                    limg = cv2.merge((cl,a,b))
+                    frame = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+                
+                # Check frame skip for NORMAL mode (process every 5th frame)
+                run_yolo = True
+                if mode == "normal" and frame_counters[cam_id] % 5 != 0:
+                    run_yolo = False
+
                 
                 # 1. YOLO Detection
-                results = model(frame, verbose=False)
-                for r in results:
-                    boxes = r.boxes
-                    for box in boxes:
-                        cls = int(box.cls[0])
-                        conf = float(box.conf[0])
-                        if cls in TARGET_CLASSES and conf > 0.4:
-                            is_human = (cls == 0)
+                if run_yolo:
+                    results = model(frame, verbose=False)
+                    for r in results:
+                        boxes = r.boxes
+                        for box in boxes:
+                            cls = int(box.cls[0])
+                            conf = float(box.conf[0])
+                            
+                            # Apply Mode Filters
+                            if mode == "intrusion" and cls != 0:
+                                continue # Only Humans for intrusion
+                            if mode in ["anpr", "vehicle"] and cls not in [2, 3, 5, 7]:
+                                continue # Only Vehicles for ANPR/Vehicle Tracking
+                                
+                            if cls in TARGET_CLASSES and conf > 0.4:
+                                is_human = (cls == 0)
                             # Standard Alert
                             alert_trigger = {
                                 "type": TARGET_CLASSES[cls] if not force_watchlist else "WATCHLIST MATCH: Dawood Ibrahim",
@@ -160,12 +196,11 @@ async def websocket_endpoint(websocket: WebSocket):
                                     
                                     asyncio.create_task(simulate_reid(base64_str))
 
-                            break
                     if alert_trigger:
                         break
                 
-                # 2. Motion Detection (Fallback)
-                if not alert_trigger:
+                # 2. Motion Detection (Fallback) - Only for NORMAL or SUSPICIOUS modes
+                if not alert_trigger and mode in ["normal", "suspicious"]:
                     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                     gray = cv2.GaussianBlur(gray, (21, 21), 0)
                     fg_mask = back_sub.apply(gray)

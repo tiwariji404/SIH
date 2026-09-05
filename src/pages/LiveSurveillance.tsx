@@ -2,17 +2,11 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../store';
 import CameraFeed from '../components/CameraFeed';
+import ModeSelector from '../components/ModeSelector';
 import { Video, Camera as CameraIcon, Shield, AlertTriangle, AlertCircle, Phone, WifiOff, Smartphone, X, Layers, Grid3x3, Activity, Loader, Maximize, Minimize, Cctv, Radio } from 'lucide-react';
 import type { ScenarioType, Camera } from '../types';
 
-const SCENARIOS: { value: ScenarioType; label: string; color: string }[] = [
-  { value: 'normal', label: 'NORMAL', color: 'emerald' },
-  { value: 'intrusion', label: 'INTRUSION ALERT', color: 'red' },
-  { value: 'night', label: 'NIGHT VISION', color: 'indigo' },
-  { value: 'suspicious', label: 'SUSPICIOUS ACTIVITY', color: 'amber' },
-  { value: 'vehicle', label: 'VEHICLE TRACKING', color: 'blue' },
-  { value: 'anpr', label: 'ANPR MODE', color: 'purple' },
-];
+// Remove SCENARIOS as it is now in ModeSelector
 
 function HardwareVideoPlayer({ stream }: { stream: MediaStream }) {
   const ref = useRef<HTMLVideoElement>(null);
@@ -355,7 +349,7 @@ export default function LiveSurveillance() {
           };
 
           return (
-            <div key={device.deviceId} className="space-y-2">
+            <div key={device.deviceId} className="space-y-2 relative hover:z-50 focus-within:z-50">
               <div className="camera-card relative">
                 <CameraFeed
                   camera={mockHwCam as unknown as Camera}
@@ -377,9 +371,7 @@ export default function LiveSurveillance() {
                   <p className="truncate text-[10px] text-slate-600">{mockHwCam.bop} • {mockHwCam.location}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <select disabled className="glass-select opacity-50 w-24">
-                    <option>Normal</option>
-                  </select>
+                  <ModeSelector value="normal" onChange={() => {}} disabled />
                   <button 
                     onClick={() => setExpandedCameraId(isExpanded ? null : mockHwCam.id)} 
                     className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded"
@@ -394,7 +386,7 @@ export default function LiveSurveillance() {
         })}
 
         {visibleCameras.map(cam => (
-          <div key={cam.id} className="space-y-2">
+          <div key={cam.id} className="space-y-2 relative hover:z-50 focus-within:z-50">
             <div className="camera-card relative">
               <CameraFeed
                 camera={cam}
@@ -412,16 +404,11 @@ export default function LiveSurveillance() {
                 <p className="truncate text-[10px] text-slate-600">{cam.bop} • {cam.location}</p>
               </div>
               <div className="flex items-center gap-2">
-                <select
+                <ModeSelector
                   value={cam.scenario}
-                  onChange={e => setCameraScenario(cam.id, e.target.value as ScenarioType)}
-                  className="glass-select w-28"
+                  onChange={(val) => setCameraScenario(cam.id, val)}
                   disabled={cam.status === 'OFFLINE'}
-                >
-                  {SCENARIOS.map(s => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </select>
+                />
                 <button 
                   onClick={() => setExpandedCameraId(isExpanded ? null : cam.id)} 
                   className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded"

@@ -2,7 +2,7 @@ export type Role = 'admin' | 'sub_admin' | 'operator' | 'commander';
 
 export type AlertStatus = 'NEW' | 'ACKNOWLEDGED' | 'INVESTIGATING' | 'RESOLVED';
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type CameraStatus = 'ONLINE' | 'OFFLINE' | 'DEGRADED';
+export type CameraStatus = 'ONLINE' | 'OFFLINE' | 'DEGRADED' | 'LIVE' | 'DISCONNECTED' | 'ERROR' | 'MAINTENANCE';
 export type ScenarioType =
   | 'normal'
   | 'intrusion'
@@ -39,6 +39,9 @@ export interface Camera {
   detectionCount: number;
   coords: { x: number; y: number };
   mapCoord: { lat: number; lng: number };
+  rtsp_url?: string;
+  protocol?: string;
+  resolution?: string;
 }
 
 export interface Detection {

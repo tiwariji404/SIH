@@ -49,23 +49,54 @@ async def lifespan(app: FastAPI):
         logger.warning("Database auto-initialization skipped: %s", exc)
     redis_client.connect()
     storage_client.connect()
-    
     # Warmup YOLO singleton model to prevent lazy load stutter
-    from app.vision.model_manager import model_manager
-    model_manager.get_yolo()
-    
+    try:
+        from app.vision.model_manager import model_manager
+        model_manager.get_yolo()
+    except Exception as exc:
+        logger.warning("YOLO warmup notice: %s", exc)
+
+    # Automatically connect all registered CCTV infrastructure streams
+    try:
+        from app.models.core_models import Camera as DB_Camera
+        from app.services.universal_cctv_connector import cctv_manager
+        from app.services.autonomous_surveillance_pipeline import master_ai_pipeline
+
+        with SessionLocal() as db:
+            active_cams = db.query(DB_Camera).all()
+            for cam in active_cams:
+                source = cam.rtsp_url if cam.rtsp_url else None
+                if source:
+                    logger.info("Auto-starting CCTV AI stream for %s (%s)", cam.id, source)
+                    cctv_manager.register_and_start(
+                        camera_id=cam.id,
+                        source=source,
+                        name=cam.name or cam.id,
+                        ai_callback=master_ai_pipeline.process_live_cctv_frame,
+                    )
+    except Exception as exc:
+        logger.warning("CCTV Auto-bootstrap notice: %s", exc)
+
     yield
     # Shutdown
-    logger.info("Shutting down IBVAP Backend")
-    from app.core.worker_pool import worker_pool
-    worker_pool.shutdown_all()
+    logger.info("Shutting down IBVAP Backend and CCTV Workers")
+    try:
+        from app.services.universal_cctv_connector import cctv_manager
+        cctv_manager.stop_all()
+    except Exception:
+        pass
+    try:
+        from app.core.worker_pool import worker_pool
+        worker_pool.shutdown_all()
+    except Exception:
+        pass
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict this
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

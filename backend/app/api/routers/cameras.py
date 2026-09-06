@@ -90,3 +90,102 @@ def delete_camera(
     db.commit()
     log_audit_action(db, str(supervisor.id), supervisor.username, "DELETE_CAMERA", f"Deleted camera {camera_id}", "Camera", camera_id)
     return db_camera
+
+
+# =========================================================================
+# UNIVERSAL CCTV INFRASTRUCTURE ADAPTER ENDPOINTS
+# =========================================================================
+from pydantic import BaseModel
+from fastapi.responses import StreamingResponse
+import cv2
+from app.services.universal_cctv_connector import UniversalCCTVConnector, cctv_manager
+from app.services.autonomous_surveillance_pipeline import master_ai_pipeline
+
+class ProbeRequest(BaseModel):
+    source: str
+
+class GenerateUrlRequest(BaseModel):
+    brand: str
+    ip: str
+    port: int = 554
+    username: str = "admin"
+    password: str = ""
+    channel: int = 1
+    custom_path: str = "live"
+
+@router.post("/probe")
+def probe_cctv_stream(req: ProbeRequest):
+    """Probes any CCTV stream (RTSP, ONVIF, HTTP, Webcam) to verify connectivity before saving."""
+    return UniversalCCTVConnector.probe_stream(req.source)
+
+@router.post("/generate-url")
+def generate_cctv_url(req: GenerateUrlRequest):
+    """Generates vendor-compliant RTSP URL for Hikvision, Dahua, Axis, CP Plus, ONVIF, etc."""
+    url = UniversalCCTVConnector.build_rtsp_url(
+        brand=req.brand,
+        ip=req.ip,
+        port=req.port,
+        username=req.username,
+        password=req.password,
+        channel=req.channel,
+        custom_path=req.custom_path,
+    )
+    return {"brand": req.brand, "rtsp_url": url}
+
+@router.post("/{camera_id}/start-ai")
+def start_camera_ai(camera_id: str, db: Session = Depends(get_db)):
+    """Starts autonomous AI processing on a specific CCTV stream."""
+    db_camera = db.query(DB_Camera).filter(DB_Camera.id == camera_id).first()
+    if not db_camera:
+        raise HTTPException(status_code=404, detail="Camera not found")
+
+    source = db_camera.rtsp_url or "0"
+    worker = cctv_manager.register_and_start(
+        camera_id=camera_id,
+        source=source,
+        name=db_camera.name or "CCTV",
+        ai_callback=master_ai_pipeline.process_live_cctv_frame,
+    )
+    db_camera.status = "LIVE"
+    db.commit()
+    return {"ok": True, "camera_id": camera_id, "status": worker.status, "source": source}
+
+@router.post("/{camera_id}/stop-ai")
+def stop_camera_ai(camera_id: str, db: Session = Depends(get_db)):
+    """Stops autonomous AI processing for a camera."""
+    cctv_manager.stop_camera(camera_id)
+    db_camera = db.query(DB_Camera).filter(DB_Camera.id == camera_id).first()
+    if db_camera:
+        db_camera.status = "DISCONNECTED"
+        db.commit()
+    return {"ok": True, "camera_id": camera_id, "status": "DISCONNECTED"}
+
+@router.get("/{camera_id}/live")
+def get_live_annotated_feed(camera_id: str):
+    """Streams real-time tactical AI annotated video (MJPEG) with bounding boxes and HUD watermark."""
+    worker = cctv_manager.get_worker(camera_id)
+    if not worker:
+        # Auto start worker on demand
+        from app.db.session import SessionLocal
+        with SessionLocal() as db:
+            cam = db.query(DB_Camera).filter(DB_Camera.id == camera_id).first()
+            source = cam.rtsp_url if cam and cam.rtsp_url else "0"
+            worker = cctv_manager.register_and_start(
+                camera_id=camera_id,
+                source=source,
+                name=cam.name if cam else camera_id,
+                ai_callback=master_ai_pipeline.process_live_cctv_frame,
+            )
+
+    def frame_generator():
+        while True:
+            frame = worker.get_annotated_frame()
+            if frame is not None:
+                ret, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                if ret:
+                    yield (b"--frame\r\n"
+                           b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n")
+            time.sleep(0.04) # ~25 FPS stream delivery
+
+    return StreamingResponse(frame_generator(), media_type="multipart/x-mixed-replace; boundary=frame")
+

@@ -67,7 +67,7 @@ async function uploadRequest<T>(path: string, formData: FormData): Promise<T> {
   return res.json();
 }
 
-// ─── AUTH ───────────────────────────────────────────────────────────────
+// ─── API CLIENT ─────────────────────────────────────────────────────────
 export const api = {
   auth: {
     login: (username: string, password: string) => {
@@ -82,6 +82,10 @@ export const api = {
     create: (data: any) => request<any>('/api/v1/cameras', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: any) => request<any>(`/api/v1/cameras/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => request<any>(`/api/v1/cameras/${id}`, { method: 'DELETE' }),
+    probe: (source: string) => request<any>('/api/v1/cameras/probe', { method: 'POST', body: JSON.stringify({ source }) }),
+    generateUrl: (data: any) => request<any>('/api/v1/cameras/generate-url', { method: 'POST', body: JSON.stringify(data) }),
+    startAi: (id: string) => request<any>(`/api/v1/cameras/${id}/start-ai`, { method: 'POST' }),
+    stopAi: (id: string) => request<any>(`/api/v1/cameras/${id}/stop-ai`, { method: 'POST' }),
   },
   zones: {
     list: () => request<any[]>('/api/v1/zones'),

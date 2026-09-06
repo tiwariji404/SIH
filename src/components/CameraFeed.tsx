@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Camera, Detection } from '../types';
 import { useApp } from '../store';
+import { API_BASE_URL } from '../lib/api';
 
 interface Props {
   camera: Camera;
@@ -119,6 +120,18 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
                 playsInline
                 muted
                 className={`absolute inset-0 h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'}`}
+              />
+            )}
+
+            {/* Live Universal CCTV Stream from backend */}
+            {!hasLive && (camera.rtsp_url || camera.status === 'LIVE') && (
+              <img
+                src={`${API_BASE_URL}/api/v1/cameras/${camera.id}/live`}
+                alt={camera.name}
+                className={`absolute inset-0 h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'}`}
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                }}
               />
             )}
 

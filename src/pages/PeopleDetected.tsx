@@ -1,44 +1,26 @@
 import { useState } from 'react';
 import { Search, Calendar, Users, MapPin, Clock } from 'lucide-react';
+import { useApp } from '../store';
 
 export default function PeopleDetected() {
   const [search, setSearch] = useState('');
-  
-  // Realistic Mock Data for People Detected
-  const mockPeople = [
-    {
-      id: 'PD-001',
-      date: '2026-09-04',
-      time: '14:23:10',
-      camera: 'Cam-12 Border Sector B',
-      location: 'Sector B - East Fence',
-      screenshot: '/special_forces_1788078536486.jpg',
-      confidence: 98,
-      notes: 'Matched with authorized patrol personnel.'
-    },
-    {
-      id: 'PD-002',
-      date: '2026-09-04',
-      time: '11:05:42',
-      camera: 'Cam-03 Checkpoint Alpha',
-      location: 'Checkpoint Alpha - Entry Gate',
-      screenshot: '/border_patrol_1788078522989.jpg',
-      confidence: 95,
-      notes: 'Unknown individual detected. Logged for review.'
-    },
-    {
-      id: 'PD-003',
-      date: '2026-09-03',
-      time: '23:45:11',
-      camera: 'Cam-08 Night Vision Perimeter',
-      location: 'Perimeter Wall - North',
-      screenshot: '/border_fence_1788078549503.jpg',
-      confidence: 92,
-      notes: 'Night vision thermal signature detected.'
-    },
-  ];
+  const { faces } = useApp();
 
-  const filtered = mockPeople.filter(p => 
+  const faceLogs = faces.map((f) => {
+    const d = new Date(f.timestamp);
+    return {
+      id: f.id,
+      date: d.toLocaleDateString(),
+      time: d.toLocaleTimeString(),
+      camera: f.cameraId,
+      location: f.cameraId,
+      screenshot: f.thumbnail || '/border_patrol_1788078522989.jpg',
+      confidence: f.confidence || 0,
+      notes: f.identity === 'Unknown' ? 'Unknown individual detected. Logged for review.' : `Matched with ${f.identity}.`
+    };
+  });
+
+  const filtered = faceLogs.filter(p => 
     p.camera.toLowerCase().includes(search.toLowerCase()) || 
     p.location.toLowerCase().includes(search.toLowerCase())
   );

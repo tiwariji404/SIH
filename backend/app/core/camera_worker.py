@@ -30,7 +30,7 @@ class CameraWorker:
         # Video Recording State
         import os
         from app.config import settings
-        self.storage_dir = os.path.join(settings.DATA_DIR or "data", "recordings")
+        self.storage_dir = os.path.join(getattr(settings, "DATA_DIR", "data"), "recordings")
         os.makedirs(self.storage_dir, exist_ok=True)
         self._video_writer = None
         self._frames_in_chunk = 0

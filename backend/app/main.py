@@ -170,7 +170,10 @@ async def websocket_endpoint(websocket: WebSocket):
             # Delegate inline blocking logic directly into the back-pressured multi-threading worker pipeline
             from app.core.worker_pool import worker_pool
             zones = payload.get("zones", [])
-            success = worker_pool.enqueue(camera_id, frame, zones)
+            force_watchlist = payload.get("force_watchlist", False)
+            force_reid = payload.get("force_reid", False)
+            context = {"zones": zones, "force_watchlist": force_watchlist, "force_reid": force_reid}
+            success = worker_pool.enqueue(camera_id, frame, context)
             if not success:
                 # Frame dropped purposefully under severe backpressure -> Protect system stability.
                 logger.warning(f"WebSocket input dropped for {camera_id}: CameraWorker Queue full.")

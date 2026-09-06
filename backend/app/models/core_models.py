@@ -144,6 +144,8 @@ class FaceRecord(Base):
     timestamp = Column(String(50))
     database = Column(String(50))
     status = Column(String(30)) 
+    image = Column(Text, nullable=True)
+    direction = Column(String(50), nullable=True)
 
 
 class Zone(Base):

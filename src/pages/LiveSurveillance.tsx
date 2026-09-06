@@ -75,7 +75,7 @@ export default function LiveSurveillance() {
 
   const visibleCameras = selectedLiveCameraIds && selectedLiveCameraIds.length > 0
     ? cameras.filter(c => selectedLiveCameraIds.includes(c.id))
-    : cameras.filter(c => c.status === 'ONLINE' || c.recording);
+    : cameras;
 
   const [hardwareCameras, setHardwareCameras] = useState<MediaDeviceInfo[]>([]);
   const hardwareStreamsRef = useRef<{ [deviceId: string]: MediaStream }>({});
@@ -227,6 +227,19 @@ export default function LiveSurveillance() {
             >
               <span className={`status-dot ${selectedLiveCameraIds?.includes('CAM-01') && selectedLiveCameraIds.includes('CAM-05') ? 'bg-indigo-400' : 'bg-slate-500'}`} />
               Face Detection (Entry/Exit)
+            </button>
+
+            {/* ANPR Group */}
+            <button
+              onClick={() => setSelectedLiveCameraIds(['CAM-01', 'CAM-05'])}
+              className={`glass-chip whitespace-nowrap flex items-center gap-1.5 ${
+                selectedLiveCameraIds?.length === 2 && selectedLiveCameraIds.includes('CAM-01') && selectedLiveCameraIds.includes('CAM-05') 
+                  ? 'glass-chip-active border-orange-500 text-orange-400' 
+                  : 'glass-chip-slate border-orange-500/30'
+              }`}
+            >
+              <span className={`status-dot ${selectedLiveCameraIds?.includes('CAM-01') && selectedLiveCameraIds.includes('CAM-05') ? 'bg-orange-400' : 'bg-slate-500'}`} />
+              ANPR (Gates)
             </button>
 
             {/* Fencing Group Chips */}

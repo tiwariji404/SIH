@@ -2,8 +2,7 @@ export const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://lo
 export const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws');
 
 function getToken(): string | null {
-  const token = localStorage.getItem('token');
-  return token === 'mock_jwt_token_12345' ? null : token;
+  return localStorage.getItem('token');
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {

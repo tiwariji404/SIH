@@ -32,25 +32,29 @@ class WorkerPool:
         zones = context.get("zones", [])
         force_watchlist = context.get("force_watchlist", False)
         force_reid = context.get("force_reid", False)
+        is_anpr_camera = "anpr" in camera_id.lower() or context.get("is_anpr", False)
         
         with SessionLocal() as db:
             try:
-                # 1. YOLO Inference & Fencing Detection
-                from app.vision.model_manager import model_manager
-                model, _, err = model_manager.get_yolo()
-                if err or model is None:
-                    raise RuntimeError(f"YOLO failed to load: {err}")
-                
-                # Auto-create camera if missing to prevent FK IntegrityError
-                from app.models.core_models import Camera
-                if not db.query(Camera).filter(Camera.id == camera_id).first():
-                    try:
-                        db.add(Camera(id=camera_id, name=camera_id, location="Unknown", status="ONLINE"))
-                        db.commit()
-                    except Exception:
-                        db.rollback()
+                # 1. YOLO Inference & Fencing Detection (Bypass for ANPR)
+                if not is_anpr_camera:
+                    from app.vision.model_manager import model_manager
+                    model, _, err = model_manager.get_yolo()
+                    if err or model is None:
+                        raise RuntimeError(f"YOLO failed to load: {err}")
+                    
+                    # Auto-create camera if missing to prevent FK IntegrityError
+                    from app.models.core_models import Camera
+                    if not db.query(Camera).filter(Camera.id == camera_id).first():
+                        try:
+                            db.add(Camera(id=camera_id, name=camera_id, location="Unknown", status="ONLINE"))
+                            db.commit()
+                        except Exception:
+                            db.rollback()
 
-                results = model(frame, verbose=False)
+                    results = model(frame, verbose=False)
+                else:
+                    results = []
                 
                 # Check for active fencing intrusions
                 if zones and len(zones) > 0:
@@ -167,7 +171,8 @@ class WorkerPool:
                             self._loop
                         )
                     # Trigger the PTCH prediction engine checks on every frame processing beat
-                    self._simulate_ptch_check(camera_id)
+                    if not is_anpr_camera:
+                        self._simulate_ptch_check(camera_id)
                 # 3. Face Detection Pipeline (Simple HAAR for demo)
                 import cv2
                 if not hasattr(self, 'face_cascade'):
@@ -179,7 +184,7 @@ class WorkerPool:
                 
                 # Check if we should run face detection (throttle to once per 2 seconds per camera for processing load)
                 last_face_time = getattr(self, '_last_face_time', {})
-                if current_time - last_face_time.get(camera_id, 0) > 2.0:
+                if not is_anpr_camera and (current_time - last_face_time.get(camera_id, 0) > 2.0):
                     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                     faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60))
                     

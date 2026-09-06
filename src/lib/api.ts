@@ -24,7 +24,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (res.status === 403) throw new Error('FORBIDDEN');
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
-    try { const d = await res.json(); msg = d.detail || msg; } catch { }
+    try { const d = await res.json(); msg = d.detail || msg; } catch {}
     throw new Error(msg);
   }
 
@@ -42,7 +42,7 @@ function formRequest<T>(path: string, body: URLSearchParams): Promise<T> {
     .then(async res => {
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;
-        try { const d = await res.json(); msg = d.detail || msg; } catch { }
+        try { const d = await res.json(); msg = d.detail || msg; } catch {}
         throw new Error(msg);
       }
       return res.json();
@@ -62,7 +62,7 @@ async function uploadRequest<T>(path: string, formData: FormData): Promise<T> {
 
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
-    try { const d = await res.json(); msg = d.detail || d.message || msg; } catch { }
+    try { const d = await res.json(); msg = d.detail || d.message || msg; } catch {}
     throw new Error(msg);
   }
   return res.json();
@@ -109,25 +109,25 @@ export const api = {
     watchlist: () => request<any[]>('/api/v1/analytics/watchlist'),
     addWatchlist: (data: any) => request<any>('/api/v1/analytics/watchlist', { method: 'POST', body: JSON.stringify(data) }),
     uploadWatchlistPhoto: async (file: File) => {
-      const formData = new FormData();
-      formData.append('file', file);
-      return uploadRequest<any>('/api/v1/analytics/watchlist/upload', formData);
+        const formData = new FormData();
+        formData.append('file', file);
+        return uploadRequest<any>('/api/v1/analytics/watchlist/upload', formData);
     },
     analyzeAnprImage: async (file: File, cameraId = 'ANPR-UPLOAD', direction = 'Manual Upload') => {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('camera_id', cameraId);
-      formData.append('direction', direction);
-      return uploadRequest<any>('/api/v1/analytics/anpr/image', formData);
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('camera_id', cameraId);
+        formData.append('direction', direction);
+        return uploadRequest<any>('/api/v1/analytics/anpr/image', formData);
     },
     analyzeAnprVideo: async (file: File, cameraId = 'ANPR-RECORDED', direction = 'Recorded Feed') => {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('camera_id', cameraId);
-      formData.append('direction', direction);
-      formData.append('sample_every_n_frames', '15');
-      formData.append('max_captures', '50');
-      return uploadRequest<any>('/api/v1/analytics/anpr/video', formData);
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('camera_id', cameraId);
+        formData.append('direction', direction);
+        formData.append('sample_every_n_frames', '15');
+        formData.append('max_captures', '50');
+        return uploadRequest<any>('/api/v1/analytics/anpr/video', formData);
     },
     deleteWatchlist: (id: string) => request<any>(`/api/v1/analytics/watchlist/${id}`, { method: 'DELETE' }),
   },

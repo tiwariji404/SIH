@@ -28,6 +28,12 @@ class TrackState:
     history: list[dict[str, str]] = field(default_factory=list)
     zone_states: dict[str, ZoneRuntimeState] = field(default_factory=dict)
     last_center: tuple[float, float] | None = None
+    velocity: tuple[float, float] = (0.0, 0.0)
+    exit_boundary: str | None = None
+
+    @property
+    def speed_units_per_sec(self) -> float:
+        return (self.velocity[0]**2 + self.velocity[1]**2) ** 0.5
 
     @property
     def duration_seconds(self) -> float:
@@ -106,6 +112,20 @@ class TrackRegistry:
             )
             self._tracks[tracking_id] = track
             return track, True
+
+        if track.last_center:
+            dt = max((timestamp - track.last_seen).total_seconds(), 0.05)
+            vx = (center[0] - track.last_center[0]) / dt
+            vy = (center[1] - track.last_center[1]) / dt
+            # Exponential moving average smooths jitter
+            track.velocity = (track.velocity[0] * 0.7 + vx * 0.3, track.velocity[1] * 0.7 + vy * 0.3)
+
+            # Frame boundary exit logic (assuming generic 1280x720 frame bounds if unknown, checking outer 5%)
+            if center[0] > 1200: track.exit_boundary = "East"
+            elif center[0] < 80: track.exit_boundary = "West"
+            elif center[1] > 680: track.exit_boundary = "South"
+            elif center[1] < 40: track.exit_boundary = "North"
+            else: track.exit_boundary = None
 
         track.direction = self._to_direction(track.last_center, center)
         track.last_center = center

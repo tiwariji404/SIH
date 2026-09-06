@@ -80,7 +80,7 @@ function NavButton({
         <Icon className={`h-4 w-4 ${item.accent ?? ''}`} />
       </span>
       <span className="flex-1 text-left">{item.label}</span>
-      {isActive && <span className="h-2.5 w-2.5 rounded-full bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.7)]" />}
+      {isActive && <span className="h-2 w-2 rounded-full bg-slate-800" />}
     </button>
   );
 }
@@ -138,7 +138,6 @@ export default function Layout({ current, onNavigate, children }: Props) {
 
             <div className="nav-heading-row">
               <p>Navigation</p>
-              <span>{PRIMARY_NAV.length} modules</span>
             </div>
 
             <nav className="mt-3 space-y-2">

@@ -35,7 +35,7 @@ export default function FaceDetection() {
 
   const getDirectionBadge = (dir: FaceRecord['direction']) => {
     return (
-      <span className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-widest border ${dir === 'Inbound' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
+      <span className="px-2 py-1 rounded text-xs font-bold uppercase tracking-widest border bg-slate-50 text-slate-600 border-slate-200">
         {dir}
       </span>
     );
@@ -92,10 +92,7 @@ export default function FaceDetection() {
         }
       };
 
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'set_scenario', camera_id: 'CAM-01', scenario: 'faces' }));
-        setInterval(sendFrame, 1000);
-      };
+      ws.onopen = () => setInterval(sendFrame, 1000);
     } catch (e) {
       console.error("Camera access denied", e);
     }
@@ -119,10 +116,12 @@ export default function FaceDetection() {
             <ScanFace className="h-8 w-8 text-indigo-600" />
             Entry/Exit Access Control
           </h1>
+          <p className="text-slate-500 font-medium mt-1">Facial recognition access logs restricted to perimeter entry points.</p>
         </div>
         
         {/* Demo Controls */}
         <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+
           <button 
             onClick={startDemo}
             className={`flex items-center gap-2 px-4 py-2 font-bold rounded-lg shadow-sm transition-colors ${
@@ -228,7 +227,7 @@ export default function FaceDetection() {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-medium text-indigo-600">
+                      <div className="font-semibold text-slate-700">
                         {cam?.name || face.cameraId}
                       </div>
                     </td>

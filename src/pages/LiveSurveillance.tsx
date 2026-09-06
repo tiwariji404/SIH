@@ -139,8 +139,7 @@ export default function LiveSurveillance() {
       <div className="glass-panel live-hero p-5 sm:p-6">
         <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="section-kicker">Operations view</p>
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-800">Live Surveillance</h1>
+            <h1 className="text-2xl font-black tracking-tight text-slate-800">Live Surveillance</h1>
             <p className="mt-2 text-sm text-slate-600">Real-time CCTV monitoring with AI detection overlay and tactical response cues.</p>
           </div>
 
@@ -167,7 +166,7 @@ export default function LiveSurveillance() {
             <div className="metric-icon bg-orange-500/10">
               <Cctv className="h-5 w-5 text-orange-500" />
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-600">Feeds</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">Feeds</span>
           </div>
           <p className="metric-value mt-5">{visibleCameras.length}</p>
           <p className="metric-label">Active monitored</p>
@@ -178,7 +177,7 @@ export default function LiveSurveillance() {
             <div className="metric-icon bg-emerald-500/10">
               <Shield className="h-5 w-5 text-emerald-500" />
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-600">Status</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">Status</span>
           </div>
           <p className="metric-value mt-5">{cameras.filter(c => c.status === 'ONLINE').length}</p>
           <p className="metric-label">Online cameras</p>
@@ -189,7 +188,7 @@ export default function LiveSurveillance() {
             <div className="metric-icon bg-indigo-500/10">
               <Grid3x3 className="h-5 w-5 text-indigo-500" />
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-600">Layout</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">Layout</span>
           </div>
           <p className="metric-value mt-5">{gridSize}</p>
           <p className="metric-label">Current grid</p>
@@ -200,7 +199,7 @@ export default function LiveSurveillance() {
             <div className="metric-icon bg-red-500/10">
               <Radio className="h-5 w-5 text-red-500" />
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-600">Signal</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">Signal</span>
           </div>
           <p className="metric-value mt-5">{liveStream ? 'Phone' : 'Network'}</p>
           <p className="metric-label">Input source</p>
@@ -384,7 +383,10 @@ export default function LiveSurveillance() {
                   <p className="truncate text-[10px] text-slate-600">{mockHwCam.bop} • {mockHwCam.location}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <ModeSelector value="normal" onChange={() => {}} disabled />
+                  <ModeSelector 
+                    value={mockHwCam.scenario} 
+                    onChange={(val) => setCameraScenario(mockHwCam.id, val)}
+                  />
                   <button 
                     onClick={() => setExpandedCameraId(isExpanded ? null : mockHwCam.id)} 
                     className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded"

@@ -5,10 +5,6 @@
 @tailwind utilities;
 
 @layer base {
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
-  }
   *::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -59,9 +55,9 @@
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(circle at top left, rgba(251, 146, 60, 0.18), transparent 28%),
-      radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.12), transparent 30%),
-      linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0.1));
+      radial-gradient(circle at top left, rgba(203, 213, 225, 0.18), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(148, 163, 184, 0.12), transparent 30%),
+      linear-gradient(180deg, rgba(255,255,255,0.4), rgba(255,255,255,0.1));
     pointer-events: none;
   }
 
@@ -74,11 +70,11 @@
   }
 
   .brand-badge {
-    @apply flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 via-amber-400 to-emerald-400 text-white shadow-[0_12px_25px_rgba(249,115,22,0.24)];
+    @apply flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-800 text-white shadow-sm;
   }
 
   .brand-kicker {
-    @apply text-[10px] font-black uppercase tracking-[0.32em] text-orange-600;
+    @apply text-[10px] font-black uppercase tracking-[0.32em] text-slate-500;
   }
 
   .brand-title {
@@ -126,31 +122,31 @@
   }
 
   .nav-item {
-    @apply relative flex items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-sm font-semibold text-slate-700 transition-all duration-200 cursor-pointer hover:border-orange-200 hover:bg-white/70 hover:text-slate-900 hover:shadow-[0_8px_24px_rgba(15,23,42,0.06)];
+    @apply relative flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm font-semibold text-slate-600 transition-all duration-200 cursor-pointer hover:bg-slate-50 hover:text-slate-900;
   }
 
   .nav-item-active {
-    @apply border border-orange-200/80 bg-gradient-to-r from-white via-orange-50 to-amber-50 text-slate-900 shadow-[0_15px_30px_rgba(251,146,60,0.14)];
+    @apply border border-slate-200 bg-white text-slate-900 shadow-sm;
   }
 
   .nav-icon {
-    @apply flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white/70 text-slate-600 shadow-sm transition-all duration-200;
+    @apply flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-500 transition-all duration-200;
   }
 
   .nav-icon-active {
-    @apply border-orange-200 bg-gradient-to-br from-orange-500 to-amber-400 text-white shadow-[0_10px_20px_rgba(249,115,22,0.2)];
+    @apply border-slate-200 bg-slate-800 text-white shadow-sm;
   }
 
   .user-card {
-    @apply relative z-10 mt-6 rounded-2xl border border-white/90 bg-gradient-to-br from-white/90 via-orange-50/70 to-emerald-50/60 p-4 shadow-[0_14px_28px_rgba(15,23,42,0.06)] backdrop-blur-xl;
+    @apply relative z-10 mt-6 rounded-xl border border-slate-200 bg-white p-3 shadow-sm;
   }
 
   .user-icon {
-    @apply flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-100 to-emerald-100 text-orange-600 ring-1 ring-white;
+    @apply flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700;
   }
 
   .user-role {
-    @apply mt-0.5 text-[10px] font-bold uppercase tracking-[0.26em] text-orange-600;
+    @apply mt-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-500;
   }
 
   .logout-button {
@@ -234,16 +230,7 @@
   }
 
   .glass-metric-card {
-    @apply relative overflow-hidden rounded-[24px] border bg-white/55 p-4 shadow-[0_18px_36px_rgba(15,23,42,0.06)] backdrop-blur-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(15,23,42,0.09)];
-    background-image: linear-gradient(135deg, rgba(255,255,255,0.78), rgba(255,255,255,0.38));
-  }
-
-  .glass-metric-card::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(255,255,255,0.45), transparent 35%, rgba(251,146,60,0.03));
-    pointer-events: none;
+    @apply relative overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-all duration-300 hover:border-slate-300;
   }
 
   .metric-top {
@@ -251,11 +238,11 @@
   }
 
   .metric-icon {
-    @apply flex h-11 w-11 items-center justify-center rounded-2xl border border-white/80 shadow-sm;
+    @apply flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 shadow-sm bg-slate-50;
   }
 
   .metric-value {
-    @apply relative z-10 text-2xl font-black tracking-tight text-slate-800;
+    @apply relative z-10 mt-2 text-xl font-black tracking-tight text-slate-800;
   }
 
   .metric-label {

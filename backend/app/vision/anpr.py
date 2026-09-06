@@ -128,6 +128,13 @@ class ANPRService:
     def normalize_plate(text: str) -> str:
         """High-precision Indian license plate normalization with positional character disambiguation."""
         raw = re.sub(r"[^A-Z0-9]", "", text.upper())
+        
+        # Strip leading IND badge if present (HSRP blue badge)
+        if raw.startswith("IND") and len(raw) >= 7:
+            cand = raw[3:]
+            if cand[:2] in INDIAN_STATES or any(cand.startswith(st) for st in INDIAN_STATES) or len(cand) >= 6:
+                raw = cand
+
         if len(raw) < 4:
             return raw
 
@@ -182,6 +189,8 @@ class ANPRService:
     @staticmethod
     def validate_plate(text: str) -> bool:
         clean = re.sub(r"[^A-Z0-9]", "", text.upper())
+        if clean.startswith("IND") and len(clean) >= 7:
+            clean = clean[3:]
         if len(clean) < 4 or len(clean) > 13:
             return False
         # Must have at least one digit and at least one letter originally
@@ -193,12 +202,15 @@ class ANPRService:
 
     @staticmethod
     def get_state_code(normalized_plate: str) -> str | None:
-        if len(normalized_plate) >= 2:
-            prefix = normalized_plate[:2]
+        clean = normalized_plate
+        if clean.startswith("IND") and len(clean) >= 7:
+            clean = clean[3:]
+        if len(clean) >= 2:
+            prefix = clean[:2]
             if prefix in INDIAN_STATES:
                 return prefix
             # Check BH series
-            if len(normalized_plate) >= 4 and normalized_plate[2:4] == "BH":
+            if len(clean) >= 4 and clean[2:4] == "BH":
                 return "BH"
         return None
 
@@ -247,32 +259,103 @@ class ANPRService:
         sharpness = self.calculate_sharpness(image)
         results: list[OCRResult] = []
 
-        # Try pass 1: CLAHE filtered
-        enhanced = self._preprocess_for_ocr(image, method="clahe")
-
         if self._ocr_backend == "easyocr":
-            try:
-                for bbox, text, prob in self._ocr_reader.readtext(enhanced):
+            # Scale up small crops for optimal CRAFT detection
+            height, width = image.shape[:2]
+            orig_scaled = image
+            if height < 64 or width < 240:
+                scale = max(70 / max(height, 1), 260 / max(width, 1))
+                orig_scaled = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+
+            clahe_img = self._preprocess_for_ocr(orig_scaled, method="clahe")
+            variants = [orig_scaled, clahe_img]
+
+            def get_bbox_center_y(bbox: Any) -> float:
+                try:
+                    return sum(float(p[1]) for p in bbox) / len(bbox)
+                except Exception:
+                    return 0.0
+
+            def get_bbox_min_x(bbox: Any) -> float:
+                try:
+                    return min(float(p[0]) for p in bbox)
+                except Exception:
+                    return 0.0
+
+            for var_img in variants:
+                try:
+                    detections = self._ocr_reader.readtext(var_img)
+                except Exception:
+                    continue
+
+                if not detections:
+                    continue
+
+                # Filter out single IND badges from detections list if accompanied by other text
+                meaningful_dets = []
+                for bbox, text, prob in detections:
+                    clean = re.sub(r"[^A-Z0-9]", "", text.upper())
+                    if clean == "IND" and len(detections) > 1:
+                        continue
+                    meaningful_dets.append((bbox, text, float(prob)))
+
+                if not meaningful_dets:
+                    meaningful_dets = [(d[0], d[1], float(d[2])) for d in detections]
+
+                # Sort top-to-bottom, left-to-right
+                sorted_dets = sorted(
+                    meaningful_dets,
+                    key=lambda d: (get_bbox_center_y(d[0]) // 30, get_bbox_min_x(d[0]))
+                )
+
+                # 1. Evaluate individual detections
+                for bbox, text, prob in sorted_dets:
                     normalized = self.normalize_plate(text)
                     if self.validate_plate(normalized):
                         state_code = self.get_state_code(normalized)
-                        results.append(OCRResult(text, normalized, float(prob), tuple(bbox), sharpness, state_code))
-            except Exception:
-                pass
+                        results.append(OCRResult(text, normalized, prob, tuple(bbox), sharpness, state_code))
 
-            # If pass 1 found no results or low confidence, try pass 2: Otsu binary
+                # 2. Evaluate full combination across all detected boxes (crucial for multi-line & spaced plates)
+                if len(sorted_dets) > 1:
+                    combined_text = " ".join(d[1] for d in sorted_dets)
+                    combined_norm = self.normalize_plate(combined_text)
+                    if self.validate_plate(combined_norm):
+                        avg_prob = sum(d[2] for d in sorted_dets) / len(sorted_dets)
+                        state_code = self.get_state_code(combined_norm)
+                        results.append(OCRResult(combined_text, combined_norm, avg_prob, tuple(sorted_dets[0][0]), sharpness, state_code))
+
+                # If high-confidence valid plate found, stop further passes
+                if results and max((r.confidence for r in results), default=0) >= 0.70:
+                    break
+
+            # If still no results or low confidence, try Otsu thresholding pass
             if not results or max((r.confidence for r in results), default=0) < 0.45:
                 try:
-                    otsu_img = self._preprocess_for_ocr(image, method="otsu")
-                    for bbox, text, prob in self._ocr_reader.readtext(otsu_img):
-                        normalized = self.normalize_plate(text)
-                        if self.validate_plate(normalized):
-                            state_code = self.get_state_code(normalized)
-                            results.append(OCRResult(text, normalized, float(prob), tuple(bbox), sharpness, state_code))
+                    otsu_img = self._preprocess_for_ocr(orig_scaled, method="otsu")
+                    detections = self._ocr_reader.readtext(otsu_img)
+                    if detections:
+                        sorted_dets = sorted(
+                            detections,
+                            key=lambda d: (get_bbox_center_y(d[0]) // 30, get_bbox_min_x(d[0]))
+                        )
+                        for bbox, text, prob in sorted_dets:
+                            normalized = self.normalize_plate(text)
+                            if self.validate_plate(normalized):
+                                state_code = self.get_state_code(normalized)
+                                results.append(OCRResult(text, normalized, float(prob), tuple(bbox), sharpness, state_code))
+
+                        if len(sorted_dets) > 1:
+                            combined_text = " ".join(d[1] for d in sorted_dets)
+                            combined_norm = self.normalize_plate(combined_text)
+                            if self.validate_plate(combined_norm):
+                                avg_prob = sum(float(d[2]) for d in sorted_dets) / len(sorted_dets)
+                                state_code = self.get_state_code(combined_norm)
+                                results.append(OCRResult(combined_text, combined_norm, avg_prob, tuple(sorted_dets[0][0]), sharpness, state_code))
                 except Exception:
                     pass
 
             return results
+
 
         try:
             data = self._ocr_reader.image_to_data(
@@ -340,10 +423,13 @@ class ANPRService:
         if height < 20 or width < 20:
             return []
 
+        aspect = width / max(height, 1)
+        full_score = 0.85 if 1.8 <= aspect <= 7.0 else 0.15
         candidates: list[PlateCandidate] = [
-            PlateCandidate(vehicle_crop, (0, 0, width, height), 0.05),
+            PlateCandidate(vehicle_crop, (0, 0, width, height), full_score),
             PlateCandidate(vehicle_crop[int(height * 0.45) : height, 0:width], (0, int(height * 0.45), width, height), 0.35),
         ]
+
 
         gray = cv2.cvtColor(vehicle_crop, cv2.COLOR_BGR2GRAY)
         gray = cv2.bilateralFilter(gray, 11, 17, 17)

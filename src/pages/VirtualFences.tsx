@@ -129,6 +129,9 @@ export default function VirtualFences() {
 
       ws.onopen = () => {
          console.log("Connected to Python AI Backend for frame streaming");
+         activeHwCamerasForAI.forEach(camId => {
+             ws?.send(JSON.stringify({ type: 'set_scenario', camera_id: camId, scenario: 'intrusion' }));
+         });
          frameInterval = setInterval(() => {
             activeHwCamerasForAI.forEach(camId => {
                const video = videoRefs.current[camId];

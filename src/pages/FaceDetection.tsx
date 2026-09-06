@@ -92,7 +92,10 @@ export default function FaceDetection() {
         }
       };
 
-      ws.onopen = () => setInterval(sendFrame, 1000);
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'set_scenario', camera_id: 'CAM-01', scenario: 'faces' }));
+        setInterval(sendFrame, 1000);
+      };
     } catch (e) {
       console.error("Camera access denied", e);
     }
@@ -116,22 +119,10 @@ export default function FaceDetection() {
             <ScanFace className="h-8 w-8 text-indigo-600" />
             Entry/Exit Access Control
           </h1>
-          <p className="text-slate-500 font-medium mt-1">Facial recognition access logs restricted to perimeter entry points.</p>
         </div>
         
         {/* Demo Controls */}
         <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-4 px-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-600 hover:text-indigo-600 transition-colors">
-              <input type="checkbox" className="accent-red-500 w-4 h-4" checked={forceWatchlist} onChange={e => setForceWatchlist(e.target.checked)} />
-              <ShieldAlert className="w-4 h-4 text-red-500" /> Watchlist
-            </label>
-            <div className="w-px h-6 bg-slate-200"></div>
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-600 hover:text-indigo-600 transition-colors">
-              <input type="checkbox" className="accent-purple-500 w-4 h-4" checked={forceReid} onChange={e => setForceReid(e.target.checked)} />
-              <Route className="w-4 h-4 text-purple-500" /> Track (Re-ID)
-            </label>
-          </div>
           <button 
             onClick={startDemo}
             className={`flex items-center gap-2 px-4 py-2 font-bold rounded-lg shadow-sm transition-colors ${

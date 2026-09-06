@@ -316,18 +316,29 @@ def _persist_capture(
         },
     )
     db.add(event)
-
-    evidence = Evidence(
-        id=str(uuid.uuid4()),
-        event_id=event_id,
-        camera_id=camera_id,
-        file_location=file_path,
-        file_url=file_url,
-        file_type="SNAPSHOT",
-        sha256_hash=sha256_hash,
-        integrity_status="VERIFIED",
+    
+    # Store evidence to disk
+    db.add(
+        Evidence(
+            id=f"EVD-{uuid.uuid4().hex[:12].upper()}",
+            event_id=event_id,
+            camera_id=camera_id,
+            file_location=str(file_path),
+            file_url=file_url,
+            file_type="SNAPSHOT",
+            sha256_hash=sha256_hash,
+            integrity_status="VERIFIED",
+        )
     )
-    db.add(evidence)
+
+    db.commit()
+    db.refresh(vehicle)
+    db.refresh(event)
+    
+    from app.core.ledger import record_event_ledger
+    ledger_hash = record_event_ledger(db, event)
+    if ledger_hash:
+        event.details = {"blockchain_hash": ledger_hash} # Expose payload hash back to UI
 
     plate = Plate(
         id=str(uuid.uuid4()),

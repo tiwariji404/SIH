@@ -110,6 +110,8 @@ class FaceRecordBase(BaseModel):
     timestamp: str
     database: str
     status: str
+    image: Optional[str] = None
+    direction: Optional[str] = None
 
 class FaceRecordCreate(FaceRecordBase):
     pass

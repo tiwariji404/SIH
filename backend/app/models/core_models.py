@@ -144,6 +144,8 @@ class FaceRecord(Base):
     timestamp = Column(String(50))
     database = Column(String(50))
     status = Column(String(30)) 
+    image = Column(Text, nullable=True)
+    direction = Column(String(50), nullable=True)
 
 
 class Zone(Base):
@@ -241,6 +243,15 @@ class Evidence(Base):
     file_type = Column(String(50)) # SNAPSHOT, VIDEO_CLIP
     sha256_hash = Column(String(64))
     integrity_status = Column(String(20), default="PENDING") # VERIFIED, INTEGRITY_FAILURE
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class BlockchainLedger(Base):
+    __tablename__ = "blockchain_ledger"
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    event_id = Column(String(100), ForeignKey("events.id"), nullable=True)
+    previous_hash = Column(String(64), nullable=False)
+    block_hash = Column(String(64), nullable=False, unique=True, index=True)
+    payload_dump = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 # ---- TASK 1: REMAINING DB DOMAIN MODELS ----

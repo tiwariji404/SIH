@@ -1,13 +1,24 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useApp } from '../store';
 import { Settings, Shield, Plus, MoreHorizontal, ChevronDown, ChevronUp, Map as MapIcon, Camera as CameraIcon, Trash2, ShieldAlert, Check, Layers, Video } from 'lucide-react';
-import { GoogleMap, useJsApiLoader, MarkerF, PolygonF } from '@react-google-maps/api';
+import { MapContainer, TileLayer, Marker, Popup, Polygon, useMapEvents, Tooltip } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix Leaflet icons
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
 
 type Point = { x: number; y: number };
 
 const containerStyle = {
   width: '100%',
-  height: '100%'
+  height: '100%',
+  backgroundColor: '#0b0f19'
 };
 
 // 12 Cameras across 3 major border locations
@@ -29,7 +40,7 @@ const cameraLocations: Record<string, { lat: number, lng: number }> = {
   'Bengal River - Cam 4': { lat: 22.9898, lng: 88.4916 },
 };
 
-const defaultCenter = { lat: 31.6045, lng: 74.5768 };
+const defaultCenter: [number, number] = [31.6045, 74.5768];
 
 export default function VirtualFences() {
   const { showToast, activeAlarm, savedFences, setSavedFences } = useApp();
@@ -47,11 +58,6 @@ export default function VirtualFences() {
   // Streaming State for Hardware Cameras
   const [hwStreams, setHwStreams] = useState<Record<string, MediaStream>>({});
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
-
-  const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: 'AIzaSyDJkmhAaJGSlhomraLnXjDMeTd5dXzyCMM'
-  });
 
   useEffect(() => {
     // Enumerate hardware devices
@@ -135,7 +141,18 @@ export default function VirtualFences() {
                if (video && video.readyState >= 2) {
                   ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
                   const base64 = canvas.toDataURL('image/jpeg', 0.6);
-                  ws?.send(JSON.stringify({ type: 'frame', camera_id: camId, image: base64 }));
+                  
+                  // Get active polygons matching this camera
+                  const activeZonesForCam = savedFences
+                     .filter(f => f.active && f.cameras.includes(camId))
+                     .map(f => ({ id: f.id, name: f.name, points: f.points }));
+
+                  ws?.send(JSON.stringify({ 
+                     type: 'frame', 
+                     camera_id: camId, 
+                     image: base64,
+                     zones: activeZonesForCam 
+                  }));
                }
             });
          }, 500); // 2 FPS per camera
@@ -149,15 +166,16 @@ export default function VirtualFences() {
   }, [savedFences, hwStreams]);
 
   // Auto-center map on first selected demo camera if any
-  const currentGeo = useMemo(() => {
+  const currentGeo = useMemo<[number, number]>(() => {
     const firstDemo = selectedCameras.find(c => !c.startsWith('HW:'));
-    return firstDemo && cameraLocations[firstDemo] ? cameraLocations[firstDemo] : defaultCenter;
+    const pos = firstDemo && cameraLocations[firstDemo] ? cameraLocations[firstDemo] : null;
+    return pos ? [pos.lat, pos.lng] : defaultCenter;
   }, [selectedCameras]);
 
   const mapPolygonPositions = points.map(p => {
     const latOffset = (50 - p.y) * 0.00005; 
     const lngOffset = (p.x - 50) * 0.00005;
-    return { lat: currentGeo.lat + latOffset, lng: currentGeo.lng + lngOffset };
+    return [currentGeo[0] + latOffset, currentGeo[1] + lngOffset] as [number, number];
   });
 
   const clearPolygon = () => {
@@ -277,59 +295,66 @@ export default function VirtualFences() {
                 </div>
               </div>
             ) : (
-              /* Google Maps Integration */
-              isLoaded ? (
-                 <GoogleMap
-                    mapContainerStyle={containerStyle}
-                  center={currentGeo}
-                  zoom={12} // Zoomed out to see the spread of locations
-                  options={{ disableDefaultUI: true, mapTypeId: 'hybrid' }}
-                  onClick={(e) => {
-                    if (!isDrawing || !e.latLng) return;
-                    const lat = e.latLng.lat();
-                    const lng = e.latLng.lng();
-                    const x = 50 + (lng - currentGeo.lng) / 0.00005;
-                    const y = 50 - (lat - currentGeo.lat) / 0.00005;
-                    setPoints(prev => [...prev, { x, y }]);
-                  }}
-               >
+              /* Map Integration */
+              <div className="h-full w-full z-0 relative">
+                <MapContainer 
+                  center={currentGeo} 
+                  zoom={12} 
+                  style={containerStyle}
+                  zoomControl={false}
+                >
+                  <TileLayer
+                    url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=AIzaSyDJkmhAaJGSlhomraLnXjDMeTd5dXzyCMM"
+                    attribution='&copy; Google Maps'
+                  />
+                  <MapEvents 
+                    isDrawing={isDrawing}
+                    currentGeo={currentGeo}
+                    setPoints={setPoints}
+                  />
+
                   {Object.entries(cameraLocations).map(([camName, pos]) => (
-                      <MarkerF 
+                      <Marker 
                           key={camName} 
-                          position={pos} 
-                          onClick={() => { 
-                            toggleCameraSelection(camName); 
+                          position={[pos.lat, pos.lng]}
+                          eventHandlers={{
+                            click: () => { toggleCameraSelection(camName); }
                           }}
-                          label={{ text: camName, color: 'yellow', fontSize: '10px', className: 'mt-10 bg-black/50 px-1 rounded' }}
-                      />
+                      >
+                         <Tooltip direction="top" offset={[0, -20]} opacity={1} permanent>
+                           <span className="text-xs font-bold text-slate-800">{camName}</span>
+                         </Tooltip>
+                      </Marker>
                   ))}
 
                   {/* Render Saved Fences */}
                   {savedFences.map(fence => {
                      const firstDemoCam = fence.cameras.find(c => !c.startsWith('HW:'));
-                     const fCenter = firstDemoCam ? cameraLocations[firstDemoCam] : defaultCenter;
-                     if (!fCenter) return null;
+                     const fCenter = firstDemoCam ? cameraLocations[firstDemoCam] : null;
+                     const centerArr: [number, number] = fCenter ? [fCenter.lat, fCenter.lng] : defaultCenter;
 
-                     const fPaths = fence.points.map(p => ({
-                        lat: fCenter.lat + (50 - p.y) * 0.00005,
-                        lng: fCenter.lng + (p.x - 50) * 0.00005
-                     }));
+                     const fPaths = fence.points.map(p => {
+                        return [
+                           centerArr[0] + (50 - p.y) * 0.00005,
+                           centerArr[1] + (p.x - 50) * 0.00005
+                        ] as [number, number];
+                     });
                      
                      // Check if this fence has triggered an alarm
                      const isThisFenceBreached = activeAlarm && activeAlarm.status !== 'RESOLVED' && fence.cameras.some(c => c.startsWith('HW:'));
 
-                     if (fPaths.length < 3) return null; // Avoid crashing Google Maps with empty polygons
+                     if (fPaths.length < 3) return null; // Avoid crashing Maps with empty polygons
 
                      return (
-                       <PolygonF 
+                       <Polygon 
                            key={fence.id}
-                           paths={fPaths}
-                           options={{
+                           positions={fPaths}
+                           pathOptions={{
+                               color: isThisFenceBreached ? '#ef4444' : '#10b981',
                                fillColor: isThisFenceBreached ? '#ef4444' : '#10b981',
                                fillOpacity: isThisFenceBreached ? 0.6 : 0.2,
-                               strokeColor: isThisFenceBreached ? '#ef4444' : '#10b981',
-                               strokeOpacity: 0.8,
-                               strokeWeight: 2
+                               opacity: 0.8,
+                               weight: 2
                            }}
                        />
                      );
@@ -337,21 +362,19 @@ export default function VirtualFences() {
 
                   {/* Render Current Drawing Polygon */}
                   {mapPolygonPositions.length > 2 && (
-                      <PolygonF 
-                          paths={mapPolygonPositions}
-                          options={{
+                      <Polygon 
+                          positions={mapPolygonPositions}
+                          pathOptions={{
+                              color: '#60a5fa',
                               fillColor: '#3b82f6',
                               fillOpacity: 0.4,
-                              strokeColor: '#60a5fa',
-                              strokeOpacity: 0.9,
-                              strokeWeight: 2
+                              opacity: 0.9,
+                              weight: 2
                           }}
                       />
                   )}
-               </GoogleMap>
-             ) : (
-                 <div className="flex items-center justify-center h-full w-full text-slate-400">Loading Tactical Map...</div>
-             )
+                </MapContainer>
+              </div>
            )}
 
 
@@ -494,4 +517,18 @@ function ToggleRow({ label, checked, onChange }: { label: string, checked: boole
       </button>
     </div>
   );
+}
+
+function MapEvents({ isDrawing, currentGeo, setPoints }: { isDrawing: boolean, currentGeo: [number, number], setPoints: React.Dispatch<React.SetStateAction<Point[]>> }) {
+  useMapEvents({
+    click(e) {
+      if (!isDrawing) return;
+      const lat = e.latlng.lat;
+      const lng = e.latlng.lng;
+      const x = 50 + (lng - currentGeo[1]) / 0.00005;
+      const y = 50 - (lat - currentGeo[0]) / 0.00005;
+      setPoints(prev => [...prev, { x, y }]);
+    }
+  });
+  return null;
 }

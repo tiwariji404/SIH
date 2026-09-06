@@ -1,7 +1,7 @@
 import logging
 import json
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api.routers import auth, users, stream, cameras, alerts, zones, analytics
@@ -11,13 +11,32 @@ from app.db.session import engine, Base, SessionLocal
 from app.core.redis_client import redis_client
 from app.core.storage import storage_client
 from app.services.anpr_pipeline import DATA_DIR, decode_base64_frame, process_anpr_frame
+from app.db.session import get_db
+from sqlalchemy import text
+from fastapi.responses import JSONResponse
 
-# Define structured logger
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+class JSONFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        log_obj = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "service": "ibvap-backend",
+            "message": record.getMessage(),
+        }
+        if hasattr(record, "camera_id"):
+            log_obj["camera_id"] = record.camera_id
+        if hasattr(record, "event_id"):
+            log_obj["event_id"] = record.event_id
+        if hasattr(record, "latency"):
+            log_obj["latency"] = record.latency
+        return json.dumps(log_obj)
+
 logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(JSONFormatter())
+logger.handlers.clear()
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 # Start connections
 @asynccontextmanager
@@ -30,6 +49,12 @@ async def lifespan(app: FastAPI):
         logger.warning("Database auto-initialization skipped: %s", exc)
     redis_client.connect()
     storage_client.connect()
+    # Warmup YOLO singleton model to prevent lazy load stutter
+    try:
+        from app.vision.model_manager import model_manager
+        model_manager.get_yolo()
+    except Exception as exc:
+        logger.warning("YOLO warmup notice: %s", exc)
 
     # Automatically connect all registered CCTV infrastructure streams
     try:
@@ -60,6 +85,11 @@ async def lifespan(app: FastAPI):
         cctv_manager.stop_all()
     except Exception:
         pass
+    try:
+        from app.core.worker_pool import worker_pool
+        worker_pool.shutdown_all()
+    except Exception:
+        pass
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
@@ -87,17 +117,57 @@ def read_root():
     return {"message": "Welcome to IBVAP AI Backend"}
 
 @app.get("/health")
-def healthcheck():
-    return {"status": "ok", "service": "ibvap-backend"}
+def healthcheck(db=Depends(get_db)):
+    health_status = {
+        "status": "ok",
+        "service": "ibvap-backend",
+        "components": {
+            "database": "unhealthy",
+            "redis": "unhealthy",
+            "minio": "unhealthy",
+            "ai_models": "unhealthy"
+        }
+    }
+    
+    # Check DB
+    try:
+        db.execute(text("SELECT 1"))
+        health_status["components"]["database"] = "healthy"
+    except Exception:
+        health_status["status"] = "degraded"
+
+    # Check Redis
+    try:
+        if redis_client.redis and redis_client.redis.ping():
+            health_status["components"]["redis"] = "healthy"
+        else:
+            health_status["status"] = "degraded"
+    except Exception:
+        health_status["status"] = "degraded"
+        
+    # Check Storage
+    try:
+        if storage_client.is_healthy():
+            health_status["components"]["minio"] = "healthy"
+        else:
+            health_status["status"] = "degraded"
+    except Exception:
+        health_status["status"] = "degraded"
+        
+    return JSONResponse(
+        status_code=200 if health_status["status"] == "ok" else 503,
+        content=health_status
+    )
 
 @app.get("/liveness")
 def liveness():
     return {"status": "alive"}
 
 @app.get("/readiness")
-def readiness():
-    # Will check db/redis/minio later, stub for now
-    return {"status": "ready"}
+def readiness(db=Depends(get_db)):
+    health = healthcheck(db).body.decode("utf-8")
+    status = json.loads(health).get("status")
+    return {"status": "ready" if status == "ok" else "not_ready"}
 
 @app.websocket("/ws/detections")
 async def websocket_endpoint(websocket: WebSocket):
@@ -127,25 +197,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_json({"type": "error", "message": str(exc)})
                 continue
 
-            with SessionLocal() as db:
-                try:
-                    vehicles, alerts = process_anpr_frame(
-                        db,
-                        frame,
-                        camera_id=camera_id,
-                        direction=direction,
-                        source="live",
-                        dedupe_seconds=10,
-                    )
-                except Exception as exc:
-                    db.rollback()
-                    logger.exception("Live ANPR processing failed")
-                    await websocket.send_json({"type": "error", "message": f"Live ANPR processing failed: {exc}"})
-                    continue
-
-            for vehicle in vehicles:
-                await manager.broadcast({"type": "vehicle", "vehicle": vehicle})
-            for alert in alerts:
-                await manager.broadcast({"type": "NEW_ALERT", "data": alert})
+            # Delegate inline blocking logic directly into the back-pressured multi-threading worker pipeline
+            # Delegate inline blocking logic directly into the back-pressured multi-threading worker pipeline
+            from app.core.worker_pool import worker_pool
+            zones = payload.get("zones", [])
+            force_watchlist = payload.get("force_watchlist", False)
+            force_reid = payload.get("force_reid", False)
+            context = {"zones": zones, "force_watchlist": force_watchlist, "force_reid": force_reid}
+            success = worker_pool.enqueue(camera_id, frame, context)
+            if not success:
+                # Frame dropped purposefully under severe backpressure -> Protect system stability.
+                logger.warning(f"WebSocket input dropped for {camera_id}: CameraWorker Queue full.")
     except WebSocketDisconnect:
         manager.disconnect(websocket)

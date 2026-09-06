@@ -7,9 +7,10 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import type { VehicleRecord } from '../types';
+import CameraFeed from '../components/CameraFeed';
 
 export default function ANPR() {
-  const { vehicles, showToast, addToWatchlist, watchlistPlates, refreshData } = useApp();
+  const { vehicles, showToast, addToWatchlist, watchlistPlates, refreshData, cameras } = useApp();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [stateFilter, setStateFilter] = useState('ALL');
@@ -224,8 +225,33 @@ export default function ANPR() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left Column: Register & Upload Inputs */}
+        {/* Left Column: Register, Upload & Live Feed */}
         <div className="lg:col-span-4 space-y-4">
+          {/* Live Gate Feed */}
+          <div className="card p-6 border-slate-200 shadow-sm bg-white">
+             <h2 className="text-base font-black text-slate-800 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
+                <Camera className="h-4 w-4 text-emerald-600" /> Live Gate Feed
+             </h2>
+             <div className="space-y-4">
+               {cameras.filter(c => ['CAM-01', 'CAM-05'].includes(c.id)).map(cam => (
+                 <div key={cam.id} className="space-y-1">
+                   <div className="flex items-center justify-between">
+                     <span className="text-xs font-bold text-slate-700">{cam.name}</span>
+                     <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">{cam.id}</span>
+                   </div>
+                   <div className="h-32 rounded overflow-hidden bg-black border border-slate-200">
+                     <CameraFeed camera={cam} detections={[]} liveStream={null} />
+                   </div>
+                 </div>
+               ))}
+               {cameras.filter(c => ['CAM-01', 'CAM-05'].includes(c.id)).length === 0 && (
+                 <div className="text-xs text-slate-500 italic p-4 text-center border border-slate-200 rounded">
+                   Gate cameras (CAM-01, CAM-05) not found or offline.
+                 </div>
+               )}
+             </div>
+          </div>
+
           <div className="card p-6 border-slate-200 shadow-sm bg-white">
              <h2 className="text-base font-black text-slate-800 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
                 <Plus className="h-4 w-4 text-accent-600" /> Register Watchlist Plate

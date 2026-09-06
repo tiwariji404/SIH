@@ -24,7 +24,7 @@ const scenarioLabels: Record<string, string> = {
 };
 
 export default function CameraFeed({ camera, detections = [], showOverlay = true, compact = false, liveStream = null, fit = 'cover', fullHeight = false }: Props) {
-  const { zones } = useApp();
+  const { zones, savedFences } = useApp();
   const [time, setTime] = useState(new Date());
   const [scanY, setScanY] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -46,6 +46,52 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
       videoRef.current.play().catch(() => {});
     }
   }, [liveStream]);
+
+  // Push frames to the backend AI whenever this explicitly streams hardware
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let frameInterval: any = null;
+    
+    // Only HW streams are pushed independently from frontend
+    if (liveStream && camera.id.startsWith('HW-')) {
+      // Find actual Fencing ID map "HW:12ac..." based on name fallback or let it match any
+      // For this demo mockHwCam name = device.label, so we map to HW:deviceId. But wait!
+      // In LiveSurveillance we assigned HW-1, HW-2 to mockHwCam.id. We need to pass the real ID.
+      // We will look up Fences that have ANY hardware mapped. To simplify, we'll map the active fences directly.
+      ws = new WebSocket('ws://localhost:8000/ws/detections');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 640;
+      canvas.height = 480;
+
+      ws.onopen = () => {
+         frameInterval = setInterval(() => {
+            const video = videoRef.current;
+            if (video && video.readyState >= 2) {
+               ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
+               const base64 = canvas.toDataURL('image/jpeg', 0.6);
+               
+               // Retrieve ALL fences containing ANY hardware camera to ensure they trigger
+               const activeZonesForCam = savedFences
+                  .filter(f => f.active && f.cameras.some(c => c.startsWith('HW:')))
+                  .map(f => ({ id: f.id, name: f.name, points: f.points }));
+
+               ws?.send(JSON.stringify({ 
+                  type: 'frame', 
+                  camera_id: camera.id, 
+                  image: base64,
+                  zones: activeZonesForCam 
+               }));
+            }
+         }, 500); 
+      };
+    }
+    
+    return () => {
+      if (frameInterval) clearInterval(frameInterval);
+      if (ws) ws.close();
+    };
+  }, [liveStream, camera.id, savedFences]);
 
   const isOffline = camera.status === 'OFFLINE';
   const isNight = camera.scenario === 'night';

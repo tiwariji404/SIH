@@ -35,7 +35,7 @@ export default function FaceDetection() {
 
   const getDirectionBadge = (dir: FaceRecord['direction']) => {
     return (
-      <span className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-widest border ${dir === 'Inbound' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
+      <span className="px-2 py-1 rounded text-xs font-bold uppercase tracking-widest border bg-slate-50 text-slate-600 border-slate-200">
         {dir}
       </span>
     );
@@ -121,17 +121,7 @@ export default function FaceDetection() {
         
         {/* Demo Controls */}
         <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-4 px-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-600 hover:text-indigo-600 transition-colors">
-              <input type="checkbox" className="accent-red-500 w-4 h-4" checked={forceWatchlist} onChange={e => setForceWatchlist(e.target.checked)} />
-              <ShieldAlert className="w-4 h-4 text-red-500" /> Watchlist
-            </label>
-            <div className="w-px h-6 bg-slate-200"></div>
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-600 hover:text-indigo-600 transition-colors">
-              <input type="checkbox" className="accent-purple-500 w-4 h-4" checked={forceReid} onChange={e => setForceReid(e.target.checked)} />
-              <Route className="w-4 h-4 text-purple-500" /> Track (Re-ID)
-            </label>
-          </div>
+
           <button 
             onClick={startDemo}
             className={`flex items-center gap-2 px-4 py-2 font-bold rounded-lg shadow-sm transition-colors ${
@@ -237,7 +227,7 @@ export default function FaceDetection() {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-medium text-indigo-600">
+                      <div className="font-semibold text-slate-700">
                         {cam?.name || face.cameraId}
                       </div>
                     </td>

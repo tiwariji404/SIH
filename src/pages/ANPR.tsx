@@ -3,14 +3,14 @@ import { useApp } from '../store';
 import { 
   Search, ShieldAlert, CheckCircle, HelpCircle, Plus, Camera, Car, 
   Loader2, Upload, FileVideo, Image as ImageIcon, Download, Eye, 
-  X, Sparkles, Filter, Check, AlertTriangle
+  X, Sparkles, Filter, Check, AlertTriangle, Clock
 } from 'lucide-react';
 import { api } from '../lib/api';
 import type { VehicleRecord } from '../types';
 import CameraFeed from '../components/CameraFeed';
 
 export default function ANPR() {
-  const { vehicles, showToast, addToWatchlist, watchlistPlates, refreshData, cameras, addVehicle } = useApp();
+  const { vehicles, showToast, addToWatchlist, watchlistPlates, refreshData, cameras, addVehicle, updateVehicleStatus } = useApp();
   const [demoStream, setDemoStream] = useState<MediaStream | null>(null);
   const [isDemoActive, setIsDemoActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -591,7 +591,7 @@ export default function ANPR() {
                   onClick={() => setInspectorTab('crop')}
                   className={`text-xs font-bold pb-1.5 px-2 border-b-2 transition-colors ${inspectorTab === 'crop' ? 'border-accent-600 text-accent-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                 >
-                  Clean Vehicle Snapshot
+                  Clean Full Image
                 </button>
               </div>
 
@@ -600,7 +600,14 @@ export default function ANPR() {
                 <img 
                   src={(inspectorTab === 'annotated' ? selectedVehicle.annotatedImage : selectedVehicle.image) || selectedVehicle.image} 
                   alt="Vehicle View" 
-                  className="max-h-full max-w-full object-contain" 
+                  className="max-h-full max-w-full object-contain cursor-pointer" 
+                  title="Full clean image"
+                  onClick={() => {
+                    const win = window.open();
+                    if (win) {
+                       win.document.write(`<img src="${(inspectorTab === 'annotated' ? selectedVehicle.annotatedImage : selectedVehicle.image) || selectedVehicle.image}" style="max-width: 100%;" />`);
+                    }
+                  }}
                 />
               </div>
 
@@ -635,21 +642,64 @@ export default function ANPR() {
                 </div>
               </div>
 
+              {/* Vehicle History Timeline */}
+              {selectedVehicle.history && selectedVehicle.history.length > 0 && (
+                <div className="pt-4 border-t border-slate-200">
+                  <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-blue-500" /> Detection History
+                  </h3>
+                  <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                    {selectedVehicle.history.map((h, i) => (
+                      <div key={i} className="flex gap-3 items-start bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        {h.image ? (
+                          <img src={h.image} className="w-16 h-12 object-cover rounded shadow-sm border border-slate-200" alt="History frame" />
+                        ) : (
+                          <div className="w-16 h-12 bg-slate-200 rounded flex items-center justify-center">
+                            <Car className="w-5 h-5 text-slate-400" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="text-xs font-bold text-slate-800">
+                            {new Date(h.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                            Camera: {h.cameraId} | Conf: {h.confidence}%
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Action Buttons */}
-              <div className="flex items-center gap-3 pt-3 border-t border-slate-200">
+              <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-200">
+                {selectedVehicle.status !== 'AUTHORIZED' && (
+                  <button 
+                    onClick={() => {
+                      updateVehicleStatus(selectedVehicle.plateNumber, 'AUTHORIZED');
+                      setSelectedVehicle(prev => prev ? { ...prev, status: 'AUTHORIZED' } : null);
+                    }} 
+                    className="flex-1 btn-primary py-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center gap-1.5 min-w-[120px]"
+                  >
+                    <CheckCircle className="h-4 w-4" /> Mark Authorized
+                  </button>
+                )}
+
                 {selectedVehicle.status !== 'WATCHLIST' && !watchlistPlates.includes(selectedVehicle.plateNumber.toUpperCase()) ? (
                   <button 
                     onClick={async () => {
                       await addToWatchlist(selectedVehicle.plateNumber, "Flagged via Inspector");
+                      updateVehicleStatus(selectedVehicle.plateNumber, 'WATCHLIST');
                       setSelectedVehicle(prev => prev ? { ...prev, status: 'WATCHLIST' } : null);
                     }} 
-                    className="flex-1 btn-primary py-2.5 text-xs bg-red-600 hover:bg-red-700 flex items-center justify-center gap-1.5"
+                    className="flex-1 btn-primary py-2.5 text-xs bg-red-600 hover:bg-red-700 flex items-center justify-center gap-1.5 min-w-[120px]"
                   >
                     <ShieldAlert className="h-4 w-4" /> Add to Watchlist
                   </button>
                 ) : (
-                  <div className="flex-1 py-2 px-3 rounded bg-red-100 text-red-700 text-xs font-bold flex items-center gap-1.5 justify-center">
-                    <AlertTriangle className="h-4 w-4" /> Active on Threat Watchlist
+                  <div className="flex-1 py-2.5 px-3 rounded bg-red-100 text-red-700 text-xs font-bold flex items-center gap-1.5 justify-center min-w-[120px]">
+                    <AlertTriangle className="h-4 w-4" /> On Watchlist
                   </div>
                 )}
 

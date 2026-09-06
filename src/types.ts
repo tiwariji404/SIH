@@ -108,6 +108,7 @@ export interface VehicleRecord {
   stateCode?: string;
   sharpness?: number;
   rawText?: string;
+  history?: { timestamp: string; cameraId: string; image?: string; confidence: number }[];
 }
 
 export interface Zone {
@@ -152,6 +153,8 @@ export interface FaceRecord {
   status: 'AUTHORIZED' | 'UNKNOWN' | 'FLAGGED';
   direction: 'Inbound' | 'Outbound';
   image?: string;
+  thumbnail?: string; // Add thumbnail if it's missing but used
+  history?: { timestamp: string; cameraId: string; image?: string; confidence: number }[];
 }
 
 export interface SavedFence {

@@ -41,6 +41,7 @@ interface AppState {
   setActiveAlarm: (alarm: Alert | null) => void;
   watchlistPlates: string[];
   addToWatchlist: (plate: string, description?: string) => Promise<void>;
+  updateVehicleStatus: (plate: string, status: 'AUTHORIZED' | 'WATCHLIST' | 'UNKNOWN') => void;
   refreshData: () => Promise<void>;
   selectedLiveCameraIds: string[] | null;
   setSelectedLiveCameraIds: (ids: string[] | null) => void;
@@ -83,11 +84,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastMsg | null>(null);
   const [activeAlarm, setActiveAlarm] = useState<Alert | null>(null);
   const [watchlistPlates, setWatchlistPlates] = useState<string[]>([]);
+  const watchlistRef = useRef<string[]>([]);
   const [selectedLiveCameraIds, setSelectedLiveCameraIds] = useState<string[] | null>(null);
   const [savedFences, setSavedFences] = useState<SavedFence[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    watchlistRef.current = watchlistPlates;
+  }, [watchlistPlates]);
 
   useEffect(() => {
     // Create an audio element for the alarm siren
@@ -308,11 +314,106 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addFace = useCallback((face: FaceRecord) => {
-    setFaces(prev => [face, ...prev]);
+    setFaces(prev => {
+      const existingIdx = prev.findIndex(f => f.identity === face.identity && f.identity !== 'Unknown');
+      if (existingIdx !== -1) {
+        const existing = prev[existingIdx];
+        const newHistory = existing.history ? [...existing.history] : [];
+        newHistory.unshift({
+          timestamp: face.timestamp,
+          cameraId: face.cameraId,
+          image: face.image,
+          confidence: face.confidence
+        });
+        const updated = {
+          ...existing,
+          timestamp: face.timestamp,
+          image: face.image || existing.image,
+          thumbnail: face.thumbnail || existing.thumbnail,
+          cameraId: face.cameraId,
+          confidence: face.confidence,
+          history: newHistory
+        };
+        const newList = [...prev];
+        newList.splice(existingIdx, 1);
+        return [updated, ...newList];
+      } else {
+        return [{...face, history: [{
+          timestamp: face.timestamp,
+          cameraId: face.cameraId,
+          image: face.image,
+          confidence: face.confidence
+        }]}, ...prev];
+      }
+    });
   }, []);
 
   const addVehicle = useCallback((vehicle: VehicleRecord) => {
-    setVehicles(prev => [vehicle, ...prev]);
+    const isWatchlisted = watchlistRef.current.includes(vehicle.plateNumber.toUpperCase()) || vehicle.status === 'WATCHLIST';
+    const finalStatus = isWatchlisted ? 'WATCHLIST' : vehicle.status;
+
+    if (isWatchlisted) {
+      setActiveAlarm({
+        id: 'ALM-' + Date.now(),
+        type: 'WATCHLIST',
+        severity: 'CRITICAL',
+        source: vehicle.cameraId,
+        message: `Watchlist vehicle detected: ${vehicle.plateNumber}`,
+        timestamp: vehicle.timestamp,
+        status: 'NEW',
+        image: vehicle.annotatedImage || vehicle.image
+      });
+      showToast({
+        type: 'alert',
+        title: 'Watchlist Vehicle Detected',
+        message: `Plate ${vehicle.plateNumber} spotted at ${vehicle.cameraId}`
+      });
+    }
+
+    setVehicles(prev => {
+      const existingIdx = prev.findIndex(v => v.plateNumber === vehicle.plateNumber);
+      if (existingIdx !== -1) {
+        const existing = prev[existingIdx];
+        const newHistory = existing.history ? [...existing.history] : [];
+        newHistory.unshift({
+          timestamp: vehicle.timestamp,
+          cameraId: vehicle.cameraId,
+          image: vehicle.image,
+          confidence: vehicle.confidence
+        });
+        const updated = {
+          ...existing,
+          timestamp: vehicle.timestamp,
+          image: vehicle.image || existing.image,
+          annotatedImage: vehicle.annotatedImage || existing.annotatedImage,
+          plateImage: vehicle.plateImage || existing.plateImage,
+          cameraId: vehicle.cameraId,
+          confidence: vehicle.confidence,
+          status: finalStatus,
+          history: newHistory
+        };
+        const newList = [...prev];
+        newList.splice(existingIdx, 1);
+        return [updated, ...newList]; // move to top
+      } else {
+        return [{...vehicle, status: finalStatus, history: [{
+          timestamp: vehicle.timestamp,
+          cameraId: vehicle.cameraId,
+          image: vehicle.image,
+          confidence: vehicle.confidence
+        }]}, ...prev];
+      }
+    });
+  }, [setActiveAlarm, showToast]);
+
+  const updateVehicleStatus = useCallback((plate: string, status: 'AUTHORIZED' | 'WATCHLIST' | 'UNKNOWN') => {
+    const p = plate.toUpperCase();
+    setVehicles(prev => prev.map(v => v.plateNumber === plate ? { ...v, status } : v));
+    if (status === 'WATCHLIST') {
+      setWatchlistPlates(prev => prev.includes(p) ? prev : [...prev, p]);
+    } else {
+      setWatchlistPlates(prev => prev.filter(x => x !== p));
+    }
   }, []);
 
   const triggerCameraOffline = useCallback((cameraId: string) => {
@@ -358,7 +459,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     cameras, events, alerts, vehicles, zones, tracks, auditLogs, faces, detections,
     liveDemoRunning, startLiveDemo, stopLiveDemo,
     setCameraScenario, acknowledgeAlert, escalateAlert, resolveAlert,
-    addZone, deleteZone, addAuditLog, addAlert, addFace, addVehicle, triggerCameraOffline, toast, showToast,
+    addZone, deleteZone, addAuditLog, addAlert, addFace, addVehicle, updateVehicleStatus, triggerCameraOffline, toast, showToast,
     activeAlarm, setActiveAlarm, watchlistPlates, addToWatchlist,
     refreshData: fetchData,
     selectedLiveCameraIds, setSelectedLiveCameraIds,

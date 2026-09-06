@@ -1,28 +1,16 @@
 import { useState } from 'react';
-import { Search, Calendar, Users, MapPin, Clock } from 'lucide-react';
+import { Search, Calendar, Users, MapPin, Clock, X, ScanFace } from 'lucide-react';
 import { useApp } from '../store';
+import type { FaceRecord } from '../types';
 
 export default function PeopleDetected() {
   const [search, setSearch] = useState('');
+  const [selectedPerson, setSelectedPerson] = useState<FaceRecord | null>(null);
   const { faces } = useApp();
 
-  const faceLogs = faces.map((f) => {
-    const d = new Date(f.timestamp);
-    return {
-      id: f.id,
-      date: d.toLocaleDateString(),
-      time: d.toLocaleTimeString(),
-      camera: f.cameraId,
-      location: f.cameraId,
-      screenshot: f.image || f.thumbnail || '/border_patrol_1788078522989.jpg',
-      confidence: f.confidence || 0,
-      notes: f.identity === 'Unknown' ? 'Unknown individual detected. Logged for review.' : `Matched with ${f.identity}.`
-    };
-  });
-
-  const filtered = faceLogs.filter(p => 
-    p.camera.toLowerCase().includes(search.toLowerCase()) || 
-    p.location.toLowerCase().includes(search.toLowerCase())
+  const filtered = faces.filter(f => 
+    f.cameraId.toLowerCase().includes(search.toLowerCase()) || 
+    f.identity.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -71,44 +59,126 @@ export default function PeopleDetected() {
                  </tr>
                </thead>
                <tbody className="divide-y divide-slate-100">
-                 {filtered.map(person => (
-                    <tr key={person.id} className="hover:bg-slate-50 transition-colors">
-                       <td className="px-6 py-4">
-                         <div className="w-24 h-16 rounded overflow-hidden relative bg-slate-900 border border-slate-200 shadow-sm">
-                            <img src={person.screenshot} alt="Person Detected" className="absolute inset-0 w-full h-full object-cover" />
-                            {/* Faux bounding box */}
-                            <div className="absolute inset-2 border border-green-500 rounded-sm"></div>
-                         </div>
-                       </td>
-                       <td className="px-6 py-4">
-                         <div className="flex items-start gap-2">
-                            <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
-                            <div>
-                               <p className="font-bold text-slate-800">{person.location}</p>
-                               <p className="text-xs text-slate-500">{person.camera}</p>
-                            </div>
-                         </div>
-                       </td>
-                       <td className="px-6 py-4">
-                         <div className="flex items-center gap-2 text-slate-700 font-medium">
-                            <Clock className="w-4 h-4 text-slate-400" />
-                            {person.date} <br/> {person.time}
-                         </div>
-                       </td>
-                       <td className="px-6 py-4">
-                         <div className="space-y-1">
-                            <span className="badge bg-green-500/10 text-green-700 border border-green-500/20 text-[10px]">
-                               {person.confidence}% CONFIDENCE
-                            </span>
-                            <p className="text-xs text-slate-600 max-w-[200px] truncate">{person.notes}</p>
-                         </div>
-                       </td>
-                    </tr>
-                 ))}
+                 {filtered.map(person => {
+                   const d = new Date(person.timestamp);
+                   const screenshot = person.image || person.thumbnail || '/border_patrol_1788078522989.jpg';
+                   const notes = person.identity === 'Unknown' ? 'Unknown individual detected. Logged for review.' : `Matched with ${person.identity}.`;
+                   
+                   return (
+                     <tr 
+                       key={person.id} 
+                       onClick={() => setSelectedPerson(person)}
+                       className="hover:bg-slate-50 transition-colors cursor-pointer"
+                     >
+                        <td className="px-6 py-4">
+                          <div className="w-24 h-16 rounded overflow-hidden relative bg-slate-900 border border-slate-200 shadow-sm">
+                             <img src={screenshot} alt="Person Detected" className="absolute inset-0 w-full h-full object-cover" />
+                             {/* Faux bounding box */}
+                             <div className="absolute inset-2 border border-green-500 rounded-sm"></div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-start gap-2">
+                             <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
+                             <div>
+                                <p className="font-bold text-slate-800">{person.identity}</p>
+                                <p className="text-xs text-slate-500">Node: {person.cameraId}</p>
+                             </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2 text-slate-700 font-medium">
+                             <Clock className="w-4 h-4 text-slate-400" />
+                             {d.toLocaleDateString()} <br/> {d.toLocaleTimeString()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-1">
+                             <span className="badge bg-green-500/10 text-green-700 border border-green-500/20 text-[10px]">
+                                {person.confidence}% CONFIDENCE
+                             </span>
+                             <p className="text-xs text-slate-600 max-w-[200px] truncate">{notes}</p>
+                          </div>
+                        </td>
+                     </tr>
+                   );
+                 })}
                </tbody>
             </table>
          </div>
       </div>
+
+      {/* Person History Modal */}
+      {selectedPerson && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 p-5">
+            <div className="flex items-start justify-between mb-4 border-b border-slate-100 pb-4">
+              <div className="flex gap-4">
+                <img 
+                  src={selectedPerson.image || selectedPerson.thumbnail || '/border_patrol_1788078522989.jpg'} 
+                  className="w-16 h-16 rounded-xl object-cover border border-slate-200 shadow-sm"
+                  alt="Profile"
+                />
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">{selectedPerson.identity}</h2>
+                  <p className="text-sm text-slate-500 font-medium">Last seen: {new Date(selectedPerson.timestamp).toLocaleString('en-IN')}</p>
+                  <p className="text-xs text-slate-400 mt-1">Total Detections: {1 + (selectedPerson.history?.length || 0)}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedPerson(null)} 
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-accent-500" /> Detection Timeline
+              </h3>
+              
+              <div className="space-y-3 pl-2 border-l-2 border-slate-100 ml-2">
+                {/* Current (latest) detection */}
+                <div className="relative pl-6">
+                  <div className="absolute left-[-29px] top-1 w-3 h-3 bg-accent-500 rounded-full border-4 border-white shadow-sm" />
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex gap-3 shadow-sm">
+                    <img 
+                      src={selectedPerson.image || selectedPerson.thumbnail || '/border_patrol_1788078522989.jpg'} 
+                      className="w-12 h-12 rounded object-cover border border-slate-200" 
+                      alt="capture" 
+                    />
+                    <div>
+                      <div className="text-sm font-bold text-slate-800">{new Date(selectedPerson.timestamp).toLocaleString('en-IN')}</div>
+                      <div className="text-xs text-slate-500 mt-0.5 font-mono">Cam: {selectedPerson.cameraId} | Conf: {selectedPerson.confidence}%</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* History detections */}
+                {selectedPerson.history?.map((h, i) => (
+                  <div key={i} className="relative pl-6">
+                    <div className="absolute left-[-29px] top-1 w-3 h-3 bg-slate-300 rounded-full border-4 border-white shadow-sm" />
+                    <div className="bg-white p-3 rounded-lg border border-slate-100 flex gap-3 shadow-sm opacity-80 hover:opacity-100 transition-opacity">
+                      {h.image ? (
+                        <img src={h.image} className="w-12 h-12 rounded object-cover border border-slate-200" alt="capture" />
+                      ) : (
+                        <div className="w-12 h-12 rounded bg-slate-100 flex items-center justify-center border border-slate-200">
+                          <ScanFace className="w-4 h-4 text-slate-400" />
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-sm font-bold text-slate-700">{new Date(h.timestamp).toLocaleString('en-IN')}</div>
+                        <div className="text-xs text-slate-400 mt-0.5 font-mono">Cam: {h.cameraId} | Conf: {h.confidence}%</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

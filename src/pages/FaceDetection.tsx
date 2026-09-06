@@ -61,7 +61,7 @@ export default function FaceDetection() {
       video.srcObject = stream;
       video.play();
       videoRef.current = video;
-      
+
       const canvas = document.createElement('canvas');
       canvasRef.current = canvas;
 
@@ -69,7 +69,7 @@ export default function FaceDetection() {
       demoWsRef.current = ws;
 
       // Simulated Face Capture logic for frontend demo
-      setTimeout(() => {
+      setTimeout(async () => {
         if (videoRef.current && canvasRef.current) {
           const v = videoRef.current;
           const c = canvasRef.current;
@@ -80,20 +80,39 @@ export default function FaceDetection() {
             if (ctx) {
               ctx.drawImage(v, 0, 0, c.width, c.height);
               const base64 = c.toDataURL('image/jpeg', 0.8);
-              
+
               const isFlagged = flagsRef.current.forceWatchlist;
-              
-              addFace({
-                id: 'FC-SIM-' + Date.now(),
-                cameraId: 'CAM-01',
-                identity: isFlagged ? 'Watchlist Match' : 'Demo User (Auto-Captured)',
-                confidence: Math.floor(Math.random() * 10) + 90,
-                timestamp: new Date().toISOString(),
-                database: isFlagged ? 'Watchlist' : 'Visitor',
-                status: isFlagged ? 'FLAGGED' : 'AUTHORIZED',
-                direction: 'Inbound',
-                image: base64
-              });
+
+              let numPeople = 1;
+              if ('FaceDetector' in window) {
+                try {
+                  const faceDetector = new (window as any).FaceDetector();
+                  const faces = await faceDetector.detect(c);
+                  if (faces.length > 0) {
+                    numPeople = faces.length;
+                  }
+                } catch (e) {
+                  numPeople = Math.floor(Math.random() * 3) + 1;
+                }
+              } else {
+                numPeople = Math.floor(Math.random() * 3) + 1;
+              }
+
+              const demoNames = ['Rajen (Employee)', 'Amit (Visitor)', 'Priya (Contractor)', 'Sanjay (Visitor)', 'Neha (Employee)'];
+
+              for (let i = 0; i < numPeople; i++) {
+                addFace({
+                  id: 'FC-SIM-' + Date.now() + '-' + i,
+                  cameraId: 'CAM-01',
+                  identity: isFlagged ? `Watchlist Target ${i + 1}` : (demoNames[i] || 'Unknown Person'),
+                  confidence: Math.floor(Math.random() * 10) + 90,
+                  timestamp: new Date().toISOString(),
+                  database: isFlagged ? 'Watchlist' : (i % 2 === 0 ? 'Employee DB' : 'Visitor DB'),
+                  status: isFlagged ? 'FLAGGED' : 'AUTHORIZED',
+                  direction: 'Inbound',
+                  image: base64 // Normally this would be the cropped bounding box of the face
+                });
+              }
             }
           }
         }
@@ -139,7 +158,7 @@ export default function FaceDetection() {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
@@ -149,17 +168,16 @@ export default function FaceDetection() {
           </h1>
           <p className="text-slate-500 font-medium mt-1">Facial recognition access logs restricted to perimeter entry points.</p>
         </div>
-        
+
         {/* Demo Controls */}
         <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
 
-          <button 
+          <button
             onClick={startDemo}
-            className={`flex items-center gap-2 px-4 py-2 font-bold rounded-lg shadow-sm transition-colors ${
-              isDemoActive 
-                ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100' 
+            className={`flex items-center gap-2 px-4 py-2 font-bold rounded-lg shadow-sm transition-colors ${isDemoActive
+                ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
                 : 'bg-indigo-600 text-white hover:bg-indigo-700'
-            }`}
+              }`}
           >
             <CameraIcon className="w-5 h-5" />
             {isDemoActive ? 'Stop Webcam' : 'Start Webcam Demo'}
@@ -194,7 +212,7 @@ export default function FaceDetection() {
                 <MapPin className="w-4 h-4" />
                 {cam.name} ({cam.location})
               </div>
-              <button 
+              <button
                 onClick={() => setFullscreenCam(cam.id)}
                 className="p-1.5 bg-slate-100 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg border border-slate-200 transition-colors opacity-0 group-hover:opacity-100"
                 title="Fullscreen"
@@ -223,7 +241,7 @@ export default function FaceDetection() {
             {sortedFaces.length} Records
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-slate-50 text-xs uppercase tracking-widest text-slate-500 font-bold">
@@ -268,7 +286,7 @@ export default function FaceDetection() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div 
+                          <div
                             className={`h-full rounded-full ${face.confidence > 90 ? 'bg-emerald-500' : 'bg-amber-500'}`}
                             style={{ width: `${face.confidence}%` }}
                           />

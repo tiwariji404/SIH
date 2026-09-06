@@ -6,7 +6,7 @@ import type { FaceRecord } from '../types';
 import { WS_BASE_URL } from '../lib/api';
 
 export default function FaceDetection() {
-  const { cameras, faces } = useApp();
+  const { cameras, faces, addFace } = useApp();
   const [demoStream, setDemoStream] = useState<MediaStream | null>(null);
   const [isDemoActive, setIsDemoActive] = useState(false);
   const [forceWatchlist, setForceWatchlist] = useState(false);
@@ -67,6 +67,37 @@ export default function FaceDetection() {
 
       const ws = new WebSocket(`${WS_BASE_URL}/ws/detections`);
       demoWsRef.current = ws;
+
+      // Simulated Face Capture logic for frontend demo
+      setTimeout(() => {
+        if (videoRef.current && canvasRef.current) {
+          const v = videoRef.current;
+          const c = canvasRef.current;
+          if (v.videoWidth > 0) {
+            c.width = v.videoWidth;
+            c.height = v.videoHeight;
+            const ctx = c.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(v, 0, 0, c.width, c.height);
+              const base64 = c.toDataURL('image/jpeg', 0.8);
+              
+              const isFlagged = flagsRef.current.forceWatchlist;
+              
+              addFace({
+                id: 'FC-SIM-' + Date.now(),
+                cameraId: 'CAM-01',
+                identity: isFlagged ? 'Watchlist Match' : 'Demo User (Auto-Captured)',
+                confidence: Math.floor(Math.random() * 10) + 90,
+                timestamp: new Date().toISOString(),
+                database: isFlagged ? 'Watchlist' : 'Visitor',
+                status: isFlagged ? 'FLAGGED' : 'AUTHORIZED',
+                direction: 'Inbound',
+                image: base64
+              });
+            }
+          }
+        }
+      }, 3500); // Auto-capture 3.5 seconds after starting webcam
 
       const sendFrame = () => {
         if (!isDemoActive || !demoWsRef.current || demoWsRef.current.readyState !== WebSocket.OPEN) return;

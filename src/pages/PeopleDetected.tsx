@@ -14,7 +14,7 @@ export default function PeopleDetected() {
       time: d.toLocaleTimeString(),
       camera: f.cameraId,
       location: f.cameraId,
-      screenshot: f.thumbnail || '/border_patrol_1788078522989.jpg',
+      screenshot: f.image || f.thumbnail || '/border_patrol_1788078522989.jpg',
       confidence: f.confidence || 0,
       notes: f.identity === 'Unknown' ? 'Unknown individual detected. Logged for review.' : `Matched with ${f.identity}.`
     };

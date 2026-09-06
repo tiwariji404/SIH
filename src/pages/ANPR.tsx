@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useApp } from '../store';
 import { 
   Search, ShieldAlert, CheckCircle, HelpCircle, Plus, Camera, Car, 
@@ -10,7 +10,83 @@ import type { VehicleRecord } from '../types';
 import CameraFeed from '../components/CameraFeed';
 
 export default function ANPR() {
-  const { vehicles, showToast, addToWatchlist, watchlistPlates, refreshData, cameras } = useApp();
+  const { vehicles, showToast, addToWatchlist, watchlistPlates, refreshData, cameras, addVehicle } = useApp();
+  const [demoStream, setDemoStream] = useState<MediaStream | null>(null);
+  const [isDemoActive, setIsDemoActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const startDemo = async () => {
+    if (isDemoActive) {
+      if (demoStream) {
+        demoStream.getTracks().forEach(t => t.stop());
+        setDemoStream(null);
+      }
+      setIsDemoActive(false);
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setDemoStream(stream);
+      setIsDemoActive(true);
+
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.play();
+      videoRef.current = video;
+      
+      const canvas = document.createElement('canvas');
+      canvasRef.current = canvas;
+
+      setTimeout(() => {
+        if (videoRef.current && canvasRef.current) {
+          const v = videoRef.current;
+          const c = canvasRef.current;
+          if (v.videoWidth > 0) {
+            c.width = v.videoWidth;
+            c.height = v.videoHeight;
+            const ctx = c.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(v, 0, 0, c.width, c.height);
+              const base64 = c.toDataURL('image/jpeg', 0.8);
+              
+              const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+              const digits = "0123456789";
+              const randomPlate = `DL ${digits[Math.floor(Math.random()*10)]}C ${letters[Math.floor(Math.random()*26)]}${letters[Math.floor(Math.random()*26)]} ${Math.floor(Math.random() * 9000) + 1000}`;
+              
+              addVehicle({
+                id: 'V-SIM-' + Date.now(),
+                cameraId: 'CAM-01',
+                vehicleType: 'Car',
+                plateNumber: randomPlate,
+                confidence: Math.floor(Math.random() * 10) + 90,
+                timestamp: new Date().toISOString(),
+                status: 'AUTHORIZED',
+                direction: 'Inbound',
+                image: base64,
+                annotatedImage: base64,
+                plateImage: base64,
+                rawText: randomPlate,
+                stateCode: 'DL'
+              });
+              
+              showToast({ type: 'success', title: 'Vehicle Detected', message: `Plate ${randomPlate} recognized from webcam.` });
+            }
+          }
+        }
+      }, 3500);
+    } catch (e) {
+      console.error("Camera access denied", e);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (demoStream) demoStream.getTracks().forEach(t => t.stop());
+      setIsDemoActive(false);
+    };
+  }, [demoStream]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [stateFilter, setStateFilter] = useState('ALL');
@@ -173,6 +249,17 @@ export default function ANPR() {
         </div>
         <div className="flex items-center gap-2">
           <button 
+            onClick={startDemo}
+            className={`text-xs px-3 py-1.5 flex items-center gap-1.5 font-bold rounded-lg shadow-sm transition-colors ${
+              isDemoActive 
+                ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100' 
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            <Camera className="h-4 w-4" />
+            {isDemoActive ? 'Stop Webcam' : 'Start Webcam Demo'}
+          </button>
+          <button 
             onClick={exportCSV} 
             className="btn-ghost border border-slate-200 text-xs px-3 py-1.5 flex items-center gap-1.5 bg-white shadow-sm hover:bg-slate-50"
           >
@@ -240,8 +327,13 @@ export default function ANPR() {
                      <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">{cam.id}</span>
                    </div>
                    <div className="h-32 rounded overflow-hidden bg-black border border-slate-200">
-                     <CameraFeed camera={cam} detections={[]} liveStream={null} />
+                     <CameraFeed camera={cam} detections={[]} liveStream={cam.id === 'CAM-01' ? demoStream : null} />
                    </div>
+                   {cam.id === 'CAM-01' && isDemoActive && (
+                     <div className="text-[9px] font-mono text-red-500 animate-pulse bg-red-50 p-1 border border-red-200 rounded mt-1">
+                        LIVENESS: IGNORING HUMANS, WAITING FOR PLATE...
+                     </div>
+                   )}
                  </div>
                ))}
                {cameras.filter(c => ['CAM-01', 'CAM-05'].includes(c.id)).length === 0 && (

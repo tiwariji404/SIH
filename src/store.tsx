@@ -16,10 +16,12 @@ interface AppState {
   events: EventItem[];
   alerts: Alert[];
   vehicles: VehicleRecord[];
+  addVehicle: (vehicle: VehicleRecord) => void;
   zones: Zone[];
   tracks: TrackRecord[];
   auditLogs: AuditLog[];
   faces: FaceRecord[];
+  addFace: (face: FaceRecord) => void;
   detections: Detection[];
   liveDemoRunning: boolean;
   startLiveDemo: () => void;
@@ -305,6 +307,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAlerts(prev => [alert, ...prev]);
   }, []);
 
+  const addFace = useCallback((face: FaceRecord) => {
+    setFaces(prev => [face, ...prev]);
+  }, []);
+
+  const addVehicle = useCallback((vehicle: VehicleRecord) => {
+    setVehicles(prev => [vehicle, ...prev]);
+  }, []);
+
   const triggerCameraOffline = useCallback((cameraId: string) => {
     // Demo only
   }, []);
@@ -348,7 +358,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     cameras, events, alerts, vehicles, zones, tracks, auditLogs, faces, detections,
     liveDemoRunning, startLiveDemo, stopLiveDemo,
     setCameraScenario, acknowledgeAlert, escalateAlert, resolveAlert,
-    addZone, deleteZone, addAuditLog, addAlert, triggerCameraOffline, toast, showToast,
+    addZone, deleteZone, addAuditLog, addAlert, addFace, addVehicle, triggerCameraOffline, toast, showToast,
     activeAlarm, setActiveAlarm, watchlistPlates, addToWatchlist,
     refreshData: fetchData,
     selectedLiveCameraIds, setSelectedLiveCameraIds,

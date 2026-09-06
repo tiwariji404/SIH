@@ -4,9 +4,13 @@ dist/
 
 # python / backend
 backend/venv/
+backend/.venv/
 backend/__pycache__/
 __pycache__/
 *.pyc
+*.log
+backend/data/events/
+backend/data/recordings/
 .env
 .DS_Store
 miniconda.exe

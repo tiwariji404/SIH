@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useApp } from '../store';
 import { Settings, Shield, Plus, MoreHorizontal, ChevronDown, ChevronUp, Map as MapIcon, Camera as CameraIcon, Trash2, ShieldAlert, Check, Layers, Video } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, Polygon, useMapEvents, Tooltip } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polygon, Polyline, useMapEvents, Tooltip } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -25,19 +25,19 @@ const containerStyle = {
 const cameraLocations: Record<string, { lat: number, lng: number }> = {
   // Punjab Border (North)
   'Punjab Sector - Cam 1': { lat: 31.60450, lng: 74.57680 },
-  'Punjab Sector - Cam 2': { lat: 31.60550, lng: 74.57780 },
-  'Punjab Sector - Cam 3': { lat: 31.60650, lng: 74.57880 },
-  'Punjab Sector - Cam 4': { lat: 31.60750, lng: 74.57980 },
+  'Punjab Sector - Cam 2': { lat: 31.60470, lng: 74.57700 },
+  'Punjab Sector - Cam 3': { lat: 31.60490, lng: 74.57720 },
+  'Punjab Sector - Cam 4': { lat: 31.60510, lng: 74.57740 },
   // Rajasthan Border (West)
-  'Rajasthan Desert - Cam 1': { lat: 26.9124, lng: 70.9083 },
-  'Rajasthan Desert - Cam 2': { lat: 26.9134, lng: 70.9093 },
-  'Rajasthan Desert - Cam 3': { lat: 26.9144, lng: 70.9103 },
-  'Rajasthan Desert - Cam 4': { lat: 26.9154, lng: 70.9113 },
+  'Rajasthan Desert - Cam 1': { lat: 26.91240, lng: 70.90830 },
+  'Rajasthan Desert - Cam 2': { lat: 26.91260, lng: 70.90850 },
+  'Rajasthan Desert - Cam 3': { lat: 26.91280, lng: 70.90870 },
+  'Rajasthan Desert - Cam 4': { lat: 26.91300, lng: 70.90890 },
   // Bengal Border (East)
-  'Bengal River - Cam 1': { lat: 22.9868, lng: 88.4886 },
-  'Bengal River - Cam 2': { lat: 22.9878, lng: 88.4896 },
-  'Bengal River - Cam 3': { lat: 22.9888, lng: 88.4906 },
-  'Bengal River - Cam 4': { lat: 22.9898, lng: 88.4916 },
+  'Bengal River - Cam 1': { lat: 22.98680, lng: 88.48860 },
+  'Bengal River - Cam 2': { lat: 22.98700, lng: 88.48880 },
+  'Bengal River - Cam 3': { lat: 22.98720, lng: 88.48900 },
+  'Bengal River - Cam 4': { lat: 22.98740, lng: 88.48920 },
 };
 
 const defaultCenter: [number, number] = [31.6045, 74.5768];
@@ -50,6 +50,7 @@ export default function VirtualFences() {
   const [fenceName, setFenceName] = useState('');
   
   const [showFenceGroups, setShowFenceGroups] = useState(false);
+  const [isCameraDropdownOpen, setIsCameraDropdownOpen] = useState(false);
 
   // Drawing State
   const [points, setPoints] = useState<Point[]>([]);
@@ -193,11 +194,24 @@ export default function VirtualFences() {
       return;
     }
     
+    let finalPoints = [...points];
+    if (finalPoints.length < 2 && selectedCameras.length >= 2) {
+       finalPoints = selectedCameras.map(c => {
+           const pos = cameraLocations[c];
+           if (pos) {
+                const x = 50 + (pos.lng - currentGeo[1]) / 0.00005;
+                const y = 50 - (pos.lat - currentGeo[0]) / 0.00005;
+                return { x, y };
+           }
+           return null;
+       }).filter(Boolean) as Point[];
+    }
+
     const newFence = {
       id: Date.now().toString(),
       name: fenceName,
       cameras: [...selectedCameras],
-      points: [...points], // Points are now optional
+      points: finalPoints,
       active: true
     };
     
@@ -277,13 +291,13 @@ export default function VirtualFences() {
                           </div>
                           <div className="space-y-2">
                             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-700 pb-1">Assigned Cameras</p>
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-2 w-full overflow-hidden">
                               {fence.cameras.map(c => (
                                 <button key={c} onClick={() => {
                                   window.dispatchEvent(new CustomEvent('appNavigate', { detail: { page: 'live', cameraId: c } }));
-                                }} className="flex items-center gap-2 px-3 py-2 bg-slate-900 hover:bg-slate-800 transition-colors border border-slate-700 rounded-lg text-xs text-slate-300 font-medium cursor-pointer text-left focus:outline-none">
-                                  {c.startsWith('HW:') ? <Video className="w-3.5 h-3.5 text-emerald-400" /> : <CameraIcon className="w-3.5 h-3.5 text-blue-400" />}
-                                  {c.startsWith('HW:') ? c.replace('HW:', 'Hardware: ') : c}
+                                }} className="flex items-center gap-2 px-3 py-2 bg-slate-900 hover:bg-slate-800 transition-colors border border-slate-700 rounded-lg text-xs text-slate-300 font-medium cursor-pointer text-left focus:outline-none w-full max-w-full">
+                                  {c.startsWith('HW:') ? <Video className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> : <CameraIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
+                                  <span className="truncate flex-1" title={c}>{c.startsWith('HW:') ? c.replace('HW:', 'Hardware: ') : c}</span>
                                 </button>
                               ))}
                             </div>
@@ -299,7 +313,7 @@ export default function VirtualFences() {
               <div className="h-full w-full z-0 relative">
                 <MapContainer 
                   center={currentGeo} 
-                  zoom={12} 
+                  zoom={17} 
                   style={containerStyle}
                   zoomControl={false}
                 >
@@ -318,10 +332,17 @@ export default function VirtualFences() {
                           key={camName} 
                           position={[pos.lat, pos.lng]}
                           eventHandlers={{
-                            click: () => { toggleCameraSelection(camName); }
+                            click: () => { 
+                              toggleCameraSelection(camName);
+                              if (!selectedCameras.includes(camName)) {
+                                const x = 50 + (pos.lng - currentGeo[1]) / 0.00005;
+                                const y = 50 - (pos.lat - currentGeo[0]) / 0.00005;
+                                setPoints(prev => [...prev, { x, y }]);
+                              }
+                            }
                           }}
                       >
-                         <Tooltip direction="top" offset={[0, -20]} opacity={1} permanent>
+                         <Tooltip direction="top" offset={[0, -20]} opacity={0.9}>
                            <span className="text-xs font-bold text-slate-800">{camName}</span>
                          </Tooltip>
                       </Marker>
@@ -343,33 +364,43 @@ export default function VirtualFences() {
                      // Check if this fence has triggered an alarm
                      const isThisFenceBreached = activeAlarm && activeAlarm.status !== 'RESOLVED' && fence.cameras.some(c => c.startsWith('HW:'));
 
-                     if (fPaths.length < 3) return null; // Avoid crashing Maps with empty polygons
+                     if (fPaths.length < 2) return null; // Needs at least 2 points
 
-                     return (
-                       <Polygon 
-                           key={fence.id}
-                           positions={fPaths}
-                           pathOptions={{
-                               color: isThisFenceBreached ? '#ef4444' : '#10b981',
-                               fillColor: isThisFenceBreached ? '#ef4444' : '#10b981',
-                               fillOpacity: isThisFenceBreached ? 0.6 : 0.2,
-                               opacity: 0.8,
-                               weight: 2
-                           }}
-                       />
+                     const pathOpts = {
+                         color: isThisFenceBreached ? '#ef4444' : '#3b82f6',
+                         fillColor: isThisFenceBreached ? '#ef4444' : '#3b82f6',
+                         fillOpacity: isThisFenceBreached ? 0.6 : 0.2,
+                         opacity: 0.8,
+                         weight: 4
+                     };
+
+                     return fPaths.length === 2 ? (
+                       <Polyline key={fence.id} positions={fPaths} pathOptions={pathOpts} />
+                     ) : (
+                       <Polygon key={fence.id} positions={fPaths} pathOptions={pathOpts} />
                      );
                   })}
 
                   {/* Render Current Drawing Polygon */}
+                  {mapPolygonPositions.length === 2 && (
+                      <Polyline 
+                          positions={mapPolygonPositions}
+                          pathOptions={{
+                              color: '#3b82f6',
+                              opacity: 0.9,
+                              weight: 4
+                          }}
+                      />
+                  )}
                   {mapPolygonPositions.length > 2 && (
                       <Polygon 
                           positions={mapPolygonPositions}
                           pathOptions={{
-                              color: '#60a5fa',
+                              color: '#3b82f6',
                               fillColor: '#3b82f6',
-                              fillOpacity: 0.4,
+                              fillOpacity: 0.2,
                               opacity: 0.9,
-                              weight: 2
+                              weight: 4
                           }}
                       />
                   )}
@@ -411,44 +442,62 @@ export default function VirtualFences() {
              />
            </div>
 
-           <div>
+           <div className="relative">
              <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-2">Assign Cameras</label>
-             <div className="bg-[#131722] border border-slate-700 rounded-lg p-2 max-h-72 overflow-y-auto custom-scrollbar space-y-1">
-                
-                <div className="px-2 py-1 text-[10px] font-bold text-emerald-500 uppercase tracking-wider flex items-center gap-1 bg-emerald-500/10 rounded mb-1">
-                   <Video className="w-3 h-3" /> Live Hardware
-                </div>
-                {hardwareDevices.map((dev, i) => {
-                  const id = `HW:${dev.deviceId}`;
-                  return (
-                    <label key={id} className="flex items-center gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer transition-colors border border-transparent hover:border-slate-700">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedCameras.includes(id)}
-                        onChange={() => toggleCameraSelection(id)}
-                        className="w-4 h-4 rounded border-slate-600 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900 bg-slate-900"
-                      />
-                      <span className="text-sm text-slate-300 font-medium">{dev.label || `USB Camera ${i + 1}`}</span>
-                    </label>
-                  );
-                })}
-                {hardwareDevices.length === 0 && <div className="px-2 pb-2 text-xs text-slate-500 italic">No hardware cameras found</div>}
+             
+             <button 
+                type="button"
+                onClick={() => setIsCameraDropdownOpen(!isCameraDropdownOpen)}
+                className="w-full flex justify-between items-center bg-[#131722] border border-slate-700 text-slate-200 text-sm font-medium rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+             >
+                <span className="truncate pr-2">{selectedCameras.length > 0 ? `${selectedCameras.length} Camera(s) Selected` : 'Select Cameras...'}</span>
+                {isCameraDropdownOpen ? <ChevronUp className="w-4 h-4 text-slate-500 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-500 flex-shrink-0" />}
+             </button>
 
-                <div className="px-2 py-1 mt-2 text-[10px] font-bold text-blue-500 uppercase tracking-wider flex items-center gap-1 bg-blue-500/10 rounded mb-1">
-                   <CameraIcon className="w-3 h-3" /> Virtual Demo Cameras (12)
-                </div>
-                {Object.keys(cameraLocations).map(cam => (
-                  <label key={cam} className="flex items-center gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer transition-colors">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedCameras.includes(cam)}
-                      onChange={() => toggleCameraSelection(cam)}
-                      className="w-4 h-4 rounded border-slate-600 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900 bg-slate-900"
-                    />
-                    <span className="text-sm text-slate-300 font-medium truncate" title={cam}>{cam}</span>
-                  </label>
-                ))}
-             </div>
+             {isCameraDropdownOpen && (
+               <div className="absolute top-[100%] left-0 w-full mt-2 z-[9999] bg-[#131722] border border-slate-700 rounded-lg p-2 max-h-60 overflow-y-auto custom-scrollbar shadow-2xl">
+                  
+                  <div className="px-2 py-1 text-[10px] font-bold text-emerald-500 uppercase tracking-wider flex items-center gap-1 bg-emerald-500/10 rounded mb-1">
+                     <Video className="w-3 h-3" /> Live Hardware
+                  </div>
+                  {hardwareDevices.map((dev, i) => {
+                    const id = `HW:${dev.deviceId}`;
+                    const isAssigned = savedFences.some(f => f.cameras.includes(id));
+                    if (isAssigned) return null;
+                    return (
+                      <label key={id} className="flex items-center gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer transition-colors border border-transparent hover:border-slate-700">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedCameras.includes(id)}
+                          onChange={() => toggleCameraSelection(id)}
+                          className="w-4 h-4 flex-shrink-0 rounded border-slate-600 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900 bg-slate-900"
+                        />
+                        <span className="text-sm text-slate-300 font-medium truncate" title={dev.label || `USB Camera ${i + 1}`}>{dev.label || `USB Camera ${i + 1}`}</span>
+                      </label>
+                    );
+                  })}
+                  {hardwareDevices.filter(dev => !savedFences.some(f => f.cameras.includes(`HW:${dev.deviceId}`))).length === 0 && <div className="px-2 pb-2 text-xs text-slate-500 italic">No unassigned hardware cameras</div>}
+
+                  <div className="px-2 py-1 mt-2 text-[10px] font-bold text-blue-500 uppercase tracking-wider flex items-center gap-1 bg-blue-500/10 rounded mb-1">
+                     <CameraIcon className="w-3 h-3" /> Virtual Demo Cameras
+                  </div>
+                  {Object.keys(cameraLocations).map(cam => {
+                    const isAssigned = savedFences.some(f => f.cameras.includes(cam));
+                    if (isAssigned) return null;
+                    return (
+                      <label key={cam} className="flex items-center gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer transition-colors">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedCameras.includes(cam)}
+                          onChange={() => toggleCameraSelection(cam)}
+                          className="w-4 h-4 flex-shrink-0 rounded border-slate-600 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900 bg-slate-900"
+                        />
+                        <span className="text-sm text-slate-300 font-medium truncate" title={cam}>{cam}</span>
+                      </label>
+                    );
+                  })}
+               </div>
+             )}
            </div>
         </div>
 

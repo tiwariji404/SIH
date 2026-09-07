@@ -2,6 +2,7 @@ import os
 import time
 import cv2
 import uuid
+import threading
 import face_recognition
 import numpy as np
 import firebase_admin
@@ -13,19 +14,16 @@ from datetime import datetime
 # =======================================================
 RTSP_URL = 0 # Use 0 for webcam, or "rtsp://..." for CCTV
 KNOWN_FACES_DIR = "known_faces"
-COOLDOWN_SECONDS = 10 # Don't log the same person within 10s
+COOLDOWN_SECONDS = 120 # 2 minutes cooldown timer for known faces
 CAMERA_ID = "CAM-TRACK-01"
 
 # =======================================================
 # FIREBASE SETUP
 # =======================================================
-# Make sure to place your serviceAccountKey.json in the backend folder
 SERVICE_ACCOUNT_FILE = "serviceAccountKey.json"
 
 try:
     cred = credentials.Certificate(SERVICE_ACCOUNT_FILE)
-    # Initialize Firebase. Replace 'your-storage-bucket.appspot.com' with your actual storage bucket name from Firebase Console.
-    # Note: For the script to fully work with Storage, provide the exact bucket name in the line below.
     firebase_admin.initialize_app(cred, {
         'storageBucket': 'your-storage-bucket.appspot.com' 
     })
@@ -55,7 +53,6 @@ for filename in os.listdir(KNOWN_FACES_DIR):
         name = os.path.splitext(filename)[0]
         try:
             image = face_recognition.load_image_file(path)
-            # Assuming one face per image for known database
             encodings = face_recognition.face_encodings(image)
             if encodings:
                 known_face_encodings.append(encodings[0])
@@ -69,6 +66,48 @@ for filename in os.listdir(KNOWN_FACES_DIR):
 # Track last seen times for cooldown
 last_seen = {}
 
+# Thread lock for known faces to prevent race conditions during updates
+known_faces_lock = threading.Lock()
+
+# =======================================================
+# BACKGROUND DB TASKS
+# =======================================================
+def save_to_db_background(name, is_new, image_data):
+    """
+    Saves image to storage and logs to DB asynchronously.
+    image_data is the numpy array of the cropped face.
+    """
+    if not FIREBASE_ENABLED:
+        return
+
+    temp_filename = f"temp_{uuid.uuid4().hex}.jpg"
+    cv2.imwrite(temp_filename, image_data)
+
+    try:
+        # 1. Upload image to Storage
+        storage_path = f"face_logs/{temp_filename}"
+        blob = bucket.blob(storage_path)
+        blob.upload_from_filename(temp_filename)
+        blob.make_public()
+        image_url = blob.public_url
+
+        # 2. Log to Firestore
+        doc_ref = db.collection('face_logs').document()
+        doc_ref.set({
+            'name': name,
+            'status': 'Unknown' if is_new else 'Known',
+            'cameraId': CAMERA_ID,
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'imageUrl': image_url,
+            'isNewPerson': is_new
+        })
+        print(f"[INFO] Background Task: Successfully Logged {name} to Firebase.")
+    except Exception as e:
+        print(f"[ERROR] Background Task: Failed to upload to Firebase: {e}")
+    finally:
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)
+
 # =======================================================
 # MAIN VIDEO LOOP
 # =======================================================
@@ -80,8 +119,9 @@ def process_video():
         print("[ERROR] Cannot open video stream.")
         return
 
-    # Process every nth frame to save CPU
     process_this_frame = True
+    face_locations = []
+    face_names = []
 
     while True:
         ret, frame = video_capture.read()
@@ -90,47 +130,53 @@ def process_video():
             time.sleep(1)
             continue
 
-        # Resize frame of video to 1/4 size for faster face recognition processing
+        # Resize frame for faster processing
         small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
-        # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
         rgb_small_frame = np.ascontiguousarray(small_frame[:, :, ::-1])
 
         if process_this_frame:
             face_locations = face_recognition.face_locations(rgb_small_frame)
             face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
 
-            face_names = []
-            for face_encoding, face_location in zip(face_encodings, face_locations):
-                matches = face_recognition.compare_faces(known_face_encodings, face_encoding, tolerance=0.6)
-                name = "Unknown"
-
-                # Use the known face with the smallest distance to the new face
-                face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
-                if len(face_distances) > 0:
-                    best_match_index = np.argmin(face_distances)
-                    if matches[best_match_index]:
-                        name = known_face_names[best_match_index]
-
-                face_names.append(name)
-                
-                # Check cooldown
-                now = time.time()
-                last_time = last_seen.get(name, 0)
-                
-                if now - last_time > COOLDOWN_SECONDS:
-                    last_seen[name] = now
-                    print(f"[DETECT] Detected {name} at {datetime.now().strftime('%H:%M:%S')}")
+            current_frame_names = []
+            
+            with known_faces_lock:
+                for face_encoding, face_location in zip(face_encodings, face_locations):
+                    name = "Unknown"
+                    is_new = False
                     
-                    if FIREBASE_ENABLED:
+                    if len(known_face_encodings) > 0:
+                        matches = face_recognition.compare_faces(known_face_encodings, face_encoding, tolerance=0.5)
+                        face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
+                        if len(face_distances) > 0:
+                            best_match_index = np.argmin(face_distances)
+                            if matches[best_match_index]:
+                                name = known_face_names[best_match_index]
+
+                    # If the person is completely new
+                    if name == "Unknown":
+                        is_new = True
+                        name = f"Person_{uuid.uuid4().hex[:6]}"
+                        # Instantly add to known faces so next frame recognizes them
+                        known_face_encodings.append(face_encoding)
+                        known_face_names.append(name)
+                        print(f"[DETECT] NEW Person Registered: {name}")
+
+                    current_frame_names.append(name)
+                    
+                    now = time.time()
+                    last_time = last_seen.get(name, 0)
+                    
+                    # Cooldown logic: Log if new OR if 5 minutes have passed
+                    if is_new or (now - last_time > COOLDOWN_SECONDS):
+                        last_seen[name] = now
+                        if not is_new:
+                            print(f"[DETECT] {name} seen again after 5min cooldown.")
+                        
                         # Extract face for uploading
                         top, right, bottom, left = face_location
-                        # Scale back up face locations since the frame we detected in was scaled to 1/4 size
-                        top *= 4
-                        right *= 4
-                        bottom *= 4
-                        left *= 4
+                        top *= 4; right *= 4; bottom *= 4; left *= 4
                         
-                        # Add some padding to the crop
                         h, w, _ = frame.shape
                         pad = 30
                         crop_top = max(0, top - pad)
@@ -138,47 +184,21 @@ def process_video():
                         crop_left = max(0, left - pad)
                         crop_right = min(w, right + pad)
                         
-                        face_image = frame[crop_top:crop_bottom, crop_left:crop_right]
+                        face_image = frame[crop_top:crop_bottom, crop_left:crop_right].copy()
                         
-                        # Save temp image
-                        temp_filename = f"temp_{uuid.uuid4().hex}.jpg"
-                        cv2.imwrite(temp_filename, face_image)
-                        
-                        # Upload to Storage and Firestore in background (or synchronous here)
-                        try:
-                            # 1. Upload image to Storage
-                            storage_path = f"face_logs/{temp_filename}"
-                            blob = bucket.blob(storage_path)
-                            blob.upload_from_filename(temp_filename)
-                            blob.make_public()
-                            image_url = blob.public_url
-                            
-                            # 2. Log to Firestore
-                            doc_ref = db.collection('face_logs').document()
-                            doc_ref.set({
-                                'name': name,
-                                'status': 'Known' if name != 'Unknown' else 'Unknown',
-                                'cameraId': CAMERA_ID,
-                                'timestamp': firestore.SERVER_TIMESTAMP,
-                                'imageUrl': image_url
-                            })
-                            print(f"[INFO] Logged {name} to Firebase.")
-                        except Exception as e:
-                            print(f"[ERROR] Failed to upload to Firebase: {e}")
-                        finally:
-                            if os.path.exists(temp_filename):
-                                os.remove(temp_filename)
+                        # Trigger Non-Blocking Background Thread for DB/Storage Operations
+                        threading.Thread(target=save_to_db_background, args=(name, is_new, face_image), daemon=True).start()
+            
+            face_names = current_frame_names
 
         process_this_frame = not process_this_frame
 
-        # Display the results
+        # Display the results smoothly without freezing
         for (top, right, bottom, left), name in zip(face_locations, face_names):
-            top *= 4
-            right *= 4
-            bottom *= 4
-            left *= 4
-
-            color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
+            top *= 4; right *= 4; bottom *= 4; left *= 4
+            # Red box for newly identified Unknowns, Green for knowns
+            color = (0, 0, 255) if "Person_" in name else (0, 255, 0)
+            
             cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
             cv2.rectangle(frame, (left, bottom - 35), (right, bottom), color, cv2.FILLED)
             font = cv2.FONT_HERSHEY_DUPLEX

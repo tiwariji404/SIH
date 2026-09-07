@@ -226,12 +226,77 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 showToast({ type: 'warning', title: `Alert: ${data.data.severity}`, message: data.data.title || data.data.reason });
               }
             } else if (data.type === 'NEW_FACE' && data.data) {
-              setFaces(prev => [data.data, ...prev]);
+              setFaces(prev => {
+                const face = data.data;
+                const existingIdx = prev.findIndex(f => f.identity === face.identity && f.identity !== 'Unknown');
+                if (existingIdx !== -1) {
+                  const existing = prev[existingIdx];
+                  const newHistory = existing.history ? [...existing.history] : [];
+                  newHistory.unshift({
+                    timestamp: face.timestamp,
+                    cameraId: face.cameraId,
+                    image: face.image,
+                    confidence: face.confidence
+                  });
+                  const updated = {
+                    ...existing,
+                    timestamp: face.timestamp,
+                    image: face.image || existing.image,
+                    thumbnail: face.thumbnail || existing.thumbnail,
+                    cameraId: face.cameraId,
+                    confidence: face.confidence,
+                    history: newHistory
+                  };
+                  const newList = [...prev];
+                  newList.splice(existingIdx, 1);
+                  return [updated, ...newList];
+                } else {
+                  return [{...face, history: [{
+                    timestamp: face.timestamp,
+                    cameraId: face.cameraId,
+                    image: face.image,
+                    confidence: face.confidence
+                  }]}, ...prev];
+                }
+              });
             } else if (data.type === 'intrusion') {
               const alarmItem = { ...data, timestamp: new Date().toISOString(), status: 'NEW' };
               setActiveAlarm(alarmItem);
             } else if (data.type === 'vehicle' && data.vehicle) {
-              setVehicles(prev => [data.vehicle, ...prev.filter(v => v.id !== data.vehicle.id)]);
+              setVehicles(prev => {
+                const vehicle = data.vehicle;
+                const existingIdx = prev.findIndex(v => v.plateNumber === vehicle.plateNumber);
+                if (existingIdx !== -1) {
+                  const existing = prev[existingIdx];
+                  const newHistory = existing.history ? [...existing.history] : [];
+                  newHistory.unshift({
+                    timestamp: vehicle.timestamp,
+                    cameraId: vehicle.cameraId,
+                    image: vehicle.image,
+                    confidence: vehicle.confidence
+                  });
+                  const updated = {
+                    ...existing,
+                    timestamp: vehicle.timestamp,
+                    image: vehicle.image || existing.image,
+                    annotatedImage: vehicle.annotatedImage || existing.annotatedImage,
+                    plateImage: vehicle.plateImage || existing.plateImage,
+                    cameraId: vehicle.cameraId,
+                    confidence: vehicle.confidence,
+                    history: newHistory
+                  };
+                  const newList = [...prev];
+                  newList.splice(existingIdx, 1);
+                  return [updated, ...newList];
+                } else {
+                  return [{...vehicle, history: [{
+                    timestamp: vehicle.timestamp,
+                    cameraId: vehicle.cameraId,
+                    image: vehicle.image,
+                    confidence: vehicle.confidence
+                  }]}, ...prev];
+                }
+              });
             }
           } catch {}
         };

@@ -301,27 +301,27 @@ export default function LiveSurveillance() {
 
             {/* Face Detection Entry/Exit Group */}
             <button
-              onClick={() => setSelectedLiveCameraIds(['CAM-01', 'CAM-05'])}
+              onClick={() => setSelectedLiveCameraIds(['CAM-01'])}
               className={`glass-chip whitespace-nowrap flex items-center gap-1.5 ${
-                selectedLiveCameraIds?.length === 2 && selectedLiveCameraIds.includes('CAM-01') && selectedLiveCameraIds.includes('CAM-05') 
+                selectedLiveCameraIds?.length === 1 && selectedLiveCameraIds.includes('CAM-01') 
                   ? 'glass-chip-active border-indigo-500 text-indigo-400' 
                   : 'glass-chip-slate border-indigo-500/30'
               }`}
             >
-              <span className={`status-dot ${selectedLiveCameraIds?.includes('CAM-01') && selectedLiveCameraIds.includes('CAM-05') ? 'bg-indigo-400' : 'bg-slate-500'}`} />
+              <span className={`status-dot ${selectedLiveCameraIds?.length === 1 && selectedLiveCameraIds.includes('CAM-01') ? 'bg-indigo-400' : 'bg-slate-500'}`} />
               Face Detection (Entry/Exit)
             </button>
 
             {/* ANPR Group */}
             <button
-              onClick={() => setSelectedLiveCameraIds(['CAM-01', 'CAM-05'])}
+              onClick={() => setSelectedLiveCameraIds(['CAM-05'])}
               className={`glass-chip whitespace-nowrap flex items-center gap-1.5 ${
-                selectedLiveCameraIds?.length === 2 && selectedLiveCameraIds.includes('CAM-01') && selectedLiveCameraIds.includes('CAM-05') 
+                selectedLiveCameraIds?.length === 1 && selectedLiveCameraIds.includes('CAM-05') 
                   ? 'glass-chip-active border-orange-500 text-orange-400' 
                   : 'glass-chip-slate border-orange-500/30'
               }`}
             >
-              <span className={`status-dot ${selectedLiveCameraIds?.includes('CAM-01') && selectedLiveCameraIds.includes('CAM-05') ? 'bg-orange-400' : 'bg-slate-500'}`} />
+              <span className={`status-dot ${selectedLiveCameraIds?.length === 1 && selectedLiveCameraIds.includes('CAM-05') ? 'bg-orange-400' : 'bg-slate-500'}`} />
               ANPR (Gates)
             </button>
 

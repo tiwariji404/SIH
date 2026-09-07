@@ -57,7 +57,7 @@ export default function ANPR() {
               
               addVehicle({
                 id: 'V-SIM-' + Date.now(),
-                cameraId: 'CAM-01',
+                cameraId: 'CAM-05',
                 vehicleType: 'Car',
                 plateNumber: randomPlate,
                 confidence: Math.floor(Math.random() * 10) + 90,
@@ -320,25 +320,25 @@ export default function ANPR() {
                 <Camera className="h-4 w-4 text-emerald-600" /> Live Gate Feed
              </h2>
              <div className="space-y-4">
-               {cameras.filter(c => ['CAM-01', 'CAM-05'].includes(c.id)).map(cam => (
+               {cameras.filter(c => ['CAM-05'].includes(c.id)).map(cam => (
                  <div key={cam.id} className="space-y-1">
                    <div className="flex items-center justify-between">
                      <span className="text-xs font-bold text-slate-700">{cam.name}</span>
                      <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">{cam.id}</span>
                    </div>
                    <div className="h-32 rounded overflow-hidden bg-black border border-slate-200">
-                     <CameraFeed camera={cam} detections={[]} liveStream={cam.id === 'CAM-01' ? demoStream : null} />
+                     <CameraFeed camera={cam} detections={[]} liveStream={cam.id === 'CAM-05' ? demoStream : null} />
                    </div>
-                   {cam.id === 'CAM-01' && isDemoActive && (
+                   {cam.id === 'CAM-05' && isDemoActive && (
                      <div className="text-[9px] font-mono text-red-500 animate-pulse bg-red-50 p-1 border border-red-200 rounded mt-1">
                         LIVENESS: IGNORING HUMANS, WAITING FOR PLATE...
                      </div>
                    )}
                  </div>
                ))}
-               {cameras.filter(c => ['CAM-01', 'CAM-05'].includes(c.id)).length === 0 && (
+               {cameras.filter(c => ['CAM-05'].includes(c.id)).length === 0 && (
                  <div className="text-xs text-slate-500 italic p-4 text-center border border-slate-200 rounded">
-                   Gate cameras (CAM-01, CAM-05) not found or offline.
+                   Gate cameras (CAM-05) not found or offline.
                  </div>
                )}
              </div>

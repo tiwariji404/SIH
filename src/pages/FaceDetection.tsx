@@ -23,7 +23,7 @@ export default function FaceDetection() {
     flagsRef.current = { forceWatchlist, forceReid };
   }, [forceWatchlist, forceReid]);
 
-  const entryCameras = cameras.filter(c => c.id === 'CAM-01' || c.id === 'CAM-05');
+  const entryCameras = cameras.filter(c => c.id === 'CAM-01');
   const sortedFaces = [...faces].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   const getStatusBadge = (status: FaceRecord['status']) => {

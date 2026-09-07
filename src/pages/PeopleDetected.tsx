@@ -81,8 +81,15 @@ export default function PeopleDetected() {
                           <div className="flex items-start gap-2">
                              <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
                              <div>
-                                <p className="font-bold text-slate-800">{person.identity}</p>
-                                <p className="text-xs text-slate-500">Node: {person.cameraId}</p>
+                                <p className="font-bold text-slate-800 flex items-center gap-2">
+                                  {person.identity}
+                                  {person.type && (
+                                    <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+                                      {person.type}
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-slate-500 mt-1">Node: {person.cameraId}</p>
                              </div>
                           </div>
                         </td>
@@ -120,8 +127,15 @@ export default function PeopleDetected() {
                   alt="Profile"
                 />
                 <div>
-                  <h2 className="text-xl font-bold text-slate-800">{selectedPerson.identity}</h2>
-                  <p className="text-sm text-slate-500 font-medium">Last seen: {new Date(selectedPerson.timestamp).toLocaleString('en-IN')}</p>
+                  <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    {selectedPerson.identity}
+                    {selectedPerson.type && (
+                       <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200 mt-1">
+                          {selectedPerson.type}
+                       </span>
+                    )}
+                  </h2>
+                  <p className="text-sm text-slate-500 font-medium mt-1">Last seen: {new Date(selectedPerson.timestamp).toLocaleString('en-IN')}</p>
                   <p className="text-xs text-slate-400 mt-1">Total Detections: {1 + (selectedPerson.history?.length || 0)}</p>
                 </div>
               </div>

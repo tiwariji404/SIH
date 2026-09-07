@@ -2,13 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../store';
 import CameraFeed from '../components/CameraFeed';
 import { ScanFace, UserCheck, UserX, AlertTriangle, Clock, MapPin, ArrowRightLeft, Camera as CameraIcon, Maximize2, Minimize2, ShieldAlert, Route } from 'lucide-react';
-import type { FaceRecord } from '../types';
+import type { FaceRecord, Detection } from '../types';
 import { WS_BASE_URL } from '../lib/api';
 
 export default function FaceDetection() {
   const { cameras, faces, addFace } = useApp();
   const [demoStream, setDemoStream] = useState<MediaStream | null>(null);
   const [isDemoActive, setIsDemoActive] = useState(false);
+  const [demoDetections, setDemoDetections] = useState<Detection[]>([]);
   const [forceWatchlist, setForceWatchlist] = useState(false);
   const [forceReid, setForceReid] = useState(false);
   const [fullscreenCam, setFullscreenCam] = useState<string | null>(null);
@@ -49,6 +50,7 @@ export default function FaceDetection() {
       }
       if (demoWsRef.current) demoWsRef.current.close();
       setIsDemoActive(false);
+      setDemoDetections([]);
       return;
     }
 
@@ -99,20 +101,68 @@ export default function FaceDetection() {
               }
 
               const demoNames = ['Rajen (Employee)', 'Amit (Visitor)', 'Priya (Contractor)', 'Sanjay (Visitor)', 'Neha (Employee)'];
+              const possibleObjects = ['Backpack', 'Firearm', 'Knife', 'Suspicious Bag'];
+              
+              const newDetections: Detection[] = [];
 
               for (let i = 0; i < numPeople; i++) {
+                const isWatchlist = isFlagged && i === 0;
                 addFace({
                   id: 'FC-SIM-' + Date.now() + '-' + i,
                   cameraId: 'CAM-01',
-                  identity: isFlagged ? `Watchlist Target ${i + 1}` : (demoNames[i] || 'Unknown Person'),
+                  type: 'human',
+                  identity: isWatchlist ? `Watchlist Target 1` : (demoNames[i] || 'Unknown Person'),
                   confidence: Math.floor(Math.random() * 10) + 90,
                   timestamp: new Date().toISOString(),
-                  database: isFlagged ? 'Watchlist' : (i % 2 === 0 ? 'Employee DB' : 'Visitor DB'),
-                  status: isFlagged ? 'FLAGGED' : 'AUTHORIZED',
+                  database: isWatchlist ? 'Watchlist' : (i % 2 === 0 ? 'Employee DB' : 'Visitor DB'),
+                  status: isWatchlist ? 'FLAGGED' : 'AUTHORIZED',
                   direction: 'Inbound',
-                  image: base64 // Normally this would be the cropped bounding box of the face
+                  image: base64
+                });
+
+                newDetections.push({
+                  id: 'DET-' + Date.now() + '-' + i,
+                  cameraId: 'CAM-01',
+                  objectType: 'person',
+                  trackingId: 'P-' + Math.floor(Math.random() * 1000),
+                  confidence: 95,
+                  timestamp: new Date().toISOString(),
+                  bbox: { x: 30 + (i * 15), y: 30, w: 20, h: 40 },
+                  label: isWatchlist ? 'Watchlist Target' : 'Human'
                 });
               }
+
+              // 30% chance to detect an object
+              if (Math.random() > 0.7) {
+                 const objName = possibleObjects[Math.floor(Math.random() * possibleObjects.length)];
+                 addFace({
+                  id: 'OBJ-SIM-' + Date.now(),
+                  cameraId: 'CAM-01',
+                  type: 'object',
+                  identity: objName,
+                  confidence: Math.floor(Math.random() * 10) + 85,
+                  timestamp: new Date().toISOString(),
+                  database: 'Object Detection',
+                  status: 'FLAGGED',
+                  direction: 'Inbound',
+                  image: base64
+                });
+
+                newDetections.push({
+                  id: 'DET-' + Date.now() + '-obj',
+                  cameraId: 'CAM-01',
+                  objectType: 'person', // Render as a bounding box in CameraFeed (we'll adapt it there)
+                  trackingId: 'O-' + Math.floor(Math.random() * 1000),
+                  confidence: 88,
+                  timestamp: new Date().toISOString(),
+                  bbox: { x: 50, y: 50, w: 15, h: 15 },
+                  label: objName
+                });
+              }
+
+              setDemoDetections(newDetections);
+              // Clear detections after a couple seconds
+              setTimeout(() => setDemoDetections([]), 2500);
             }
           }
         }
@@ -194,7 +244,12 @@ export default function FaceDetection() {
             </button>
           </div>
           <div className="flex-1 w-full relative">
-            <CameraFeed camera={entryCameras.find(c => c.id === fullscreenCam)!} liveStream={fullscreenCam === 'CAM-01' ? demoStream : null} fullHeight={true} />
+            <CameraFeed 
+               camera={entryCameras.find(c => c.id === fullscreenCam)!} 
+               liveStream={fullscreenCam === 'CAM-01' ? demoStream : null} 
+               detections={fullscreenCam === 'CAM-01' ? demoDetections : []}
+               fullHeight={true} 
+            />
             <div className="absolute top-6 left-6 flex items-center gap-3">
               <div className="bg-red-600 animate-pulse w-3 h-3 rounded-full shadow-[0_0_10px_red]"></div>
               <span className="text-white font-mono font-bold tracking-widest text-lg drop-shadow-md">LIVE / {fullscreenCam}</span>
@@ -221,7 +276,11 @@ export default function FaceDetection() {
               </button>
             </div>
             <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-inner relative">
-              <CameraFeed camera={cam} liveStream={cam.id === 'CAM-01' ? demoStream : null} />
+              <CameraFeed 
+                 camera={cam} 
+                 liveStream={cam.id === 'CAM-01' ? demoStream : null} 
+                 detections={cam.id === 'CAM-01' ? demoDetections : []}
+              />
               <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm text-white px-2 py-1 rounded text-xs font-mono border border-white/10">
                 LIVENESS CHECK: ACTIVE
               </div>
@@ -264,11 +323,16 @@ export default function FaceDetection() {
                       <div className={`font-bold text-base ${face.status === 'FLAGGED' ? 'text-red-600' : 'text-slate-800'}`}>
                         {face.identity}
                       </div>
-                      <div className="text-xs text-slate-500 font-medium mt-0.5">DB: {face.database}</div>
+                      <div className="flex gap-2 items-center mt-1">
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+                          {face.type === 'object' ? 'OBJECT' : 'HUMAN'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-medium mt-1">DB: {face.database}</div>
                     </td>
                     <td className="px-6 py-4">
                       {face.image ? (
-                        <img src={face.image} alt="Face" className="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-sm" />
+                        <img src={face.image} alt="Detection" className="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-sm" />
                       ) : (
                         <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center">
                           <ScanFace className="w-5 h-5 text-slate-400" />

@@ -146,6 +146,7 @@ export interface AuditLog {
 export interface FaceRecord {
   id: string;
   cameraId: string;
+  type?: 'human' | 'object';
   identity: string;
   confidence: number;
   timestamp: string;

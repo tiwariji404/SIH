@@ -355,12 +355,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (isWatchlisted) {
       setActiveAlarm({
         id: 'ALM-' + Date.now(),
-        type: 'WATCHLIST',
+        eventId: 'EV-' + Date.now(),
         severity: 'CRITICAL',
-        source: vehicle.cameraId,
-        message: `Watchlist vehicle detected: ${vehicle.plateNumber}`,
-        timestamp: vehicle.timestamp,
+        riskScore: 100,
+        reason: 'Watchlist Vehicle Detected',
+        reasons: ['Watchlist match'],
         status: 'NEW',
+        createdAt: vehicle.timestamp,
+        acknowledgedAt: null,
+        resolvedAt: null,
+        cameraId: vehicle.cameraId,
+        trackingId: 'TRK-' + vehicle.plateNumber,
+        title: 'Watchlist Match',
+        what: 'Vehicle',
+        where: vehicle.cameraId,
+        when: vehicle.timestamp,
+        object: vehicle.plateNumber,
+        why: 'Plate matches watchlist',
+        confidence: vehicle.confidence,
         image: vehicle.annotatedImage || vehicle.image
       });
       showToast({

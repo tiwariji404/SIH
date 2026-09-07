@@ -19,7 +19,6 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
   const avgHealth = Math.round(cameras.reduce((s, c) => s + c.health, 0) / (cameras.length || 1));
 
   const kpis: { label: string; value: number | string; icon: React.ElementType; color: string; bg: string; border: string; page: PageId }[] = [
-    { label: 'Cyber Threat Blocked', value: 142, icon: Shield, color: 'text-indigo-500', bg: 'bg-indigo-500/10', border: 'border-indigo-200', page: 'events' },
     { label: 'Activity Alerts', value: activeAlerts, icon: Bell, color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-200', page: 'events' },
     { label: 'Vehicles Detected', value: vehiclesDetected, icon: Car, color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-200', page: 'vehicles' },
     { label: 'Intrusions Today', value: intrusionsToday, icon: Fence, color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-200', page: 'intrusions' },
@@ -102,10 +101,6 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 shadow-sm">
               <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Camera uptime</p>
               <p className="mt-1 text-lg font-black tracking-tight text-slate-800">96.4%</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 shadow-sm">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Threat blocks</p>
-              <p className="mt-1 text-lg font-black tracking-tight text-slate-800">142</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 shadow-sm">
               <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Manual checks</p>

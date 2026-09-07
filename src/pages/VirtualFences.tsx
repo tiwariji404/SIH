@@ -173,6 +173,19 @@ export default function VirtualFences() {
     return pos ? [pos.lat, pos.lng] : defaultCenter;
   }, [selectedCameras]);
 
+  useEffect(() => {
+    const newPoints = selectedCameras.map(cam => {
+      const pos = cameraLocations[cam];
+      if (pos) {
+        const x = 50 + (pos.lng - currentGeo[1]) / 0.00005;
+        const y = 50 - (pos.lat - currentGeo[0]) / 0.00005;
+        return { x, y };
+      }
+      return null;
+    }).filter(Boolean) as Point[];
+    setPoints(newPoints);
+  }, [selectedCameras, currentGeo]);
+
   const mapPolygonPositions = points.map(p => {
     const latOffset = (50 - p.y) * 0.00005; 
     const lngOffset = (p.x - 50) * 0.00005;
@@ -180,6 +193,7 @@ export default function VirtualFences() {
   });
 
   const clearPolygon = () => {
+    setSelectedCameras([]);
     setPoints([]);
     setIsDrawing(true);
   };
@@ -194,24 +208,11 @@ export default function VirtualFences() {
       return;
     }
     
-    let finalPoints = [...points];
-    if (finalPoints.length < 2 && selectedCameras.length >= 2) {
-       finalPoints = selectedCameras.map(c => {
-           const pos = cameraLocations[c];
-           if (pos) {
-                const x = 50 + (pos.lng - currentGeo[1]) / 0.00005;
-                const y = 50 - (pos.lat - currentGeo[0]) / 0.00005;
-                return { x, y };
-           }
-           return null;
-       }).filter(Boolean) as Point[];
-    }
-
     const newFence = {
       id: Date.now().toString(),
       name: fenceName,
       cameras: [...selectedCameras],
-      points: finalPoints,
+      points: [...points],
       active: true
     };
     
@@ -321,11 +322,6 @@ export default function VirtualFences() {
                     url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=AIzaSyDJkmhAaJGSlhomraLnXjDMeTd5dXzyCMM"
                     attribution='&copy; Google Maps'
                   />
-                  <MapEvents 
-                    isDrawing={isDrawing}
-                    currentGeo={currentGeo}
-                    setPoints={setPoints}
-                  />
 
                   {Object.entries(cameraLocations).map(([camName, pos]) => (
                       <Marker 
@@ -334,11 +330,6 @@ export default function VirtualFences() {
                           eventHandlers={{
                             click: () => { 
                               toggleCameraSelection(camName);
-                              if (!selectedCameras.includes(camName)) {
-                                const x = 50 + (pos.lng - currentGeo[1]) / 0.00005;
-                                const y = 50 - (pos.lat - currentGeo[0]) / 0.00005;
-                                setPoints(prev => [...prev, { x, y }]);
-                              }
                             }
                           }}
                       >
@@ -568,16 +559,3 @@ function ToggleRow({ label, checked, onChange }: { label: string, checked: boole
   );
 }
 
-function MapEvents({ isDrawing, currentGeo, setPoints }: { isDrawing: boolean, currentGeo: [number, number], setPoints: React.Dispatch<React.SetStateAction<Point[]>> }) {
-  useMapEvents({
-    click(e) {
-      if (!isDrawing) return;
-      const lat = e.latlng.lat;
-      const lng = e.latlng.lng;
-      const x = 50 + (lng - currentGeo[1]) / 0.00005;
-      const y = 50 - (lat - currentGeo[0]) / 0.00005;
-      setPoints(prev => [...prev, { x, y }]);
-    }
-  });
-  return null;
-}

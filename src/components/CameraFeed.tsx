@@ -26,7 +26,6 @@ const scenarioLabels: Record<string, string> = {
 export default function CameraFeed({ camera, detections = [], showOverlay = true, compact = false, liveStream = null, fit = 'cover', fullHeight = false }: Props) {
   const { zones, savedFences } = useApp();
   const [time, setTime] = useState(new Date());
-  const [scanY, setScanY] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -36,8 +35,6 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
 
   useEffect(() => {
     if (camera.status === 'OFFLINE') return;
-    const t = setInterval(() => setScanY(prev => (prev + 2) % 100), 50);
-    return () => clearInterval(t);
   }, [camera.status]);
 
   useEffect(() => {
@@ -128,6 +125,7 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
               <img
                 src={`${API_BASE_URL}/api/v1/cameras/${camera.id}/live`}
                 alt={camera.name}
+                loading="lazy"
                 className={`absolute inset-0 h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'}`}
                 onError={(e) => {
                   (e.currentTarget as HTMLElement).style.display = 'none';
@@ -139,7 +137,7 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
             {!hasLive && <div className="absolute inset-0 grid-overlay opacity-40" />}
 
             {/* Scanline */}
-            <div className="absolute inset-x-0 h-px bg-accent-400/20 pointer-events-none" style={{ top: `${scanY}%` }} />
+            <div className="absolute inset-x-0 h-px bg-accent-400/20 pointer-events-none custom-scan-line" />
 
             {/* Simulated scene elements (only when no live video) */}
             {!hasLive && (

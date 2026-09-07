@@ -276,4 +276,12 @@
   .glass-select {
     @apply rounded-lg border border-slate-200 bg-white/80 px-2 py-1 text-[10px] font-medium text-slate-700 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500;
   }
+
+  @keyframes topDown {
+    0% { top: 0%; }
+    100% { top: 100%; }
+  }
+  .custom-scan-line {
+    animation: topDown 2.5s linear infinite;
+  }
 }

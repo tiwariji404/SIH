@@ -11,14 +11,14 @@ import type { ScenarioType, Camera } from '../types';
 
 function HardwareVideoPlayer({ stream }: { stream: MediaStream }) {
   const ref = useRef<HTMLVideoElement>(null);
-  
+
   useEffect(() => {
     if (ref.current && stream) {
       ref.current.srcObject = stream;
       ref.current.play().catch(e => console.log('Fullscreen HW camera play error', e));
     }
   }, [stream]);
-  
+
   return (
     <video
       ref={ref}
@@ -141,7 +141,7 @@ export default function LiveSurveillance() {
   const [hardwareCameras, setHardwareCameras] = useState<MediaDeviceInfo[]>([]);
   const hardwareStreamsRef = useRef<{ [deviceId: string]: MediaStream }>({});
 
-  const visibleHwCameras = hardwareCameras.filter(device => 
+  const visibleHwCameras = hardwareCameras.filter(device =>
     !selectedLiveCameraIds || selectedLiveCameraIds.length === 0 || selectedLiveCameraIds.includes(`HW:${device.deviceId}`)
   );
 
@@ -155,7 +155,7 @@ export default function LiveSurveillance() {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(d => d.kind === 'videoinput');
         setHardwareCameras(videoDevices);
-        
+
         // Auto-connect to them
         for (const device of videoDevices) {
           if (!hardwareStreamsRef.current[device.deviceId]) {
@@ -171,18 +171,18 @@ export default function LiveSurveillance() {
           }
         }
         // Force a re-render to show streams
-        setHardwareCameras([...videoDevices]); 
+        setHardwareCameras([...videoDevices]);
       } catch (err) {
         console.error("Hardware enumeration failed", err);
       }
     };
-    
+
     loadHardwareCameras();
-    
+
     if (navigator.mediaDevices) {
       navigator.mediaDevices.addEventListener('devicechange', loadHardwareCameras);
     }
-    
+
     return () => {
       if (navigator.mediaDevices) {
         navigator.mediaDevices.removeEventListener('devicechange', loadHardwareCameras);
@@ -280,11 +280,10 @@ export default function LiveSurveillance() {
             {/* Face Detection Entry/Exit Group */}
             <button
               onClick={() => setSelectedLiveCameraIds(['CAM-01'])}
-              className={`glass-chip whitespace-nowrap flex items-center gap-1.5 ${
-                selectedLiveCameraIds?.length === 1 && selectedLiveCameraIds.includes('CAM-01') 
-                  ? 'glass-chip-active border-indigo-500 text-indigo-400' 
+              className={`glass-chip whitespace-nowrap flex items-center gap-1.5 ${selectedLiveCameraIds?.length === 1 && selectedLiveCameraIds.includes('CAM-01')
+                  ? 'glass-chip-active border-indigo-500 text-indigo-400'
                   : 'glass-chip-slate border-indigo-500/30'
-              }`}
+                }`}
             >
               <span className={`status-dot ${selectedLiveCameraIds?.length === 1 && selectedLiveCameraIds.includes('CAM-01') ? 'bg-indigo-400' : 'bg-slate-500'}`} />
               Face Detection (Entry/Exit)
@@ -293,11 +292,10 @@ export default function LiveSurveillance() {
             {/* ANPR Group */}
             <button
               onClick={() => setSelectedLiveCameraIds(['CAM-05'])}
-              className={`glass-chip whitespace-nowrap flex items-center gap-1.5 ${
-                selectedLiveCameraIds?.length === 1 && selectedLiveCameraIds.includes('CAM-05') 
-                  ? 'glass-chip-active border-orange-500 text-orange-400' 
+              className={`glass-chip whitespace-nowrap flex items-center gap-1.5 ${selectedLiveCameraIds?.length === 1 && selectedLiveCameraIds.includes('CAM-05')
+                  ? 'glass-chip-active border-orange-500 text-orange-400'
                   : 'glass-chip-slate border-orange-500/30'
-              }`}
+                }`}
             >
               <span className={`status-dot ${selectedLiveCameraIds?.length === 1 && selectedLiveCameraIds.includes('CAM-05') ? 'bg-orange-400' : 'bg-slate-500'}`} />
               ANPR (Gates)
@@ -322,7 +320,7 @@ export default function LiveSurveillance() {
             {Array.from(new Set(cameras.map(c => c.location))).sort().map(loc => {
               const locCameras = cameras.filter(c => c.location === loc).map(c => c.id);
               const isSelected = selectedLiveCameraIds && selectedLiveCameraIds.length === locCameras.length && locCameras.every(c => selectedLiveCameraIds.includes(c));
-              
+
               return (
                 <button
                   key={loc}
@@ -465,12 +463,12 @@ export default function LiveSurveillance() {
                   <p className="truncate text-[10px] text-slate-600">{mockHwCam.bop} • {mockHwCam.location}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <ModeSelector 
-                    value={mockHwCam.scenario} 
+                  <ModeSelector
+                    value={mockHwCam.scenario}
                     onChange={(val) => setCameraScenario(mockHwCam.id, val)}
                   />
-                  <button 
-                    onClick={() => setExpandedCameraId(isExpanded ? null : mockHwCam.id)} 
+                  <button
+                    onClick={() => setExpandedCameraId(isExpanded ? null : mockHwCam.id)}
                     className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded"
                     title={isExpanded ? "Exit Full Screen" : "Full Screen"}
                   >
@@ -506,8 +504,8 @@ export default function LiveSurveillance() {
                   onChange={(val) => setCameraScenario(cam.id, val)}
                   disabled={cam.status === 'OFFLINE'}
                 />
-                <button 
-                  onClick={() => setExpandedCameraId(isExpanded ? null : cam.id)} 
+                <button
+                  onClick={() => setExpandedCameraId(isExpanded ? null : cam.id)}
                   className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded"
                   title={isExpanded ? "Exit Full Screen" : "Full Screen"}
                 >
@@ -538,7 +536,7 @@ export default function LiveSurveillance() {
             {(() => {
               const hwMatch = visibleHwCameras.find(d => `HW:${d.deviceId}` === expandedCameraId);
               const camMatch = visibleCameras.find(c => c.id === expandedCameraId);
-              
+
               if (hwMatch) {
                 return (
                   <div className="flex items-center gap-3">
@@ -550,7 +548,7 @@ export default function LiveSurveillance() {
               }
               if (camMatch) {
                 return (
-                   <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3">
                     <span className="flex h-2.5 w-2.5 animate-pulse rounded-full bg-red-500"></span>
                     <span className="text-lg font-black tracking-widest text-red-500">LIVE FEED</span>
                     <span className="text-sm font-medium text-slate-400">/ {camMatch.id} - {camMatch.name}</span>
@@ -568,37 +566,37 @@ export default function LiveSurveillance() {
               CLOSE FULLSCREEN
             </button>
           </div>
-          
+
           <div className="flex-1 w-full bg-black flex flex-col p-4 md:p-8 pb-8">
             {/* Fullscreen Video Rendering */}
             <div className="w-full flex-1 mx-auto max-w-[1600px] relative">
-            {(() => {
-              const hwMatch = visibleHwCameras.find(d => `HW:${d.deviceId}` === expandedCameraId);
-              if (hwMatch) {
-                const stream = hardwareStreamsRef.current[hwMatch.deviceId];
-                return (
-                  <div className="absolute inset-0 border border-emerald-500/30 rounded-xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.1)] bg-black">
-                    <HardwareVideoPlayer stream={stream} />
-                  </div>
-                );
-              }
+              {(() => {
+                const hwMatch = visibleHwCameras.find(d => `HW:${d.deviceId}` === expandedCameraId);
+                if (hwMatch) {
+                  const stream = hardwareStreamsRef.current[hwMatch.deviceId];
+                  return (
+                    <div className="absolute inset-0 border border-emerald-500/30 rounded-xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.1)] bg-black">
+                      <HardwareVideoPlayer stream={stream} />
+                    </div>
+                  );
+                }
 
-              const camMatch = visibleCameras.find(c => c.id === expandedCameraId);
-              if (camMatch) {
-                return (
-                  <div className="absolute inset-0 border border-slate-700/50 rounded-xl overflow-hidden shadow-2xl bg-black">
-                     <CameraFeed
+                const camMatch = visibleCameras.find(c => c.id === expandedCameraId);
+                if (camMatch) {
+                  return (
+                    <div className="absolute inset-0 border border-slate-700/50 rounded-xl overflow-hidden shadow-2xl bg-black">
+                      <CameraFeed
                         camera={camMatch}
                         detections={detections}
                         liveStream={liveStream}
                         showOverlay={true}
                         fit="cover"
                       />
-                  </div>
-                );
-              }
-              return null;
-            })()}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
         </div>,
@@ -609,7 +607,7 @@ export default function LiveSurveillance() {
       {showCctvModal && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md animate-fade-in">
           <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl flex flex-col max-h-[90vh]">
-            
+
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/60 px-6 py-4">
               <div className="flex items-center gap-3">
@@ -678,11 +676,10 @@ export default function LiveSurveillance() {
 
               {/* Probe / Stream Verification Diagnostic Card */}
               {probeResult && (
-                <div className={`rounded-xl border p-4 transition-all ${
-                  probeResult.accessible
+                <div className={`rounded-xl border p-4 transition-all ${probeResult.accessible
                     ? 'border-emerald-500/40 bg-emerald-950/20 text-emerald-300'
                     : 'border-red-500/40 bg-red-950/20 text-red-300'
-                }`}>
+                  }`}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">

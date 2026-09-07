@@ -41,12 +41,6 @@ export default function LiveSurveillance() {
 
   // Universal CCTV Infrastructure State
   const [showCctvModal, setShowCctvModal] = useState(false);
-  const [cctvBrand, setCctvBrand] = useState('hikvision');
-  const [cctvIp, setCctvIp] = useState('192.168.1.100');
-  const [cctvPort, setCctvPort] = useState(554);
-  const [cctvUser, setCctvUser] = useState('admin');
-  const [cctvPass, setCctvPass] = useState('');
-  const [cctvChannel, setCctvChannel] = useState(1);
   const [cctvName, setCctvName] = useState('Sector 4 Boundary Camera');
   const [cctvBop, setCctvBop] = useState('BOP-04');
   const [cctvLocation, setCctvLocation] = useState('Perimeter Fence East');
@@ -56,18 +50,7 @@ export default function LiveSurveillance() {
   const [deploying, setDeploying] = useState(false);
 
   const getGeneratedRtsp = () => {
-    if (cctvBrand === 'custom') return customRtsp;
-    if (cctvBrand === 'webcam') return '0';
-    const templates: Record<string, string> = {
-      hikvision: `rtsp://${cctvUser}:${cctvPass}@${cctvIp}:${cctvPort}/Streaming/Channels/${cctvChannel}01`,
-      dahua: `rtsp://${cctvUser}:${cctvPass}@${cctvIp}:${cctvPort}/cam/realmonitor?channel=${cctvChannel}&subtype=0`,
-      cpplus: `rtsp://${cctvUser}:${cctvPass}@${cctvIp}:${cctvPort}/cam/realmonitor?channel=${cctvChannel}&subtype=0`,
-      axis: `rtsp://${cctvUser}:${cctvPass}@${cctvIp}:${cctvPort}/axis-media/media.amp?camera=${cctvChannel}`,
-      uniview: `rtsp://${cctvUser}:${cctvPass}@${cctvIp}:${cctvPort}/unicast/c${cctvChannel}/s0/live`,
-      hanwha: `rtsp://${cctvUser}:${cctvPass}@${cctvIp}:${cctvPort}/profile${cctvChannel}/media.smp`,
-      onvif: `rtsp://${cctvUser}:${cctvPass}@${cctvIp}:${cctvPort}/onvif1`,
-    };
-    return templates[cctvBrand] || `rtsp://${cctvUser}:${cctvPass}@${cctvIp}:${cctvPort}/live`;
+    return customRtsp.trim() || '0';
   };
 
   const handleProbe = async () => {
@@ -97,17 +80,12 @@ export default function LiveSurveillance() {
       const cleanBop = cctvBop.replace(/[^A-Za-z0-9]/g, '').toUpperCase() || 'BOP';
       const newId = `CAM-${cleanBop}-${Date.now().toString().slice(-4)}`;
       await api.cameras.create({
+        camera_id: newId,
         name: cctvName,
         bop: cctvBop,
         location: cctvLocation,
-        status: 'LIVE',
-        rtsp_url: url,
-        protocol: 'RTSP',
-        resolution: probeResult?.resolution || '1920x1080',
-        fps: probeResult?.fps ? Math.round(probeResult.fps) : 25,
-        latency: probeResult?.latency_ms ? Math.round(probeResult.latency_ms) : 30,
-        recording: true,
-        scenario: 'normal',
+        source: url,
+        source_type: url === '0' || url === '1' ? 'webcam' : 'rtsp',
       });
       // Trigger Autonomous AI start
       await api.cameras.startAi(newId);
@@ -653,100 +631,26 @@ export default function LiveSurveillance() {
 
             {/* Modal Scrollable Body */}
             <div className="overflow-y-auto p-6 space-y-5 flex-1">
-              
-              {/* Brand Preset Selector */}
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 block">
-                  Select CCTV Manufacturer / Standard
-                </label>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                  {[
-                    { id: 'hikvision', label: 'Hikvision / Ezviz' },
-                    { id: 'dahua', label: 'Dahua / Imou' },
-                    { id: 'cpplus', label: 'CP Plus' },
-                    { id: 'axis', label: 'Axis Media' },
-                    { id: 'uniview', label: 'Uniview (UNV)' },
-                    { id: 'hanwha', label: 'Hanwha / Samsung' },
-                    { id: 'onvif', label: 'ONVIF Profile S' },
-                    { id: 'custom', label: 'Custom RTSP' },
-                  ].map(b => (
-                    <button
-                      key={b.id}
-                      type="button"
-                      onClick={() => { setCctvBrand(b.id); setProbeResult(null); }}
-                      className={`rounded-xl border p-2.5 text-center text-xs font-semibold transition-all ${
-                        cctvBrand === b.id
-                          ? 'border-indigo-500 bg-indigo-500/20 text-indigo-300 shadow-sm'
-                          : 'border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-                      }`}
-                    >
-                      {b.label}
-                    </button>
-                  ))}
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-300 mb-1 block">RTSP / HTTP Stream URL or Device Index</label>
+                  <input
+                    type="text"
+                    value={customRtsp}
+                    onChange={e => setCustomRtsp(e.target.value)}
+                    placeholder="rtsp://admin:pass@192.168.1.50:554/live or 0 for USB webcam"
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2.5 text-sm font-mono text-white placeholder-slate-600 focus:border-indigo-500 focus:outline-none"
+                  />
                 </div>
-              </div>
-
-              {/* Form Fields */}
-              {cctvBrand !== 'custom' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-medium text-slate-300 mb-1 block">IP Address or Hostname</label>
-                    <input
-                      type="text"
-                      value={cctvIp}
-                      onChange={e => setCctvIp(e.target.value)}
-                      placeholder="192.168.1.100"
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2 text-sm text-white placeholder-slate-600 focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-300 mb-1 block">RTSP Port</label>
-                    <input
-                      type="number"
-                      value={cctvPort}
-                      onChange={e => setCctvPort(Number(e.target.value))}
-                      placeholder="554"
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2 text-sm text-white placeholder-slate-600 focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-300 mb-1 block">Camera Username</label>
-                    <input
-                      type="text"
-                      value={cctvUser}
-                      onChange={e => setCctvUser(e.target.value)}
-                      placeholder="admin"
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2 text-sm text-white placeholder-slate-600 focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-300 mb-1 block">Camera Password</label>
-                    <input
-                      type="password"
-                      value={cctvPass}
-                      onChange={e => setCctvPass(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2 text-sm text-white placeholder-slate-600 focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-300 mb-1 block">Channel / Stream ID</label>
-                    <input
-                      type="number"
-                      value={cctvChannel}
-                      onChange={e => setCctvChannel(Number(e.target.value))}
-                      min="1"
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2 text-sm text-white placeholder-slate-600 focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-medium text-slate-300 mb-1 block">Camera Display Name</label>
                     <input
                       type="text"
                       value={cctvName}
                       onChange={e => setCctvName(e.target.value)}
-                      placeholder="Sector 4 Main Gate"
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2 text-sm text-white placeholder-slate-600 focus:border-indigo-500 focus:outline-none"
+                      placeholder="e.g. Sector 4 East"
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -755,64 +659,20 @@ export default function LiveSurveillance() {
                       type="text"
                       value={cctvBop}
                       onChange={e => setCctvBop(e.target.value)}
-                      placeholder="BOP-04"
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2 text-sm text-white placeholder-slate-600 focus:border-indigo-500 focus:outline-none"
+                      placeholder="e.g. BOP-04"
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
-                  <div>
+                  <div className="col-span-2">
                     <label className="text-xs font-medium text-slate-300 mb-1 block">Physical Sector / Location</label>
                     <input
                       type="text"
                       value={cctvLocation}
                       onChange={e => setCctvLocation(e.target.value)}
-                      placeholder="Perimeter Fence North"
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2 text-sm text-white placeholder-slate-600 focus:border-indigo-500 focus:outline-none"
+                      placeholder="e.g. Perimeter Fence"
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-xs font-medium text-slate-300 mb-1 block">Custom RTSP / HTTP URL or Device Index</label>
-                    <input
-                      type="text"
-                      value={customRtsp}
-                      onChange={e => setCustomRtsp(e.target.value)}
-                      placeholder="rtsp://admin:pass@192.168.1.50:554/live or 0 for USB webcam"
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2.5 text-sm font-mono text-white placeholder-slate-600 focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-medium text-slate-300 mb-1 block">Camera Name</label>
-                      <input
-                        type="text"
-                        value={cctvName}
-                        onChange={e => setCctvName(e.target.value)}
-                        className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2 text-sm text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-slate-300 mb-1 block">BOP / Site Code</label>
-                      <input
-                        type="text"
-                        value={cctvBop}
-                        onChange={e => setCctvBop(e.target.value)}
-                        className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2 text-sm text-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Generated RTSP Connection String Preview */}
-              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Target Connection String</span>
-                  <span className="text-[10px] font-mono text-indigo-400 uppercase">{cctvBrand}</span>
-                </div>
-                <div className="font-mono text-xs text-indigo-300 break-all select-all">
-                  {getGeneratedRtsp().replace(cctvPass, cctvPass ? '••••••' : '')}
                 </div>
               </div>
 

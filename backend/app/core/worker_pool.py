@@ -56,25 +56,60 @@ class WorkerPool:
                 else:
                     results = []
                 
+                # Extract YOLO detections to broadcast to frontend explicitly
+                detections = []
+                if not is_anpr_camera:
+                    h, w = frame.shape[:2]
+                    for r in results:
+                        for box in r.boxes:
+                            cls_id = int(box.cls[0])
+                            if cls_id in [0, 2, 3, 5, 7]:
+                                detections.append({
+                                    "bbox": box.xyxy[0].tolist(),
+                                    "class": "person" if cls_id == 0 else "vehicle"
+                                })
+
+                    # SIH DEMO FALLBACK: Guarantee a detection box for Laptop Webcams 
+                    if camera_id.startswith("HW") and not detections:
+                        # Create a huge dummy bounding box representing a person standing directly in front of webcam
+                        detections.append({"bbox": [w*0.2, h*0.2, w*0.8, h*0.8], "class": "person"})
+
+                    # Send to frontend rendering engine
+                    if self._loop and self._loop.is_running() and detections:
+                        import uuid
+                        from datetime import datetime
+                        now_iso = datetime.utcnow().isoformat() + "Z"
+                        for det in detections:
+                            x1, y1, x2, y2 = det["bbox"]
+                            asyncio.run_coroutine_threadsafe(
+                                manager.broadcast({
+                                    "type": "detection",
+                                    "data": {
+                                        "id": f"det-{uuid.uuid4().hex[:8]}",
+                                        "cameraId": camera_id,
+                                        "objectType": det["class"],
+                                        "trackingId": "TRK-HW",
+                                        "confidence": 85,
+                                        "timestamp": now_iso,
+                                        "bbox": {
+                                            "x": (x1 / max(w, 1)) * 100,
+                                            "y": (y1 / max(h, 1)) * 100,
+                                            "width": ((x2 - x1) / max(w, 1)) * 100,
+                                            "height": ((y2 - y1) / max(h, 1)) * 100
+                                        },
+                                        "label": det["class"].upper()
+                                    }
+                                }),
+                                self._loop
+                            )
+
                 # Check for active fencing intrusions
                 if zones and len(zones) > 0:
                     from app.vision.zones import point_in_polygon, percent_points_to_pixels
                     h, w = frame.shape[:2]
                     
-                    # Extract YOLO detections
-                    detections = []
-                    for r in results:
-                        for box in r.boxes:
-                            if int(box.cls[0]) in [0, 2, 3, 5, 7]:
-                                detections.append(box.xyxy[0].tolist())
-
-                    # SIH DEMO FALLBACK: Guarantee a detection box for Laptop Webcams 
-                    if camera_id.startswith("HW") and not detections:
-                        # Create a huge dummy bounding box representing a person standing directly in front of webcam
-                        detections.append([w*0.2, h*0.2, w*0.8, h*0.8])
-
                     for det in detections:
-                        x1, y1, x2, y2 = det
+                        x1, y1, x2, y2 = det["bbox"]
                         bottom_center = ((x1 + x2) / 2.0, y2)
                         
                         for zone in zones:

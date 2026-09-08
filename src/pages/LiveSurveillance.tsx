@@ -429,8 +429,10 @@ export default function LiveSurveillance() {
       <div className={`grid gap-4 ${gridSize === '2x2' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'} [&_.camera-card]:h-56`}>
         {visibleHwCameras.map((device, index) => {
           const hwStream = hardwareStreamsRef.current[device.deviceId];
-          const mockHwCam = {
-            id: `HW-${index + 1}`,
+          const hwId = `HW-${index + 1}`;
+          const existingCam = cameras.find(c => c.id === hwId);
+          const mockHwCam = existingCam || {
+            id: hwId,
             name: device.label || `USB Camera ${index + 1}`,
             location: 'Local System',
             bop: 'Command Center',
@@ -445,7 +447,7 @@ export default function LiveSurveillance() {
               <div className="camera-card relative">
                 <CameraFeed
                   camera={mockHwCam as unknown as Camera}
-                  detections={[]}
+                  detections={detections}
                   liveStream={hwStream || null}
                 />
                 <div className="absolute right-2 top-2 z-20 flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-950/80 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-emerald-300 backdrop-blur-md">

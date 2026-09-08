@@ -1,20 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
-import { Activity, Shield, Moon, AlertTriangle, Truck, ScanLine, ChevronDown } from 'lucide-react';
-import type { ScenarioType } from '../types';
+import { Activity, Shield, ScanLine, ChevronDown } from 'lucide-react';
+import type { CameraMode } from '../types';
 
 interface ModeSelectorProps {
-  value: ScenarioType;
-  onChange: (value: ScenarioType) => void;
+  value: CameraMode;
+  onChange: (value: CameraMode) => void;
   disabled?: boolean;
 }
 
-const MODES: { value: ScenarioType; label: string; icon: any; colorClass: string; bgClass: string }[] = [
-  { value: 'normal', label: 'NORMAL', icon: Activity, colorClass: 'text-emerald-400', bgClass: 'bg-emerald-500/10' },
-  { value: 'intrusion', label: 'INTRUSION', icon: Shield, colorClass: 'text-red-400', bgClass: 'bg-red-500/10' },
-  { value: 'night', label: 'NIGHT VISION', icon: Moon, colorClass: 'text-indigo-400', bgClass: 'bg-indigo-500/10' },
-  { value: 'suspicious', label: 'SUSPICIOUS', icon: AlertTriangle, colorClass: 'text-amber-400', bgClass: 'bg-amber-500/10' },
-  { value: 'vehicle', label: 'VEHICLE', icon: Truck, colorClass: 'text-blue-400', bgClass: 'bg-blue-500/10' },
-  { value: 'anpr', label: 'ANPR', icon: ScanLine, colorClass: 'text-purple-400', bgClass: 'bg-purple-500/10' },
+const MODES: { value: CameraMode; label: string; icon: any; colorClass: string; bgClass: string }[] = [
+  { value: 'ALL', label: 'ALL', icon: Activity, colorClass: 'text-emerald-400', bgClass: 'bg-emerald-500/10' },
+  { value: 'FACE_OBJECT', label: 'FACE & OBJECT', icon: Shield, colorClass: 'text-purple-400', bgClass: 'bg-purple-500/10' },
+  { value: 'ANPR', label: 'ANPR', icon: ScanLine, colorClass: 'text-blue-400', bgClass: 'bg-blue-500/10' },
 ];
 
 export default function ModeSelector({ value, onChange, disabled }: ModeSelectorProps) {

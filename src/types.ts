@@ -3,6 +3,11 @@ export type Role = 'admin' | 'sub_admin' | 'operator' | 'commander';
 export type AlertStatus = 'NEW' | 'ACKNOWLEDGED' | 'INVESTIGATING' | 'RESOLVED';
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type CameraStatus = 'ONLINE' | 'OFFLINE' | 'DEGRADED' | 'LIVE' | 'DISCONNECTED' | 'ERROR' | 'MAINTENANCE';
+export type CameraMode =
+  | 'ALL'
+  | 'FACE_OBJECT'
+  | 'ANPR';
+
 export type ScenarioType =
   | 'normal'
   | 'intrusion'
@@ -35,6 +40,7 @@ export interface Camera {
   lastHeartbeat: string;
   signalQuality: number;
   scenario: ScenarioType;
+  camera_mode: CameraMode;
   recording: boolean;
   detectionCount: number;
   coords: { x: number; y: number };

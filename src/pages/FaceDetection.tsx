@@ -258,35 +258,20 @@ export default function FaceDetection() {
         </div>
       )}
 
-      {/* Live Feeds Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {entryCameras.map(cam => (
-          <div key={cam.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 group transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 text-indigo-700 font-bold tracking-widest uppercase text-sm">
-                <MapPin className="w-4 h-4" />
-                {cam.name} ({cam.location})
-              </div>
-              <button
-                onClick={() => setFullscreenCam(cam.id)}
-                className="p-1.5 bg-slate-100 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg border border-slate-200 transition-colors opacity-0 group-hover:opacity-100"
-                title="Fullscreen"
-              >
-                <Maximize2 className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-inner relative">
-              <CameraFeed 
-                 camera={cam} 
-                 liveStream={cam.id === 'CAM-01' ? demoStream : null} 
-                 detections={cam.id === 'CAM-01' ? demoDetections : []}
-              />
-              <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm text-white px-2 py-1 rounded text-xs font-mono border border-white/10">
-                LIVENESS CHECK: ACTIVE
-              </div>
-            </div>
-          </div>
-        ))}
+      {/* Live Detections Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Scans</h3>
+          <p className="text-2xl font-black text-indigo-900">{faces.length}</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <h3 className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-2">Authorized</h3>
+          <p className="text-2xl font-black text-emerald-600">{faces.filter(f => f.status === 'AUTHORIZED').length}</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <h3 className="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">Flagged Intrusions</h3>
+          <p className="text-2xl font-black text-red-600">{faces.filter(f => f.status === 'FLAGGED').length}</p>
+        </div>
       </div>
 
       {/* Access Logs Table */}

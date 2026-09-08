@@ -314,33 +314,22 @@ export default function ANPR() {
         
         {/* Left Column: Register, Upload & Live Feed */}
         <div className="lg:col-span-4 space-y-4">
-          {/* Live Gate Feed */}
+          {/* Analytics Placeholder overriding Camera source view */}
           <div className="card p-6 border-slate-200 shadow-sm bg-white">
              <h2 className="text-base font-black text-slate-800 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
-                <Camera className="h-4 w-4 text-emerald-600" /> Live Gate Feed
+                <Car className="h-4 w-4 text-emerald-600" /> ANPR Metrics
              </h2>
              <div className="space-y-4">
-               {cameras.filter(c => ['CAM-05'].includes(c.id)).map(cam => (
-                 <div key={cam.id} className="space-y-1">
-                   <div className="flex items-center justify-between">
-                     <span className="text-xs font-bold text-slate-700">{cam.name}</span>
-                     <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">{cam.id}</span>
+                 <div className="grid grid-cols-2 gap-3">
+                   <div className="p-3 bg-slate-50 border border-slate-200 rounded">
+                     <p className="text-[10px] font-bold text-slate-500 uppercase">Authorized</p>
+                     <p className="text-xl font-black text-emerald-600">{vehicles.filter(v => v.status === 'AUTHORIZED').length}</p>
                    </div>
-                   <div className="h-32 rounded overflow-hidden bg-black border border-slate-200">
-                     <CameraFeed camera={cam} detections={[]} liveStream={cam.id === 'CAM-05' ? demoStream : null} />
+                   <div className="p-3 bg-slate-50 border border-slate-200 rounded">
+                     <p className="text-[10px] font-bold text-slate-500 uppercase">Watchlist</p>
+                     <p className="text-xl font-black text-red-600">{vehicles.filter(v => v.status === 'WATCHLIST').length}</p>
                    </div>
-                   {cam.id === 'CAM-05' && isDemoActive && (
-                     <div className="text-[9px] font-mono text-red-500 animate-pulse bg-red-50 p-1 border border-red-200 rounded mt-1">
-                        LIVENESS: IGNORING HUMANS, WAITING FOR PLATE...
-                     </div>
-                   )}
                  </div>
-               ))}
-               {cameras.filter(c => ['CAM-05'].includes(c.id)).length === 0 && (
-                 <div className="text-xs text-slate-500 italic p-4 text-center border border-slate-200 rounded">
-                   Gate cameras (CAM-05) not found or offline.
-                 </div>
-               )}
              </div>
           </div>
 

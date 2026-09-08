@@ -73,6 +73,11 @@ class Camera(Base):
     resolution = Column(String(20), default="1920x1080")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Unified Architecture
+    camera_mode = Column(String(50), default="ALL")
+    profile = Column(String(50), default="GENERAL")
+    thermal_enabled = Column(Boolean, default=False)
 
 
 class EventItem(Base):
@@ -132,6 +137,29 @@ class VehicleRecord(Base):
     timestamp = Column(String(50))
     status = Column(String(30)) # AUTHORIZED, WATCHLIST, UNKNOWN
     direction = Column(String(50), nullable=True)
+    first_seen = Column(DateTime(timezone=True), nullable=True)
+    last_seen = Column(DateTime(timezone=True), nullable=True)
+    entry_count = Column(Integer, default=0)
+    normalized_plate = Column(String(50), nullable=True)
+    representative_image = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+class Person(Base):
+    __tablename__ = "persons"
+
+    id = Column(String(100), primary_key=True, index=True, default=generate_uuid)
+    name = Column(String(150), nullable=True)
+    image = Column(Text, nullable=True)
+    embedding = Column(JSON, nullable=True)
+    authorization_status = Column(String(50), default="UNKNOWN") # AUTHORIZED, UNAUTHORIZED, WATCHLIST, UNKNOWN
+    category = Column(String(50), nullable=True)
+    notes = Column(String(255), nullable=True)
+    first_seen = Column(DateTime(timezone=True), nullable=True)
+    last_seen = Column(DateTime(timezone=True), nullable=True)
+    entry_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
 class FaceRecord(Base):

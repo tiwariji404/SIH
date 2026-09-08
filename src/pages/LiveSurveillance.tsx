@@ -5,7 +5,7 @@ import { api } from '../lib/api';
 import CameraFeed from '../components/CameraFeed';
 import ModeSelector from '../components/ModeSelector';
 import { Video, Camera as CameraIcon, Shield, AlertTriangle, AlertCircle, Phone, WifiOff, Smartphone, X, Layers, Grid3x3, Activity, Loader, Maximize, Minimize, Cctv, Radio, CheckCircle2, Play, Settings, RefreshCw } from 'lucide-react';
-import type { ScenarioType, Camera } from '../types';
+import type { Camera, CameraMode } from '../types';
 
 // Remove SCENARIOS as it is now in ModeSelector
 
@@ -31,7 +31,7 @@ function HardwareVideoPlayer({ stream }: { stream: MediaStream }) {
 }
 
 export default function LiveSurveillance() {
-  const { cameras, setCameraScenario, detections, selectedLiveCameraIds, setSelectedLiveCameraIds, savedFences, showToast, refreshData } = useApp();
+  const { cameras, setCameraMode, detections, selectedLiveCameraIds, setSelectedLiveCameraIds, savedFences, showToast, refreshData } = useApp();
   const [gridSize, setGridSize] = useState<'2x2' | '3x3'>('2x2');
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [camError, setCamError] = useState<string | null>(null);
@@ -436,7 +436,7 @@ export default function LiveSurveillance() {
             bop: 'Command Center',
             status: 'ONLINE' as const,
             fps: 30,
-            scenario: 'normal' as const,
+            camera_mode: 'ALL' as const,
             recording: false,
           };
 
@@ -464,8 +464,8 @@ export default function LiveSurveillance() {
                 </div>
                 <div className="flex items-center gap-2">
                   <ModeSelector
-                    value={mockHwCam.scenario}
-                    onChange={(val) => setCameraScenario(mockHwCam.id, val)}
+                    value={mockHwCam.camera_mode}
+                    onChange={(val) => setCameraMode(mockHwCam.id, val)}
                   />
                   <button
                     onClick={() => setExpandedCameraId(isExpanded ? null : mockHwCam.id)}
@@ -500,8 +500,8 @@ export default function LiveSurveillance() {
               </div>
               <div className="flex items-center gap-2">
                 <ModeSelector
-                  value={cam.scenario}
-                  onChange={(val) => setCameraScenario(cam.id, val)}
+                  value={cam.camera_mode || 'ALL'}
+                  onChange={(val) => setCameraMode(cam.id, val)}
                   disabled={cam.status === 'OFFLINE'}
                 />
                 <button

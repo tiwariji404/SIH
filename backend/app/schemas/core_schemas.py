@@ -24,6 +24,7 @@ class CameraBase(BaseModel):
     protocol: Optional[str] = "RTSP"
     credentials_ref: Optional[str] = None
     resolution: Optional[str] = "1920x1080"
+    camera_mode: Optional[str] = "ALL"
 
 class CameraCreate(CameraBase):
     pass

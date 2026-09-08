@@ -24,6 +24,8 @@ from app.ws_manager import manager
 
 logger = logging.getLogger(__name__)
 
+from app.services.identity_manager import IdentityManager
+
 class AutonomousSurveillancePipeline:
     """Master Autonomous AI Engine that accepts raw frames from ANY CCTV source,
     executes detection, runs ANPR on vehicles, checks perimeter zones on pedestrians,
@@ -93,28 +95,15 @@ class AutonomousSurveillancePipeline:
                             state_code = anpr_service.get_state_code(norm_plate)
                             tag_text = f"{disp_plate} [{state_code or 'IN'}] {conf_pct}%"
 
-                            # Cross-reference Watchlist in database
-                            wl_match = db.query(WatchlistRecord).filter(
-                                WatchlistRecord.plate_number == norm_plate
-                            ).first()
+                            # Identity & Tracking deduplication
+                            id_manager = IdentityManager(db)
+                            veh_rec = id_manager.resolve_vehicle(tracking_id=track_id, plate_number=norm_plate)
 
                             # Record Vehicle Log into Database & Broadcast
                             v_dedupe_key = f"VEH:{camera_id}:{norm_plate}"
                             now_v = time.time()
                             if now_v - self._last_alert_time.get(v_dedupe_key, 0) > 15.0:
                                 self._last_alert_time[v_dedupe_key] = now_v
-                                veh_rec = VehicleRecord(
-                                    id=f"VEH-{uuid.uuid4().hex[:6].upper()}",
-                                    cameraId=camera_id,
-                                    vehicleType=det.object_class.upper(),
-                                    plateNumber=disp_plate,
-                                    confidence=conf_pct,
-                                    timestamp=timestamp_str,
-                                    status="WATCHLIST" if wl_match else "AUTHORIZED",
-                                    direction="Inbound"
-                                )
-                                db.add(veh_rec)
-                                db.commit()
                                 try:
                                     import asyncio
                                     loop = asyncio.get_event_loop()
@@ -135,7 +124,7 @@ class AutonomousSurveillancePipeline:
                                 except Exception:
                                     pass
 
-                            if wl_match:
+                            if veh_rec.status == "WATCHLIST":
                                 box_color = (0, 0, 240) # Bright Red
                                 tag_text = f"! WATCHLIST ! {disp_plate}"
 
@@ -163,20 +152,46 @@ class AutonomousSurveillancePipeline:
                     first_seen = self._dwell_timers.setdefault(track_id, time.time())
                     dwell_sec = round(time.time() - first_seen, 1)
 
-                    # Evaluate zones (virtual fences)
+                    # Face Detection & Biometric Embeddings 
+                    face_embedding = None
+                    try:
+                        from deepface import DeepFace
+                        pad = 10
+                        hcrop = frame[max(0, y1-pad):min(h, y2+pad), max(0, x1-pad):min(w, x2+pad)]
+                        if hcrop.shape[0] > 60 and hcrop.shape[1] > 60:
+                            # Extract single mathematically bound robust 128D/4096D array map natively 
+                            embedding_objs = DeepFace.represent(img_path=hcrop, model_name="VGG-Face", detector_backend="skip", enforce_detection=False, align=True)
+                            if embedding_objs and len(embedding_objs) > 0:
+                                face_embedding = embedding_objs[0]["embedding"]
+                    except Exception as e:
+                        pass
+
+                    # Identity & Re-entry logic (IdentityManager)
+                    id_manager = IdentityManager(db)
+                    person_identity = id_manager.resolve_person(tracking_id=track_id, face_embedding=face_embedding, name="UNKNOWN")
+                    entry_count = person_identity.entry_count
+                    auth_status = person_identity.authorization_status
+
+                    if person_identity.entry_count >= 1:
+                         tag_text = f"PERSON {track_id} | ENTRIES: {entry_count} [{conf_pct}%]"
+
+                    # Evaluate zones (virtual fences) -> ENFORCE CAMERA-WIDE FENCING REQUIREMENT
                     inside_restricted = False
                     violated_zone_name = None
 
-                    for zone in zones:
-                        # Extract coordinates
-                        if zone.coordinates and isinstance(zone.coordinates, list):
-                            poly = [(int(p.get("x", 0) * w / 100), int(p.get("y", 0) * h / 100)) for p in zone.coordinates]
-                            if len(poly) >= 3 and point_in_polygon(person_foot, poly):
-                                inside_restricted = True
-                                violated_zone_name = zone.name
-                                break
+                    if not zones: # CAMERA-WIDE FENCING ACTIVE WHERE POLYS ABSENT
+                        inside_restricted = True
+                        violated_zone_name = "Camera-Wide Perimeter"
+                    else:
+                        for zone in zones:
+                            if zone.coordinates and isinstance(zone.coordinates, list):
+                                poly = [(int(p.get("x", 0) * w / 100), int(p.get("y", 0) * h / 100)) for p in zone.coordinates]
+                                if len(poly) >= 3 and point_in_polygon(person_foot, poly):
+                                    inside_restricted = True
+                                    violated_zone_name = zone.name
+                                    break
 
-                    is_loitering = dwell_sec > 20.0
+                    is_loitering = dwell_sec > 10.0
                     is_night = self.risk_engine.is_night_time(timestamp)
 
                     if inside_restricted or is_loitering or (is_night and det.confidence > 0.7):
@@ -220,13 +235,13 @@ class AutonomousSurveillancePipeline:
             eventType="WATCHLIST_MATCH",
             severity="CRITICAL",
             trackingId=plate,
-            description=f"Watchlist vehicle detected: {plate}. Flagged: {description}",
+            description=f"Watchlist vehicle detected: {plate}.",
             timestamp=time_str,
             status="NEW",
             riskScore=95,
             reasons=["Security Watchlist Match", "Immediate Interception Advised"],
             confidence=95.0,
-            details={"plate": plate, "description": description, "file_url": file_url}
+            details={"plate": plate, "file_url": file_url}
         )
         db.add(event_item)
 

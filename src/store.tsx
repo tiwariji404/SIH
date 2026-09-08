@@ -139,7 +139,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         safe(api.analytics.vehicles(), []),
         safe(api.analytics.auditLogs(), []),
         safe(api.analytics.tracks(), []),
-        safe(api.analytics.faces(), []),
+        safe(api.analytics.recentFaces(), []),
         safe(api.analytics.watchlist(), []),
       ]);
       setCameras(cams);
@@ -159,34 +159,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     } catch (e) {
       console.error('Initial data fetch failed, using fallback mock data for frontend demo', e);
-      // Fallback Mock Data for UI demonstration without a backend
-      setCameras([
-        { id: 'CAM-01', name: 'Main Gate', location: 'North Entrance', bop: 'Command', status: 'ONLINE', fps: 30, scenario: 'normal', camera_mode: 'ALL', recording: true, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 1400, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } },
-        { id: 'CAM-02', name: 'Perimeter West', location: 'West Wall', bop: 'Command', status: 'ONLINE', fps: 30, scenario: 'normal', camera_mode: 'ALL', recording: false, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 400, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } },
-        { id: 'CAM-03', name: 'Sector Alpha', location: 'Watchtower 1', bop: 'Alpha', status: 'ONLINE', fps: 30, scenario: 'normal', camera_mode: 'ALL', recording: true, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 120, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } },
-        { id: 'CAM-04', name: 'Sector Bravo', location: 'Checkpoint 2', bop: 'Bravo', status: 'OFFLINE', fps: 0, scenario: 'normal', camera_mode: 'ALL', recording: false, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 0, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } },
-        { id: 'CAM-05', name: 'Back Entry', location: 'South Gate', bop: 'Command', status: 'ONLINE', fps: 30, scenario: 'normal', camera_mode: 'ALL', recording: true, latency: 30, storage: 150, health: 100, lastHeartbeat: new Date().toISOString(), signalQuality: 98, detectionCount: 500, coords: { x: 50, y: 50 }, mapCoord: { lat: 0, lng: 0 } },
-        { id: 'Punjab Sector - Cam 1', name: 'Punjab Sector - Cam 1', location: 'Punjab Border', bop: 'Sector North', status: 'ONLINE', fps: 30, scenario: 'normal', camera_mode: 'ALL', recording: true, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 10, coords: { x: 50, y: 50 }, mapCoord: { lat: 31.60450, lng: 74.57680 } },
-        { id: 'Punjab Sector - Cam 2', name: 'Punjab Sector - Cam 2', location: 'Punjab Border', bop: 'Sector North', status: 'ONLINE', fps: 30, scenario: 'normal', camera_mode: 'ALL', recording: false, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 5, coords: { x: 50, y: 50 }, mapCoord: { lat: 31.60550, lng: 74.57780 } },
-        { id: 'Punjab Sector - Cam 3', name: 'Punjab Sector - Cam 3', location: 'Punjab Border', bop: 'Sector North', status: 'ONLINE', fps: 30, scenario: 'normal', camera_mode: 'ALL', recording: true, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 120, coords: { x: 50, y: 50 }, mapCoord: { lat: 31.60650, lng: 74.57880 } },
-        { id: 'Punjab Sector - Cam 4', name: 'Punjab Sector - Cam 4', location: 'Punjab Border', bop: 'Sector North', status: 'ONLINE', fps: 30, scenario: 'normal', camera_mode: 'ALL', recording: true, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 120, coords: { x: 50, y: 50 }, mapCoord: { lat: 31.60750, lng: 74.57980 } },
-        { id: 'Rajasthan Desert - Cam 1', name: 'Rajasthan Desert - Cam 1', location: 'Rajasthan Desert', bop: 'Sector West', status: 'ONLINE', fps: 30, scenario: 'normal', camera_mode: 'ALL', recording: true, latency: 45, storage: 120, health: 98, lastHeartbeat: new Date().toISOString(), signalQuality: 95, detectionCount: 120, coords: { x: 50, y: 50 }, mapCoord: { lat: 26.9124, lng: 70.9083 } },
-      ]);
-      setVehicles([
-        { id: 'V-101', cameraId: 'CAM-01', vehicleType: 'SUV', plateNumber: 'DL 4C AB 1234', confidence: 98, timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(), status: 'AUTHORIZED', direction: 'Inbound' },
-        { id: 'V-102', cameraId: 'CAM-01', vehicleType: 'Truck', plateNumber: 'HR 26 DQ 5566', confidence: 92, timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(), status: 'UNKNOWN', direction: 'Outbound' },
-        { id: 'V-103', cameraId: 'CAM-03', vehicleType: 'Sedan', plateNumber: 'MH 12 XY 9090', confidence: 95, timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(), status: 'WATCHLIST', direction: 'Inbound' },
-        { id: 'V-104', cameraId: 'CAM-02', vehicleType: 'Motorcycle', plateNumber: 'UP 16 BD 4321', confidence: 85, timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(), status: 'UNKNOWN', direction: 'Cross-Border' },
-        { id: 'V-105', cameraId: 'CAM-01', vehicleType: 'Van', plateNumber: 'DL 8C LM 7788', confidence: 96, timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(), status: 'AUTHORIZED', direction: 'Outbound' },
-        { id: 'V-106', cameraId: 'CAM-03', vehicleType: 'Jeep', plateNumber: 'RJ 14 CC 1122', confidence: 91, timestamp: new Date(Date.now() - 1000 * 60 * 240).toISOString(), status: 'UNKNOWN', direction: 'Inbound' },
-      ]);
-      setFaces([
-        { id: 'FC-101', cameraId: 'CAM-01', identity: 'Ramesh Singh', confidence: 99, timestamp: new Date(Date.now() - 1000 * 60 * 2).toISOString(), database: 'Employee', status: 'AUTHORIZED', direction: 'Inbound' },
-        { id: 'FC-102', cameraId: 'CAM-01', identity: 'Unknown', confidence: 85, timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(), database: 'None', status: 'UNKNOWN', direction: 'Outbound' },
-        { id: 'FC-103', cameraId: 'CAM-05', identity: 'Suresh Kumar', confidence: 97, timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(), database: 'Contractor', status: 'AUTHORIZED', direction: 'Inbound' },
-        { id: 'FC-104', cameraId: 'CAM-01', identity: 'Watchlist Match', confidence: 94, timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(), database: 'Watchlist', status: 'FLAGGED', direction: 'Inbound' },
-      ]);
-      setWatchlistPlates(['MH 12 XY 9090']);
+      setCameras([]);
+      setEvents([]);
+      setAlerts([]);
+      setZones([]);
+      setVehicles([]);
+      setAuditLogs([]);
+      setTracks([]);
+      setFaces([]);
+      setWatchlistPlates([]);
     }
   }, [user]);
 
@@ -248,14 +229,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   };
                   const newList = [...prev];
                   newList.splice(existingIdx, 1);
-                  return [updated, ...newList];
+                  return [updated, ...newList].slice(0, 50);
                 } else {
                   return [{...face, history: [{
                     timestamp: face.timestamp,
                     cameraId: face.cameraId,
                     image: face.image,
                     confidence: face.confidence
-                  }]}, ...prev];
+                  }]}, ...prev].slice(0, 50);
                 }
               });
             } else if (data.type === 'intrusion') {

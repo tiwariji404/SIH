@@ -66,7 +66,7 @@ async def lifespan(app: FastAPI):
             active_cams = db.query(DB_Camera).all()
             for cam in active_cams:
                 source = cam.rtsp_url if cam.rtsp_url else None
-                if source:
+                if source and source != "test_video.mp4":
                     logger.info("Auto-starting CCTV AI stream for %s (%s)", cam.id, source)
                     cctv_manager.register_and_start(
                         camera_id=cam.id,

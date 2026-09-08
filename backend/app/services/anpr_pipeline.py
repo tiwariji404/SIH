@@ -78,6 +78,24 @@ def save_upload_file(contents: bytes, original_filename: str | None = None) -> P
     return path
 
 
+def encode_image_base64(frame: np.ndarray, quality: int = 80) -> str:
+    """
+    Canonical helper: encode a real OpenCV BGR frame to a base64 JPEG string.
+    Used for face crops, ANPR crops, evidence previews, and WebSocket payloads.
+    Never fabricates images — only encodes real numpy arrays from camera frames.
+    Returns empty string on encoding failure.
+    """
+    if frame is None or frame.size == 0:
+        return ""
+    try:
+        ret, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+        if not ret:
+            return ""
+        return base64.b64encode(buf.tobytes()).decode("utf-8")
+    except Exception:
+        return ""
+
+
 def safe_filename_part(value: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9_.-]", "_", value)
     return cleaned[:80] or "ANPR"
@@ -257,29 +275,48 @@ def _persist_capture(
 ) -> tuple[dict, dict | None]:
     _ensure_camera(db, camera_id)
 
+    from app.services.identity_manager import IdentityManager
+    id_manager = IdentityManager(db)
+    
+    plate_norm = normalize_plate(capture.plate_number)
+    if not plate_norm:
+        return {}, None
+        
+    vehicle_id = f"V-ANPR-{plate_norm}"
+    vehicle, is_new_entry = id_manager.resolve_vehicle(vehicle_id, capture.plate_number)
+    
+    if not is_new_entry:
+        # 2-minute rule suppressed this entry (bounce or same session)
+        return vehicle_to_payload(db, vehicle), None
+        
     matched_watchlist = _watchlist_match(db, capture.plate_number)
     status = "WATCHLIST" if matched_watchlist else "UNKNOWN"
+    # Overwrite status with fresh watchlist info
+    vehicle.status = status
+    vehicle.vehicleType = _vehicle_type_label(capture.vehicle_type)
+    vehicle.confidence = int(round(capture.plate_confidence * 100))
+    vehicle.direction = direction
+    db.commit()
+    
     display_plate = format_plate(capture.plate_number)
     confidence = int(round(capture.plate_confidence * 100))
-    vehicle_id = f"V-{uuid.uuid4().hex[:12].upper()}"
     event_id = f"EVT-{uuid.uuid4().hex[:12].upper()}"
     timestamp_iso = timestamp.isoformat() + "Z"
 
-    file_path, file_url, sha256_hash, plate_crop_url, annotated_url = _save_anpr_artifacts(
-        frame, capture, camera_id, timestamp, is_watchlist=bool(matched_watchlist)
-    )
-
-    vehicle = VehicleRecord(
-        id=vehicle_id,
-        cameraId=camera_id,
-        vehicleType=_vehicle_type_label(capture.vehicle_type),
-        plateNumber=display_plate,
-        confidence=confidence,
-        timestamp=timestamp_iso,
-        status=status,
-        direction=direction,
-    )
-    db.add(vehicle)
+    # Only save new images if it's the very first entry of this vehicle
+    if vehicle.entry_count == 1:
+        file_path, file_url, sha256_hash, plate_crop_url, annotated_url = _save_anpr_artifacts(
+            frame, capture, camera_id, timestamp, is_watchlist=bool(matched_watchlist)
+        )
+        if hasattr(vehicle, 'representative_image'):
+            vehicle.representative_image = file_url
+            db.commit()
+    else:
+        # Re-entry after 2 minutes — reuse existing image pointers
+        file_path, file_url, sha256_hash, plate_crop_url, annotated_url = "", "", "", "", ""
+        if hasattr(vehicle, 'representative_image') and vehicle.representative_image:
+            file_url = vehicle.representative_image
+            annotated_url = file_url
 
     event = EventItem(
         id=event_id,
@@ -317,19 +354,19 @@ def _persist_capture(
     )
     db.add(event)
     
-    # Store evidence to disk
-    db.add(
-        Evidence(
-            id=f"EVD-{uuid.uuid4().hex[:12].upper()}",
-            event_id=event_id,
-            camera_id=camera_id,
-            file_location=str(file_path),
-            file_url=file_url,
-            file_type="SNAPSHOT",
-            sha256_hash=sha256_hash,
-            integrity_status="VERIFIED",
-        )
+    # Store evidence to disk - assign to variable so we can reference evidence.id below
+    evidence_id_val = f"EVD-{uuid.uuid4().hex[:12].upper()}"
+    evidence = Evidence(
+        id=evidence_id_val,
+        event_id=event_id,
+        camera_id=camera_id,
+        file_location=str(file_path),
+        file_url=file_url,
+        file_type="SNAPSHOT",
+        sha256_hash=sha256_hash,
+        integrity_status="VERIFIED",
     )
+    db.add(evidence)
 
     db.commit()
     db.refresh(vehicle)
@@ -348,7 +385,7 @@ def _persist_capture(
         normalized_plate=normalize_plate(capture.plate_number),
         confidence=capture.plate_confidence,
         timestamp=timestamp,
-        evidence_id=evidence.id,
+        evidence_id=evidence_id_val,
     )
     db.add(plate)
 

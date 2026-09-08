@@ -94,8 +94,12 @@ def create_vehicle(vehicle: VehicleRecordCreate, db: Session = Depends(get_db)):
 
 # Faces (Facial Recognition)
 @router.get("/faces", response_model=List[FaceRecord])
-def get_faces(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return db.query(DB_Face).order_by(DB_Face.timestamp.desc()).all()
+def get_faces(skip: int = 0, limit: int = 50, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return db.query(DB_Face).order_by(DB_Face.timestamp.desc()).offset(skip).limit(limit).all()
+
+@router.get("/faces/recent", response_model=List[FaceRecord])
+def get_recent_faces(db: Session = Depends(get_db)):
+    return db.query(DB_Face).order_by(DB_Face.timestamp.desc()).limit(50).all()
 
 @router.post("/faces", response_model=FaceRecord)
 def create_face(face: FaceRecordCreate, db: Session = Depends(get_db)):

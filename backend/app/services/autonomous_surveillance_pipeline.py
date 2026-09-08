@@ -168,7 +168,7 @@ class AutonomousSurveillancePipeline:
 
                     # Identity & Re-entry logic (IdentityManager)
                     id_manager = IdentityManager(db)
-                    person_identity = id_manager.resolve_person(tracking_id=track_id, face_embedding=face_embedding, name="UNKNOWN")
+                    person_identity, is_new_entry = id_manager.resolve_person(tracking_id=track_id, face_embedding=face_embedding, name="UNKNOWN")
                     entry_count = person_identity.entry_count
                     auth_status = person_identity.authorization_status
 

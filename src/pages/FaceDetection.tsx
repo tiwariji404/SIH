@@ -3,28 +3,32 @@ import { useApp } from '../store';
 import CameraFeed from '../components/CameraFeed';
 import { ScanFace, UserCheck, UserX, AlertTriangle, Clock, MapPin, ArrowRightLeft, Camera as CameraIcon, Maximize2, Minimize2, ShieldAlert, Route } from 'lucide-react';
 import type { FaceRecord, Detection } from '../types';
-import { WS_BASE_URL } from '../lib/api';
+import { WS_BASE_URL, api } from '../lib/api';
 
 export default function FaceDetection() {
-  const { cameras, faces, addFace } = useApp();
-  const [demoStream, setDemoStream] = useState<MediaStream | null>(null);
-  const [isDemoActive, setIsDemoActive] = useState(false);
-  const [demoDetections, setDemoDetections] = useState<Detection[]>([]);
-  const [forceWatchlist, setForceWatchlist] = useState(false);
-  const [forceReid, setForceReid] = useState(false);
+  const { cameras, addFace, detections } = useApp();
+  const [paginatedFaces, setPaginatedFaces] = useState<FaceRecord[]>([]);
+  const [page, setPage] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [fullscreenCam, setFullscreenCam] = useState<string | null>(null);
 
-  const demoWsRef = useRef<WebSocket | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const flagsRef = useRef({ forceWatchlist, forceReid });
+  const entryCameras = cameras.filter(c => c.id === 'CAM-01');
+  
+  const fetchHistory = async (pageNum: number) => {
+    try {
+      setLoading(true);
+      const data = await api.analytics.faces(pageNum * 50, 50);
+      setPaginatedFaces(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    flagsRef.current = { forceWatchlist, forceReid };
-  }, [forceWatchlist, forceReid]);
-
-  const entryCameras = cameras.filter(c => c.id === 'CAM-01');
-  const sortedFaces = [...faces].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    fetchHistory(page);
+  }, [page]);
 
   const getStatusBadge = (status: FaceRecord['status']) => {
     switch (status) {
@@ -42,169 +46,7 @@ export default function FaceDetection() {
     );
   };
 
-  const startDemo = async () => {
-    if (isDemoActive) {
-      if (demoStream) {
-        demoStream.getTracks().forEach(t => t.stop());
-        setDemoStream(null);
-      }
-      if (demoWsRef.current) demoWsRef.current.close();
-      setIsDemoActive(false);
-      setDemoDetections([]);
-      return;
-    }
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      setDemoStream(stream);
-      setIsDemoActive(true);
-
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.play();
-      videoRef.current = video;
-
-      const canvas = document.createElement('canvas');
-      canvasRef.current = canvas;
-
-      const ws = new WebSocket(`${WS_BASE_URL}/ws/detections`);
-      demoWsRef.current = ws;
-
-      // Simulated Face Capture logic for frontend demo
-      setTimeout(async () => {
-        if (videoRef.current && canvasRef.current) {
-          const v = videoRef.current;
-          const c = canvasRef.current;
-          if (v.videoWidth > 0) {
-            c.width = v.videoWidth;
-            c.height = v.videoHeight;
-            const ctx = c.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(v, 0, 0, c.width, c.height);
-              const base64 = c.toDataURL('image/jpeg', 0.8);
-
-              const isFlagged = flagsRef.current.forceWatchlist;
-
-              let numPeople = 1;
-              if ('FaceDetector' in window) {
-                try {
-                  const faceDetector = new (window as any).FaceDetector();
-                  const faces = await faceDetector.detect(c);
-                  if (faces.length > 0) {
-                    numPeople = faces.length;
-                  }
-                } catch (e) {
-                  numPeople = Math.floor(Math.random() * 3) + 1;
-                }
-              } else {
-                numPeople = Math.floor(Math.random() * 3) + 1;
-              }
-
-              const demoNames = ['Rajen (Employee)', 'Amit (Visitor)', 'Priya (Contractor)', 'Sanjay (Visitor)', 'Neha (Employee)'];
-              const possibleObjects = ['Backpack', 'Firearm', 'Knife', 'Suspicious Bag'];
-              
-              const newDetections: Detection[] = [];
-
-              for (let i = 0; i < numPeople; i++) {
-                const isWatchlist = isFlagged && i === 0;
-                addFace({
-                  id: 'FC-SIM-' + Date.now() + '-' + i,
-                  cameraId: 'CAM-01',
-                  type: 'human',
-                  identity: isWatchlist ? `Watchlist Target 1` : (demoNames[i] || 'Unknown Person'),
-                  confidence: Math.floor(Math.random() * 10) + 90,
-                  timestamp: new Date().toISOString(),
-                  database: isWatchlist ? 'Watchlist' : (i % 2 === 0 ? 'Employee DB' : 'Visitor DB'),
-                  status: isWatchlist ? 'FLAGGED' : 'AUTHORIZED',
-                  direction: 'Inbound',
-                  image: base64
-                });
-
-                newDetections.push({
-                  id: 'DET-' + Date.now() + '-' + i,
-                  cameraId: 'CAM-01',
-                  objectType: 'person',
-                  trackingId: 'P-' + Math.floor(Math.random() * 1000),
-                  confidence: 95,
-                  timestamp: new Date().toISOString(),
-                  bbox: { x: 30 + (i * 15), y: 30, w: 20, h: 40 },
-                  label: isWatchlist ? 'Watchlist Target' : 'Human'
-                });
-              }
-
-              // 30% chance to detect an object
-              if (Math.random() > 0.7) {
-                 const objName = possibleObjects[Math.floor(Math.random() * possibleObjects.length)];
-                 addFace({
-                  id: 'OBJ-SIM-' + Date.now(),
-                  cameraId: 'CAM-01',
-                  type: 'object',
-                  identity: objName,
-                  confidence: Math.floor(Math.random() * 10) + 85,
-                  timestamp: new Date().toISOString(),
-                  database: 'Object Detection',
-                  status: 'FLAGGED',
-                  direction: 'Inbound',
-                  image: base64
-                });
-
-                newDetections.push({
-                  id: 'DET-' + Date.now() + '-obj',
-                  cameraId: 'CAM-01',
-                  objectType: 'person', // Render as a bounding box in CameraFeed (we'll adapt it there)
-                  trackingId: 'O-' + Math.floor(Math.random() * 1000),
-                  confidence: 88,
-                  timestamp: new Date().toISOString(),
-                  bbox: { x: 50, y: 50, w: 15, h: 15 },
-                  label: objName
-                });
-              }
-
-              setDemoDetections(newDetections);
-              // Clear detections after a couple seconds
-              setTimeout(() => setDemoDetections([]), 2500);
-            }
-          }
-        }
-      }, 3500); // Auto-capture 3.5 seconds after starting webcam
-
-      const sendFrame = () => {
-        if (!isDemoActive || !demoWsRef.current || demoWsRef.current.readyState !== WebSocket.OPEN) return;
-        if (videoRef.current && canvasRef.current) {
-          const v = videoRef.current;
-          const c = canvasRef.current;
-          if (v.videoWidth > 0) {
-            c.width = v.videoWidth;
-            c.height = v.videoHeight;
-            const ctx = c.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(v, 0, 0, c.width, c.height);
-              const base64 = c.toDataURL('image/jpeg', 0.5);
-              demoWsRef.current.send(JSON.stringify({
-                type: 'frame',
-                camera_id: 'CAM-01',
-                image: base64,
-                force_watchlist: flagsRef.current.forceWatchlist,
-                force_reid: flagsRef.current.forceReid
-              }));
-            }
-          }
-        }
-      };
-
-      ws.onopen = () => setInterval(sendFrame, 1000);
-    } catch (e) {
-      console.error("Camera access denied", e);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (demoStream) demoStream.getTracks().forEach(t => t.stop());
-      if (demoWsRef.current) demoWsRef.current.close();
-      setIsDemoActive(false);
-    };
-  }, [demoStream]);
 
   return (
     <div className="space-y-6">
@@ -217,21 +59,6 @@ export default function FaceDetection() {
             Entry/Exit Access Control
           </h1>
           <p className="text-slate-500 font-medium mt-1">Facial recognition access logs restricted to perimeter entry points.</p>
-        </div>
-
-        {/* Demo Controls */}
-        <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
-
-          <button
-            onClick={startDemo}
-            className={`flex items-center gap-2 px-4 py-2 font-bold rounded-lg shadow-sm transition-colors ${isDemoActive
-                ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
-                : 'bg-indigo-600 text-white hover:bg-indigo-700'
-              }`}
-          >
-            <CameraIcon className="w-5 h-5" />
-            {isDemoActive ? 'Stop Webcam' : 'Start Webcam Demo'}
-          </button>
         </div>
       </div>
 
@@ -246,8 +73,8 @@ export default function FaceDetection() {
           <div className="flex-1 w-full relative">
             <CameraFeed 
                camera={entryCameras.find(c => c.id === fullscreenCam)!} 
-               liveStream={fullscreenCam === 'CAM-01' ? demoStream : null} 
-               detections={fullscreenCam === 'CAM-01' ? demoDetections : []}
+               liveStream={null} 
+               detections={[]}
                fullHeight={true} 
             />
             <div className="absolute top-6 left-6 flex items-center gap-3">
@@ -258,19 +85,27 @@ export default function FaceDetection() {
         </div>
       )}
 
-      {/* Live Detections Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      {/* Identity Summary Stats - real counts from backend data */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Scans</h3>
-          <p className="text-2xl font-black text-indigo-900">{faces.length}</p>
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Records</h3>
+          <p className="text-2xl font-black text-indigo-900">{paginatedFaces.length}</p>
+          <p className="text-xs text-slate-400 mt-1">This page (50 max)</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-emerald-200">
+          <h3 className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-2">Authorized</h3>
+          <p className="text-2xl font-black text-emerald-700">{paginatedFaces.filter((f: any) => f.status === 'AUTHORIZED').length}</p>
+          <p className="text-xs text-slate-400 mt-1">Verified identities</p>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-2">Authorized</h3>
-          <p className="text-2xl font-black text-emerald-600">{faces.filter(f => f.status === 'AUTHORIZED').length}</p>
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Unknown</h3>
+          <p className="text-2xl font-black text-slate-700">{paginatedFaces.filter((f: any) => f.status === 'UNKNOWN').length}</p>
+          <p className="text-xs text-slate-400 mt-1">Unmatched faces</p>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">Flagged Intrusions</h3>
-          <p className="text-2xl font-black text-red-600">{faces.filter(f => f.status === 'FLAGGED').length}</p>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-red-200">
+          <h3 className="text-xs font-bold text-red-600 uppercase tracking-wider mb-2">Red Flag</h3>
+          <p className="text-2xl font-black text-red-700">{paginatedFaces.filter((f: any) => f.status === 'FLAGGED' || f.status === 'WATCHLIST').length}</p>
+          <p className="text-xs text-slate-400 mt-1">Watchlist matches</p>
         </div>
       </div>
 
@@ -281,8 +116,10 @@ export default function FaceDetection() {
             <ArrowRightLeft className="w-5 h-5 text-indigo-500" />
             Recent Access Logs
           </div>
-          <div className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-            {sortedFaces.length} Records
+          <div className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full flex gap-3">
+             <button disabled={page === 0} onClick={() => setPage(page-1)} className="hover:text-indigo-600 disabled:opacity-50">PREV</button>
+             <span>PAGE {page + 1}</span>
+             <button disabled={paginatedFaces.length < 50} onClick={() => setPage(page+1)} className="hover:text-indigo-600 disabled:opacity-50">NEXT</button>
           </div>
         </div>
 
@@ -300,7 +137,9 @@ export default function FaceDetection() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sortedFaces.map(face => {
+              {loading ? (
+                <tr><td colSpan={7} className="text-center py-10 font-bold text-slate-400">Loading History...</td></tr>
+              ) : paginatedFaces.map(face => {
                 const cam = cameras.find(c => c.id === face.cameraId);
                 return (
                   <tr key={face.id} className="hover:bg-slate-50 transition-colors">
@@ -355,7 +194,7 @@ export default function FaceDetection() {
                   </tr>
                 );
               })}
-              {sortedFaces.length === 0 && (
+              {!loading && paginatedFaces.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-slate-500 font-medium">
                     No access records available.

@@ -8,11 +8,11 @@ import {
 import type { PageId } from '../components/Layout';
 
 export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => void }) {
-  const { cameras, alerts, events, vehicles, tracks } = useApp();
+  const { cameras, alerts, events, vehicles, tracks, faces } = useApp();
 
   const onlineCameras = cameras.filter(c => c.status === 'ONLINE').length;
   const activeAlerts = alerts.filter(a => a.status !== 'RESOLVED').length;
-  const peopleDetected = tracks.filter(t => t.objectType === 'person').length + 132;
+  const peopleDetected = faces.length > 0 ? faces.length : tracks.filter(t => t.objectType === 'person').length;
   const vehiclesDetected = vehicles.length;
   const intrusionsToday = events.filter(e => e.eventType.includes('Intrusion') || e.eventType.includes('Fence')).length;
   const suspiciousActivities = events.filter(e => e.eventType.includes('Suspicious') || e.eventType.includes('Loitering')).length;
@@ -23,7 +23,7 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
     { label: 'Vehicles Detected', value: vehiclesDetected, icon: Car, color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-200', page: 'vehicles' },
     { label: 'Intrusions Today', value: intrusionsToday, icon: Fence, color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-200', page: 'intrusions' },
     { label: 'Suspicious Activities', value: suspiciousActivities, icon: ShieldAlert, color: 'text-purple-500', bg: 'bg-purple-500/10', border: 'border-purple-200', page: 'suspicious' },
-    { label: 'People Detected', value: peopleDetected, icon: Users, color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-200', page: 'people' },
+    { label: 'People Detected', value: peopleDetected, icon: Users, color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-200', page: 'faces' },
     { label: 'System Health', value: `${avgHealth}%`, icon: Activity, color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-200', page: 'camera_health' },
   ];
 
@@ -140,6 +140,8 @@ export default function Overview({ onNavigate }: { onNavigate: (p: PageId) => vo
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </section>
+        
+
       </div>
     </div>
   );

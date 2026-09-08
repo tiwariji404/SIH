@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+import time
 
 from app.db.session import get_db
 from app.models.core_models import Camera as DB_Camera
@@ -189,3 +190,34 @@ def get_live_annotated_feed(camera_id: str):
 
     return StreamingResponse(frame_generator(), media_type="multipart/x-mixed-replace; boundary=frame")
 
+@router.get("/discover")
+def discover_local_cameras():
+    """
+    Dynamically enumerate available local webcam devices by probing indices 0-9.
+    Returns a list of usable cameras with their index and display name.
+    Does NOT hardcode any camera model, USB ID, or device path.
+    This endpoint is portable across all developers' machines.
+    """
+    import cv2
+
+    discovered = []
+    for index in range(10):
+        cap = cv2.VideoCapture(index)
+        if cap is not None and cap.isOpened():
+            ret, _ = cap.read()
+            if ret:
+                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                discovered.append({
+                    "index": index,
+                    "source": str(index),
+                    "source_type": "LOCAL_WEBCAM",
+                    "display_name": f"Camera {index}",
+                    "resolution": f"{width}x{height}",
+                    "fps": round(fps, 1) if fps > 0 else None,
+                    "available": True
+                })
+            cap.release()
+
+    return {"cameras": discovered, "count": len(discovered)}

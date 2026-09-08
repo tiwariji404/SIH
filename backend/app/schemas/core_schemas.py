@@ -4,8 +4,8 @@ from datetime import datetime
 
 class CameraBase(BaseModel):
     name: str
-    bop: str
-    location: str
+    bop: Optional[str] = None
+    location: Optional[str] = None
     status: str = "DISCONNECTED"
     fps: int = 30
     latency: int = 20
@@ -88,11 +88,11 @@ class Alert(AlertBase):
     model_config = ConfigDict(from_attributes=True)
 
 class VehicleRecordBase(BaseModel):
-    cameraId: str
-    vehicleType: str
+    cameraId: Optional[str] = None
+    vehicleType: Optional[str] = None
     plateNumber: str
-    confidence: int
-    timestamp: str
+    confidence: Optional[int] = None
+    timestamp: Optional[str] = None
     status: str
     direction: Optional[str] = None
 

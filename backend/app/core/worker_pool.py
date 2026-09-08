@@ -1,144 +1,182 @@
 import logging
 import asyncio
+import json
+import uuid
 import numpy as np
 import time
+from typing import Dict
+from datetime import datetime
 
 from app.core.camera_worker import CameraWorker
 from app.db.session import SessionLocal
-from app.services.anpr_pipeline import process_anpr_frame
+from app.services.anpr_pipeline import process_anpr_frame, encode_image_base64
 from app.ws_manager import manager
 
 logger = logging.getLogger(__name__)
 
+
 class WorkerPool:
     """
-    Manages active CameraWorker threads and bridges synchronous ML pipelines 
+    Manages active CameraWorker threads and bridges synchronous ML pipelines
     with asynchronous WebSocket broadcasting.
+
+    Camera Mode Semantics (controlled via context["camera_mode"]):
+        ALL           -> YOLO + Face/Object pipeline + ANPR pipeline
+        FACE & OBJECT -> YOLO + Face/Object pipeline only (no ANPR)
+        ANPR          -> ANPR pipeline only (no YOLO/Face)
     """
     def __init__(self):
         self._workers: Dict[str, CameraWorker] = {}
-        # Keep a reference to the main event loop to execute broadcasts from threads
         try:
             self._loop = asyncio.get_running_loop()
         except RuntimeError:
             self._loop = None
 
+        # Face detection state (per camera)
+        self._face_cascade = None
+        self._known_faces: list = []  # [{id, hist, last_seen, identity}]
+        self._last_face_time: Dict[str, float] = {}
+        self._last_fence_time: float = 0.0
+
+    def _get_face_cascade(self):
+        if self._face_cascade is None:
+            import cv2
+            if not hasattr(cv2, 'CascadeClassifier'):
+                logger.warning(
+                    "cv2.CascadeClassifier not available in this OpenCV build (likely opencv-python-headless 5.x). "
+                    "HAAR face detection is disabled. Install 'opencv-python>=4.8,<5' for full face cascade support."
+                )
+                self._face_cascade = None
+                return None
+            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+            self._face_cascade = cv2.CascadeClassifier(cascade_path)
+            if self._face_cascade.empty():
+                logger.error("Failed to load haarcascade_frontalface_default.xml from %s", cascade_path)
+                self._face_cascade = None
+        return self._face_cascade
+
+
+    def _broadcast_sync(self, payload: dict):
+        """Thread-safe fire-and-forget broadcast to all WebSocket clients."""
+        if self._loop and self._loop.is_running():
+            asyncio.run_coroutine_threadsafe(
+                manager.broadcast(json.dumps(payload)),
+                self._loop
+            )
+
     def _inference_bridge(self, frame: np.ndarray, camera_id: str, context: dict = None):
         """
-        Executes legacy tightly coupled DB persistence inside the isolated worker thread.
-        Broadcasts results back to WebSockets safely.
+        Executes the AI pipeline for a single camera frame inside the isolated worker thread.
+        Routes to YOLO/Face or ANPR based on camera_mode from context.
         """
         context = context or {}
         zones = context.get("zones", [])
         force_watchlist = context.get("force_watchlist", False)
         force_reid = context.get("force_reid", False)
-        is_anpr_camera = "anpr" in camera_id.lower() or context.get("is_anpr", False)
-        
         with SessionLocal() as db:
             try:
-                # 1. YOLO Inference & Fencing Detection (Bypass for ANPR)
-                if not is_anpr_camera:
+                from app.models.core_models import Camera
+                cam_rec = db.query(Camera).filter(Camera.id == camera_id).first()
+                if not cam_rec:
+                    try:
+                        cam_rec = Camera(id=camera_id, name=camera_id, location="Unknown", status="ONLINE", camera_mode="ALL")
+                        db.add(cam_rec)
+                        db.commit()
+                        db.refresh(cam_rec)
+                    except Exception:
+                        db.rollback()
+                        cam_rec = None
+                
+                db_camera_mode = getattr(cam_rec, "camera_mode", "ALL") if cam_rec else "ALL"
+                if not db_camera_mode:
+                    db_camera_mode = "ALL"
+                # Context overrides DB if provided directly
+                camera_mode = (context.get("camera_mode") or db_camera_mode).upper().strip()
+                
+                # Determine which pipelines to run based on camera mode
+                run_face_object = camera_mode in ("ALL", "FACE & OBJECT", "FACE&OBJECT", "FACE_OBJECT")
+                run_anpr = camera_mode in ("ALL", "ANPR")
+
+                # ===================================================
+                # PIPELINE A: YOLO + FACE & OBJECT DETECTION
+                # ===================================================
+                detections = []
+                if run_face_object:
                     from app.vision.model_manager import model_manager
                     model, _, err = model_manager.get_yolo()
                     if err or model is None:
-                        raise RuntimeError(f"YOLO failed to load: {err}")
-                    
-                    # Auto-create camera if missing to prevent FK IntegrityError
-                    from app.models.core_models import Camera
-                    if not db.query(Camera).filter(Camera.id == camera_id).first():
-                        try:
-                            db.add(Camera(id=camera_id, name=camera_id, location="Unknown", status="ONLINE"))
-                            db.commit()
-                        except Exception:
-                            db.rollback()
+                        logger.warning(f"[{camera_id}] YOLO load skipped: {err}")
+                    else:
 
-                    results = model(frame, verbose=False)
-                else:
-                    results = []
-                
-                # Extract YOLO detections to broadcast to frontend explicitly
-                detections = []
-                if not is_anpr_camera:
-                    h, w = frame.shape[:2]
-                    for r in results:
-                        for box in r.boxes:
-                            cls_id = int(box.cls[0])
-                            if cls_id in [0, 2, 3, 5, 7]:
-                                detections.append({
-                                    "bbox": box.xyxy[0].tolist(),
-                                    "class": "person" if cls_id == 0 else "vehicle"
-                                })
+                        results = model(frame, verbose=False)
+                        h, w = frame.shape[:2]
+                        for r in results:
+                            for box in r.boxes:
+                                cls_id = int(box.cls[0])
+                                conf = float(box.conf[0])
+                                if cls_id in [0, 2, 3, 5, 7]:
+                                    bbox = box.xyxy[0].tolist()
+                                    detections.append({
+                                        "bbox": bbox,
+                                        "class": "person" if cls_id == 0 else "vehicle",
+                                        "confidence": conf
+                                    })
+                                    logger.debug(
+                                        f"[{camera_id}] YOLO detection: cls={cls_id} conf={conf:.2f} bbox={bbox}"
+                                    )
 
-                    # SIH DEMO FALLBACK: Guarantee a detection box for Laptop Webcams 
-                    if camera_id.startswith("HW") and not detections:
-                        # Create a huge dummy bounding box representing a person standing directly in front of webcam
-                        detections.append({"bbox": [w*0.2, h*0.2, w*0.8, h*0.8], "class": "person"})
-
-                    # Send to frontend rendering engine
-                    if self._loop and self._loop.is_running() and detections:
-                        import uuid
-                        from datetime import datetime
-                        now_iso = datetime.utcnow().isoformat() + "Z"
-                        for det in detections:
-                            x1, y1, x2, y2 = det["bbox"]
-                            asyncio.run_coroutine_threadsafe(
-                                manager.broadcast({
+                        # Broadcast real detections to frontend (no fake fallback)
+                        if detections:
+                            h, w = frame.shape[:2]
+                            now_iso = datetime.utcnow().isoformat() + "Z"
+                            for det in detections:
+                                x1, y1, x2, y2 = det["bbox"]
+                                self._broadcast_sync({
                                     "type": "detection",
                                     "data": {
                                         "id": f"det-{uuid.uuid4().hex[:8]}",
                                         "cameraId": camera_id,
                                         "objectType": det["class"],
-                                        "trackingId": "TRK-HW",
-                                        "confidence": 85,
+                                        "trackingId": f"TRK-{uuid.uuid4().hex[:6]}",
+                                        "confidence": round(det["confidence"] * 100, 1),
                                         "timestamp": now_iso,
                                         "bbox": {
-                                            "x": (x1 / max(w, 1)) * 100,
-                                            "y": (y1 / max(h, 1)) * 100,
-                                            "width": ((x2 - x1) / max(w, 1)) * 100,
-                                            "height": ((y2 - y1) / max(h, 1)) * 100
+                                            "x": round((x1 / max(w, 1)) * 100, 2),
+                                            "y": round((y1 / max(h, 1)) * 100, 2),
+                                            "width": round(((x2 - x1) / max(w, 1)) * 100, 2),
+                                            "height": round(((y2 - y1) / max(h, 1)) * 100, 2)
                                         },
                                         "label": det["class"].upper()
                                     }
-                                }),
-                                self._loop
-                            )
+                                })
 
-                # Check for active fencing intrusions
-                if zones and len(zones) > 0:
+                # ===================================================
+                # VIRTUAL FENCING CHECK (only if face/object ran)
+                # ===================================================
+                if run_face_object and zones and detections:
                     from app.vision.zones import point_in_polygon, percent_points_to_pixels
                     h, w = frame.shape[:2]
-                    
+
                     for det in detections:
                         x1, y1, x2, y2 = det["bbox"]
                         bottom_center = ((x1 + x2) / 2.0, y2)
-                        
+
                         for zone in zones:
                             poly_points = percent_points_to_pixels(zone['points'], w, h)
                             is_inside = point_in_polygon(bottom_center, poly_points)
-                            
-                            # SIH Hardware Mock Proximity Bypass:
-                            # Since laptop webcams aren't physically deployed in calibrated coordinates,
-                            # if a person walks very closely to the lens (taking >15% of the frame),
-                            # guarantee an intrusion alert so the live demonstration works flawlessly.
-                            box_area = (x2 - x1) * (y2 - y1)
-                            frame_area = w * h
-                            if camera_id.startswith("HW") and (box_area / max(frame_area, 1)) > 0.15:
-                                is_inside = True
 
-                            logger.info(f"DEBUG FENCING: center={bottom_center} inside poly={poly_points}? {is_inside}")
+                            logger.debug(
+                                f"[{camera_id}] Fencing check: center={bottom_center} zone={zone.get('name')} inside={is_inside}"
+                            )
                             if is_inside:
-                                # Only trigger ONCE per few seconds to prevent infinite spam
-                                import time
-                                if getattr(self, '_last_fence_time', 0) > time.time() - 3.0:
+                                # Rate-limit fence alerts to once per 3 seconds
+                                if (time.time() - self._last_fence_time) < 3.0:
                                     continue
                                 self._last_fence_time = time.time()
-                                
+
+                                from app.models.core_models import EventItem
                                 event_id = f"EVT-FENCE-{int(time.time()*1000)}"
-                                from app.models.core_models import EventItem, Alert
-                                import uuid
-                                from datetime import datetime
                                 now_iso = datetime.utcnow().isoformat() + "Z"
-                                
                                 fencing_event = EventItem(
                                     id=event_id,
                                     cameraId=camera_id,
@@ -154,12 +192,12 @@ class WorkerPool:
                                 db.add(fencing_event)
                                 db.commit()
                                 db.refresh(fencing_event)
-                                
+
                                 from app.core.ledger import record_event_ledger
                                 ledger_hash = record_event_ledger(db, fencing_event)
                                 fencing_event.details = {"blockchain_hash": ledger_hash} if ledger_hash else {}
 
-                                intrusion_alert = {
+                                self._broadcast_sync({
                                     "type": "NEW_ALERT",
                                     "data": {
                                         "id": f"ALRT-FENCE-{int(time.time()*1000)}",
@@ -176,166 +214,216 @@ class WorkerPool:
                                         "reasons": fencing_event.reasons,
                                         "blockchain_hash": ledger_hash
                                     }
-                                }
-                                if self._loop and self._loop.is_running():
-                                    asyncio.run_coroutine_threadsafe(
-                                        manager.broadcast(intrusion_alert),
-                                        self._loop
-                                    )
-
-                # 2. ANPR Pipeline
-                vehicles, alerts = process_anpr_frame(
-                    db,
-                    frame,
-                    camera_id=camera_id,
-                    direction="Live",
-                    source="live",
-                    dedupe_seconds=10,
-                )
-                
-                # We are in a worker thread. Schedule coroutines in the main event loop.
-                if self._loop and self._loop.is_running():
-                    for vehicle in vehicles:
-                        asyncio.run_coroutine_threadsafe(
-                            manager.broadcast({"type": "vehicle", "vehicle": vehicle}),
-                            self._loop
-                        )
-                    for alert in alerts:
-                        asyncio.run_coroutine_threadsafe(
-                            manager.broadcast({"type": "NEW_ALERT", "data": alert}),
-                            self._loop
-                        )
-                    # Trigger the PTCH prediction engine checks on every frame processing beat
-                    if not is_anpr_camera:
-                        self._simulate_ptch_check(camera_id)
-                # 3. Face Detection Pipeline (Simple HAAR for demo)
-                import cv2
-                if not hasattr(self, 'face_cascade'):
-                    self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-                    self._known_faces = [] # List of {"id": str, "hist": ndarray, "last_seen": float, "identity": str}
-                
-                import time
-                current_time = time.time()
-                
-                # Check if we should run face detection (throttle to once per 2 seconds per camera for processing load)
-                last_face_time = getattr(self, '_last_face_time', {})
-                if not is_anpr_camera and (current_time - last_face_time.get(camera_id, 0) > 2.0):
-                    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                    faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60))
-                    
-                    if len(faces) > 0:
-                        self._last_face_time = last_face_time
-                        self._last_face_time[camera_id] = current_time
-                        
-                        from app.models.core_models import FaceRecord
-                        from app.services.anpr_pipeline import encode_image_base64
-                        import uuid
-                        from datetime import datetime
-                        
-                        # Process ALL detected faces in the frame
-                        for (x, y, w, h) in faces:
-                            px, py = max(0, x - 20), max(0, y - 20)
-                            pw, ph = min(frame.shape[1] - px, w + 40), min(frame.shape[0] - py, h + 40)
-                            face_crop = frame[py:py+ph, px:px+pw]
-                            
-                            # Calculate HSV Histogram for basic Re-Identification
-                            hsv_crop = cv2.cvtColor(face_crop, cv2.COLOR_BGR2HSV)
-                            hist = cv2.calcHist([hsv_crop], [0, 1], None, [50, 60], [0, 180, 0, 256])
-                            cv2.normalize(hist, hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
-                            
-                            matched_face = None
-                            for kf in self._known_faces:
-                                score = cv2.compareHist(hist, kf["hist"], cv2.HISTCMP_CORREL)
-                                if score > 0.75:  # Similarity threshold
-                                    matched_face = kf
-                                    break
-                                    
-                            TEN_HOURS_SEC = 10 * 3600
-                            
-                            if matched_face:
-                                # Re-Identified Person
-                                if current_time - matched_face["last_seen"] < TEN_HOURS_SEC:
-                                    # Seen within 10 hours, update last_seen but DO NOT log to DB
-                                    matched_face["last_seen"] = current_time
-                                    continue
-                                else:
-                                    # Seen again after 10 hours! Fetch existing identity and log again.
-                                    matched_face["last_seen"] = current_time
-                                    identity = matched_face["identity"]
-                                    status = "AUTHORIZED" if "Verified" in identity else "UNKNOWN"
-                            else:
-                                # New Person Detected
-                                identity = "Watchlist Target" if force_watchlist else ("Verified Staff" if force_reid else f"Unknown ID-{uuid.uuid4().hex[:4].upper()}")
-                                status = "FLAGGED" if force_watchlist else ("AUTHORIZED" if force_reid else "UNKNOWN")
-                                
-                                new_face_id = f"FACE-{uuid.uuid4().hex[:8]}"
-                                self._known_faces.append({
-                                    "id": new_face_id,
-                                    "hist": hist,
-                                    "last_seen": current_time,
-                                    "identity": identity
                                 })
-                            
-                            b64_img = encode_image_base64(face_crop)
-                            now_iso = datetime.utcnow().isoformat() + "Z"
-                            
-                            face_record = FaceRecord(
-                                id=f"FACE-LOG-{uuid.uuid4().hex[:8]}",
-                                cameraId=camera_id,
-                                identity=identity,
-                                confidence=85 + int((w*h)/(frame.shape[0]*frame.shape[1])*10),
-                                timestamp=now_iso,
-                                database="Local DB",
-                                status=status,
-                                image=f"data:image/jpeg;base64,{b64_img}",
-                                direction="Inbound" if "01" in camera_id else "Outbound"
+
+                # ===================================================
+                # PIPELINE B: FACE IDENTITY (within YOLO/Face mode)
+                # ===================================================
+                if run_face_object:
+                    import cv2
+                    face_cascade = self._get_face_cascade()
+                    if face_cascade is not None:
+                        current_time = time.time()
+                        # Throttle face detection to once per 2 seconds per camera
+                        if current_time - self._last_face_time.get(camera_id, 0) > 2.0:
+                            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                            faces = face_cascade.detectMultiScale(
+                                gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60)
                             )
-                            db.add(face_record)
-                            db.commit()
-                            db.refresh(face_record)
-                            
-                            if self._loop and self._loop.is_running():
-                                face_data = {
-                                    "id": face_record.id,
-                                    "cameraId": face_record.cameraId,
-                                    "identity": face_record.identity,
-                                    "confidence": face_record.confidence,
-                                    "timestamp": face_record.timestamp,
-                                    "database": face_record.database,
-                                    "status": face_record.status,
-                                    "image": face_record.image,
-                                    "direction": face_record.direction
-                                }
-                                asyncio.run_coroutine_threadsafe(
-                                    manager.broadcast({"type": "NEW_FACE", "data": face_data}),
-                                    self._loop
-                                )
-                                # Alert ONLY if it's a flagged watchlist match
-                                if status == "FLAGGED":
-                                    face_alert = {
-                                        "type": "NEW_ALERT",
-                                        "data": {
-                                            "id": f"ALRT-FACE-{int(time.time()*1000)}",
-                                            "eventId": face_record.id,
-                                            "severity": "CRITICAL",
-                                            "riskScore": 95,
-                                            "title": "Watchlist Face Detected",
-                                            "what": "Known threat identified",
-                                            "where": camera_id,
-                                            "reason": "Facial match with watchlist database",
-                                            "status": "NEW",
-                                            "createdAt": now_iso,
-                                            "reasons": ["High confidence biometric match"]
-                                        }
-                                    }
-                                    asyncio.run_coroutine_threadsafe(
-                                        manager.broadcast(face_alert),
-                                        self._loop
+
+                            if len(faces) > 0:
+                                self._last_face_time[camera_id] = current_time
+                                from app.models.core_models import FaceRecord
+
+                                for face_idx, (x, y, w, h) in enumerate(faces):
+                                    # Crop face with padding
+                                    px = max(0, x - 20)
+                                    py = max(0, y - 20)
+                                    pw = min(frame.shape[1] - px, w + 40)
+                                    ph = min(frame.shape[0] - py, h + 40)
+                                    face_crop = frame[py:py+ph, px:px+pw]
+
+                                    if face_crop.size == 0:
+                                        continue
+
+                                    # HSV histogram for basic Re-ID
+                                    hsv_crop = cv2.cvtColor(face_crop, cv2.COLOR_BGR2HSV)
+                                    hist = cv2.calcHist([hsv_crop], [0, 1], None, [50, 60], [0, 180, 0, 256])
+                                    cv2.normalize(hist, hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+
+                                    # Try to match against known faces in this session
+                                    matched_face = None
+                                    for kf in self._known_faces:
+                                        score = cv2.compareHist(hist, kf["hist"], cv2.HISTCMP_CORREL)
+                                        if score > 0.75:
+                                            matched_face = kf
+                                            logger.debug(
+                                                f"[{camera_id}] Face re-ID match: id={kf['id']} score={score:.3f}"
+                                            )
+                                            break
+
+                                    TEN_HOURS_SEC = 10 * 3600
+
+                                    # Scoped variables for this face detection result
+                                    face_identity = "UNKNOWN"
+                                    face_status = "UNKNOWN"
+                                    is_new_entry_event = False
+                                    face_id_str = None
+
+                                    if matched_face:
+                                        if current_time - matched_face["last_seen"] < TEN_HOURS_SEC:
+                                            # Seen within 10 hours — update last_seen, no new log entry
+                                            matched_face["last_seen"] = current_time
+                                            logger.debug(f"[{camera_id}] Face seen recently, skipping DB log")
+                                            continue
+                                        else:
+                                            # Re-entry after 10 hours
+                                            matched_face["last_seen"] = current_time
+                                            face_identity = matched_face["identity"]
+                                            face_status = matched_face["status"]
+                                            face_id_str = matched_face["id"]
+                                            is_new_entry_event = True
+                                    else:
+                                        # New face detected
+                                        if force_watchlist:
+                                            face_identity = "Watchlist Target"
+                                            face_status = "FLAGGED"
+                                        elif force_reid:
+                                            face_identity = "Verified Staff"
+                                            face_status = "AUTHORIZED"
+                                        else:
+                                            face_identity = f"Unknown ID-{uuid.uuid4().hex[:4].upper()}"
+                                            face_status = "UNKNOWN"
+
+                                        face_id_str = f"FACE-{uuid.uuid4().hex[:8]}"
+                                        self._known_faces.append({
+                                            "id": face_id_str,
+                                            "hist": hist,
+                                            "last_seen": current_time,
+                                            "identity": face_identity,
+                                            "status": face_status
+                                        })
+                                        is_new_entry_event = True
+
+                                        logger.info(
+                                            f"[{camera_id}] New face detected: id={face_id_str} "
+                                            f"status={face_status} identity={face_identity}"
+                                        )
+
+                                    # Attempt deep identity resolution via IdentityManager
+                                    try:
+                                        from app.services.identity_manager import IdentityManager
+                                        im = IdentityManager(db)
+                                        tracking_id = f"P-{face_id_str}"
+                                        person, is_new_entry_event = im.resolve_person(
+                                            tracking_id=tracking_id,
+                                            face_embedding=hist.flatten().tolist(),
+                                            name=face_identity if face_identity not in ("UNKNOWN", f"Unknown ID-{face_id_str[-4:]}") else None
+                                        )
+                                        face_identity = person.name
+                                        face_status = person.authorization_status
+                                        logger.info(
+                                            f"[{camera_id}] Identity resolved: person_id={person.id} "
+                                            f"name={face_identity} status={face_status} "
+                                            f"entry_count={person.entry_count} is_new={is_new_entry_event}"
+                                        )
+                                    except Exception as e_id:
+                                        logger.warning(f"[{camera_id}] IdentityManager error (using session state): {e_id}")
+
+                                    # Only write DB record and broadcast on genuine new entry events
+                                    if not is_new_entry_event:
+                                        continue
+
+                                    b64_img = encode_image_base64(face_crop)
+                                    now_iso = datetime.utcnow().isoformat() + "Z"
+
+                                    frame_h, frame_w = frame.shape[:2]
+                                    face_area = w * h
+                                    frame_area = frame_w * frame_h
+                                    confidence_score = 85 + int((face_area / max(frame_area, 1)) * 10)
+
+                                    face_record = FaceRecord(
+                                        id=f"FACE-LOG-{uuid.uuid4().hex[:8]}",
+                                        cameraId=camera_id,
+                                        identity=face_identity,
+                                        confidence=confidence_score,
+                                        timestamp=now_iso,
+                                        database="Local DB",
+                                        status=face_status,
+                                        image=f"data:image/jpeg;base64,{b64_img}" if b64_img else None,
+                                        direction="Inbound" if "01" in camera_id else "Unknown"
                                     )
-                                
+                                    db.add(face_record)
+                                    db.commit()
+                                    db.refresh(face_record)
+
+                                    face_data = {
+                                        "id": face_record.id,
+                                        "cameraId": face_record.cameraId,
+                                        "identity": face_record.identity,
+                                        "confidence": face_record.confidence,
+                                        "timestamp": face_record.timestamp,
+                                        "database": face_record.database,
+                                        "status": face_record.status,
+                                        "image": face_record.image,
+                                        "direction": face_record.direction
+                                    }
+                                    self._broadcast_sync({"type": "NEW_FACE", "data": face_data})
+
+                                    # Send CRITICAL alert for watchlist face match
+                                    if face_status == "FLAGGED":
+                                        logger.warning(
+                                            f"[{camera_id}] WATCHLIST face detected: {face_identity}"
+                                        )
+                                        self._broadcast_sync({
+                                            "type": "NEW_ALERT",
+                                            "data": {
+                                                "id": f"ALRT-FACE-{int(time.time()*1000)}",
+                                                "eventId": face_record.id,
+                                                "severity": "CRITICAL",
+                                                "riskScore": 95,
+                                                "title": "Watchlist Face Detected",
+                                                "what": f"Known threat: {face_identity}",
+                                                "where": camera_id,
+                                                "reason": "Facial match with watchlist database",
+                                                "status": "NEW",
+                                                "createdAt": now_iso,
+                                                "reasons": ["High confidence biometric match"],
+                                                "image": face_record.image
+                                            }
+                                        })
+
+                # ===================================================
+                # PIPELINE C: ANPR (vehicle / plate detection)
+                # ===================================================
+                if run_anpr:
+                    try:
+                        # ANPR result variables are fully scoped here — no leakage from face pipeline
+                        vehicles, anpr_alerts = process_anpr_frame(
+                            db,
+                            frame,
+                            camera_id=camera_id,
+                            direction="Live",
+                            source="live",
+                            dedupe_seconds=10,
+                        )
+                        for vehicle in vehicles:
+                            logger.info(
+                                f"[{camera_id}] ANPR result: plate={vehicle.get('plateNumber')} "
+                                f"status={vehicle.get('status')} conf={vehicle.get('confidence')}"
+                            )
+                            self._broadcast_sync({"type": "vehicle", "vehicle": vehicle})
+                        for anpr_alert in anpr_alerts:
+                            logger.warning(
+                                f"[{camera_id}] ANPR watchlist alert: {anpr_alert.get('title')}"
+                            )
+                            self._broadcast_sync({"type": "NEW_ALERT", "data": anpr_alert})
+                    except Exception as anpr_exc:
+                        logger.error(f"[{camera_id}] ANPR pipeline error: {anpr_exc}")
+
             except Exception as exc:
                 db.rollback()
-                logger.exception(f"Worker Pool ANPR Pipeline failed for {camera_id}: {exc}")
+                logger.exception(f"[{camera_id}] Worker inference failed: {exc}")
 
     def enqueue(self, camera_id: str, frame: np.ndarray, context: dict = None) -> bool:
         if not self._loop:
@@ -345,55 +433,18 @@ class WorkerPool:
                 pass
 
         if camera_id not in self._workers:
-            # First time seeing this camera stream, spawn isolated worker
             worker = CameraWorker(camera_id, priority="NORMAL", max_queue_size=5)
             worker.set_callback(self._inference_bridge)
             worker.start()
             self._workers[camera_id] = worker
             logger.info(f"Initialized new CameraWorker for {camera_id}")
 
-        # Inject context directly into the worker queue item so it processes with latest data
         return self._workers[camera_id].enqueue_frame(frame, context=context)
-        
-    def _simulate_ptch_check(self, camera_id: str):
-        """
-        Temporary bridge to demonstrate PTCH functionality without overhauling 
-        the deep Tracker persistence layers during the ANPR pass.
-        Detects simulated exits and generates Handshake alerts.
-        """
-        from app.vision.ptch_engine import ptch_engine
-        from app.vision.tracker import TrackState
-        from datetime import datetime
-        
-        # Simulate a tracking exiting frame event 2% of the time dynamically
-        import random
-        if random.random() < 0.02:
-            dummy_track = TrackState(
-                raw_key="sim-PTCH-1",
-                tracking_id="P-404-GHOST",
-                camera_id=camera_id,
-                object_class="person",
-                object_type="person",
-                first_seen=datetime.utcnow(),
-                last_seen=datetime.utcnow(),
-                confidence=0.89,
-                bbox_xyxy=(1220.0, 100.0, 1260.0, 200.0),
-                last_center=(1240.0, 150.0),
-                velocity=(45.0, 5.0), # Speeding rightwards
-                exit_boundary="East"
-            )
-            dummy_track.status = "Exited"
-            
-            alert = ptch_engine.evaluate_track_exit(dummy_track)
-            if alert and self._loop and self._loop.is_running():
-                asyncio.run_coroutine_threadsafe(
-                    manager.broadcast({"type": "NEW_ALERT", "data": alert}),
-                    self._loop
-                )
 
     def shutdown_all(self):
         for w in self._workers.values():
             w.stop()
         self._workers.clear()
+
 
 worker_pool = WorkerPool()

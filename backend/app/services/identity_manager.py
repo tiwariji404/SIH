@@ -26,7 +26,7 @@ class IdentityManager:
             matched_person = None
             if face_embedding:
                 known_faces = self.db.query(Person).filter(Person.embedding.isnot(None)).all()
-                best_distance = 0.40 # Cosine similarity threshold for DeepFace (VGG-Face)
+                best_distance = 0.15 # Stricter cosine similarity threshold for histogram-based embeddings
                 
                 for kf in known_faces:
                     try:

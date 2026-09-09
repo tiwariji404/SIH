@@ -260,7 +260,7 @@ class WorkerPool:
                                 from app.models.core_models import FaceRecord
 
                                 for face_idx, (x, y, w, h) in enumerate(faces):
-                                    # Crop face with padding
+                                    # Crop face with padding for UI display
                                     px = max(0, x - 20)
                                     py = max(0, y - 20)
                                     pw = min(frame.shape[1] - px, w + 40)
@@ -270,8 +270,12 @@ class WorkerPool:
                                     if face_crop.size == 0:
                                         continue
 
+                                    # Crop face + upper body for color histogram Re-ID (includes clothing color entropy)
+                                    body_h = min(frame.shape[0] - py, h + int(h * 2.5))
+                                    body_crop = frame[py:py+body_h, px:px+pw]
+
                                     # HSV histogram for basic Re-ID
-                                    hsv_crop = cv2.cvtColor(face_crop, cv2.COLOR_BGR2HSV)
+                                    hsv_crop = cv2.cvtColor(body_crop, cv2.COLOR_BGR2HSV)
                                     hist = cv2.calcHist([hsv_crop], [0, 1], None, [50, 60], [0, 180, 0, 256])
                                     cv2.normalize(hist, hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
 
@@ -279,7 +283,7 @@ class WorkerPool:
                                     matched_face = None
                                     for kf in self._known_faces:
                                         score = cv2.compareHist(hist, kf["hist"], cv2.HISTCMP_CORREL)
-                                        if score > 0.75:
+                                        if score > 0.85:  # Stricter threshold because body color is more distinct
                                             matched_face = kf
                                             logger.debug(
                                                 f"[{camera_id}] Face re-ID match: id={kf['id']} score={score:.3f}"

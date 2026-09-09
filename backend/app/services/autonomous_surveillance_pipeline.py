@@ -127,15 +127,16 @@ class AutonomousSurveillancePipeline:
                                             "type": "vehicle",
                                             "vehicle": {
                                                 "id": veh_rec.id,
-                                                "camera_id": camera_id,
+                                                "cameraId": camera_id,
                                                 "plate": disp_plate,
-                                                "plate_number": disp_plate,
+                                                "plateNumber": disp_plate,
                                                 "confidence": conf_pct,
                                                 "status": veh_rec.status,
                                                 "timestamp": timestamp_str,
-                                                "vehicle_type": det.object_class.upper(),
+                                                "vehicleType": det.object_class.upper(),
                                                 "image": veh_rec.representative_image,
-                                                "entry_count": veh_rec.entry_count
+                                                "annotatedImage": veh_rec.representative_image,
+                                                "entryCount": veh_rec.entry_count
                                             }
                                         }))
                                 except Exception:

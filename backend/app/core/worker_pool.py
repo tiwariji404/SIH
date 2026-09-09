@@ -153,15 +153,16 @@ class WorkerPool:
                         if detections:
                             h, w = frame.shape[:2]
                             now_iso = datetime.utcnow().isoformat() + "Z"
-                            for det in detections:
+                            for idx, det in enumerate(detections):
                                 x1, y1, x2, y2 = det["bbox"]
+                                stable_id = f"{camera_id}-{det['class']}-{idx}"
                                 self._broadcast_sync({
                                     "type": "detection",
                                     "data": {
-                                        "id": f"det-{uuid.uuid4().hex[:8]}",
+                                        "id": f"det-{stable_id}",
                                         "cameraId": camera_id,
                                         "objectType": det["class"],
-                                        "trackingId": f"TRK-{uuid.uuid4().hex[:6]}",
+                                        "trackingId": f"TRK-{stable_id}",
                                         "confidence": round(det["confidence"] * 100, 1),
                                         "timestamp": now_iso,
                                         "bbox": {

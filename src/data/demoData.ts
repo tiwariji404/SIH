@@ -89,6 +89,7 @@ export function generateCameras(): Camera[] {
       detectionCount: status === 'OFFLINE' ? 0 : rand(3, 18),
       coords: { x: rand(15, 75), y: rand(15, 75) },
       mapCoord: MAP_COORDS[Math.min(bopIdx, 7)],
+      camera_mode: 'ALL',
     });
   }
   return cameras;

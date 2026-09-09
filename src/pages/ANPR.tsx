@@ -167,7 +167,7 @@ export default function ANPR() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <Car className="h-6 w-6 text-accent-600" /> ANPR - Automatic Number Plate Recognition
+            <Car className="h-6 w-6 text-accent-600" /> ANPR Detection
           </h1>
           <p className="text-xs text-slate-600">High-precision vehicle localization, Indian HSRP/BH-series OCR, and real-time watchlist triage.</p>
         </div>
@@ -294,9 +294,9 @@ export default function ANPR() {
 
           <div className="card p-6 border-slate-200 shadow-sm bg-white">
              <h2 className="text-base font-black text-slate-800 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
-                <Upload className="h-4 w-4 text-blue-600" /> Analyze Media
+                <Upload className="h-4 w-4 text-blue-600" /> Analyze Uploaded Media
              </h2>
-             <p className="text-xs text-slate-500 mb-3">Upload high-resolution camera images or surveillance video footage to run localized ANPR.</p>
+             <p className="text-xs text-slate-500 mb-3">Upload camera images or surveillance video footage to run localized ANPR processing.</p>
              <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
@@ -434,6 +434,7 @@ export default function ANPR() {
                   {/* Details table */}
                   <div className="space-y-1 text-xs">
                     <Row label="Vehicle Class" value={v.vehicleType || 'Vehicle'} />
+                    <Row label="Detections (Session)" value={v.entryCount?.toString() || '1'} />
                     <Row label="Camera Source" value={v.cameraId} />
                     <Row label="Travel Direction" value={v.direction || 'Unknown'} />
                     {v.stateCode && <Row label="State Jurisdiction" value={v.stateCode} />}

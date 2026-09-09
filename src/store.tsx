@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import type {
-  Detection, User, AlertStatus, ScenarioType, CameraMode, Role, SavedFence
+  Detection, User, AlertStatus, ScenarioType, CameraMode, Role, SavedFence,
+  Camera, EventItem, Alert, VehicleRecord, Zone, TrackRecord, AuditLog, FaceRecord
 } from './types';
 import { api, WS_BASE_URL } from './lib/api';
 
@@ -89,6 +90,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const wsRef = useRef<WebSocket | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const detectionTtlRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
     watchlistRef.current = watchlistPlates;
@@ -229,23 +231,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   };
                   const newList = [...prev];
                   newList.splice(existingIdx, 1);
-                  return [updated, ...newList].slice(0, 50);
+                  return [updated, ...newList].slice(0, 200);
                 } else {
                   return [{...face, history: [{
                     timestamp: face.timestamp,
                     cameraId: face.cameraId,
                     image: face.image,
                     confidence: face.confidence
-                  }]}, ...prev].slice(0, 50);
+                  }]}, ...prev].slice(0, 200);
                 }
               });
+            } else if (data.type === 'detection' && data.data) {
+              // Real YOLO bounding box from worker_pool — render it and auto-expire after 3s
+              const trackId = data.data.trackingId || `trk-${Date.now()}`;
+              const det: Detection = {
+                id: data.data.id || trackId,
+                cameraId: data.data.cameraId,
+                objectType: data.data.objectType || 'person',
+                trackingId: trackId,
+                confidence: data.data.confidence || 0,
+                timestamp: data.data.timestamp || new Date().toISOString(),
+                bbox: {
+                  x: data.data.bbox?.x ?? 0,
+                  y: data.data.bbox?.y ?? 0,
+                  w: data.data.bbox?.width ?? data.data.bbox?.w ?? 0,
+                  h: data.data.bbox?.height ?? data.data.bbox?.h ?? 0,
+                },
+                label: data.data.label || data.data.objectType || 'UNKNOWN',
+              };
+              setDetections(prev => {
+                const filtered = prev.filter(d => d.id !== det.id);
+                return [...filtered, det];
+              });
+              // Auto-remove after 3 seconds
+              const existing = detectionTtlRef.current.get(det.id);
+              if (existing) clearTimeout(existing);
+              const ttl = setTimeout(() => {
+                setDetections(prev => prev.filter(d => d.id !== det.id));
+                detectionTtlRef.current.delete(det.id);
+              }, 3000);
+              detectionTtlRef.current.set(det.id, ttl);
             } else if (data.type === 'intrusion') {
               const alarmItem = { ...data, timestamp: new Date().toISOString(), status: 'NEW' };
               setActiveAlarm(alarmItem);
             } else if (data.type === 'vehicle' && data.vehicle) {
               setVehicles(prev => {
                 const vehicle = data.vehicle;
-                const existingIdx = prev.findIndex(v => v.plateNumber === vehicle.plateNumber);
+                const existingIdx = prev.findIndex(v => v.id === vehicle.id);
                 if (existingIdx !== -1) {
                   const existing = prev[existingIdx];
                   const newHistory = existing.history ? [...existing.history] : [];
@@ -263,6 +295,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     plateImage: vehicle.plateImage || existing.plateImage,
                     cameraId: vehicle.cameraId,
                     confidence: vehicle.confidence,
+                    entryCount: vehicle.entry_count || existing.entryCount,
                     history: newHistory
                   };
                   const newList = [...prev];

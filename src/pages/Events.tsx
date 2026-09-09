@@ -84,10 +84,10 @@ export default function Events() {
                   <td className="px-4 py-2.5 text-xs text-slate-800">{e.eventType}</td>
                   <td className="px-4 py-2.5 text-xs text-slate-600 font-mono">{e.trackingId}</td>
                   <td className="px-4 py-2.5">
-                    <span className={`badge ${riskColor[e.severity]}`}>{e.severity} ({e.riskScore})</span>
+                    <span className={`badge ${riskColor[e.severity as keyof typeof riskColor]}`}>{e.severity} ({e.riskScore})</span>
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className={`badge ${statusColor[e.status]}`}>{e.status}</span>
+                    <span className={`badge ${statusColor[e.status as keyof typeof statusColor]}`}>{e.status}</span>
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <button 

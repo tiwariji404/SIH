@@ -60,7 +60,7 @@ class WorkerPool:
         """Thread-safe fire-and-forget broadcast to all WebSocket clients."""
         if self._loop and self._loop.is_running():
             asyncio.run_coroutine_threadsafe(
-                manager.broadcast(json.dumps(payload)),
+                manager.broadcast(payload),
                 self._loop
             )
 
@@ -108,22 +108,46 @@ class WorkerPool:
                         logger.warning(f"[{camera_id}] YOLO load skipped: {err}")
                     else:
 
+                        # COCO class name lookup
+                        COCO_NAMES = {
+                            0: 'person',
+                            2: 'car', 3: 'motorcycle', 5: 'bus', 7: 'truck',
+                            14: 'bird', 15: 'cat', 16: 'dog',
+                            17: 'horse', 18: 'sheep', 19: 'cow',
+                            20: 'elephant', 21: 'bear'
+                        }
+                        # person/vehicle classes
+                        PERSON_CLASSES = {0}
+                        VEHICLE_CLASSES = {2, 3, 5, 7}
+                        ANIMAL_CLASSES = {14, 15, 16, 17, 18, 19, 20, 21}
+
                         results = model(frame, verbose=False)
                         h, w = frame.shape[:2]
                         for r in results:
                             for box in r.boxes:
                                 cls_id = int(box.cls[0])
                                 conf = float(box.conf[0])
-                                if cls_id in [0, 2, 3, 5, 7]:
-                                    bbox = box.xyxy[0].tolist()
-                                    detections.append({
-                                        "bbox": bbox,
-                                        "class": "person" if cls_id == 0 else "vehicle",
-                                        "confidence": conf
-                                    })
-                                    logger.debug(
-                                        f"[{camera_id}] YOLO detection: cls={cls_id} conf={conf:.2f} bbox={bbox}"
-                                    )
+                                if cls_id in PERSON_CLASSES:
+                                    obj_type = 'person'
+                                    label = 'PERSON'
+                                elif cls_id in VEHICLE_CLASSES:
+                                    obj_type = 'vehicle'
+                                    label = COCO_NAMES.get(cls_id, 'VEHICLE').upper()
+                                elif cls_id in ANIMAL_CLASSES:
+                                    obj_type = 'animal'
+                                    label = COCO_NAMES.get(cls_id, 'ANIMAL').upper()
+                                else:
+                                    continue
+                                bbox = box.xyxy[0].tolist()
+                                detections.append({
+                                    "bbox": bbox,
+                                    "class": obj_type,
+                                    "label": label,
+                                    "confidence": conf
+                                })
+                                logger.debug(
+                                    f"[{camera_id}] YOLO: cls={cls_id}({label}) conf={conf:.2f} bbox={bbox}"
+                                )
 
                         # Broadcast real detections to frontend (no fake fallback)
                         if detections:
@@ -146,7 +170,7 @@ class WorkerPool:
                                             "width": round(((x2 - x1) / max(w, 1)) * 100, 2),
                                             "height": round(((y2 - y1) / max(h, 1)) * 100, 2)
                                         },
-                                        "label": det["class"].upper()
+                                        "label": det.get("label", det["class"].upper())
                                     }
                                 })
 

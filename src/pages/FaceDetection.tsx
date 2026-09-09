@@ -17,7 +17,7 @@ export default function FaceDetection() {
   const fetchHistory = async (pageNum: number) => {
     try {
       setLoading(true);
-      const data = await api.analytics.faces(pageNum * 50, 50);
+      const data = await api.analytics.faces(pageNum * 20, 20);
       setPaginatedFaces(data);
     } catch (e) {
       console.error(e);
@@ -56,9 +56,9 @@ export default function FaceDetection() {
         <div>
           <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
             <ScanFace className="h-8 w-8 text-indigo-600" />
-            Entry/Exit Access Control
+            Face & Object Detection
           </h1>
-          <p className="text-slate-500 font-medium mt-1">Facial recognition access logs restricted to perimeter entry points.</p>
+          <p className="text-slate-500 font-medium mt-1">Autonomous identity tracking and object logs across all zones.</p>
         </div>
       </div>
 
@@ -90,7 +90,7 @@ export default function FaceDetection() {
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Records</h3>
           <p className="text-2xl font-black text-indigo-900">{paginatedFaces.length}</p>
-          <p className="text-xs text-slate-400 mt-1">This page (50 max)</p>
+          <p className="text-xs text-slate-400 mt-1">This page</p>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-emerald-200">
           <h3 className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-2">Authorized</h3>
@@ -114,12 +114,12 @@ export default function FaceDetection() {
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2 text-slate-800 font-bold text-lg">
             <ArrowRightLeft className="w-5 h-5 text-indigo-500" />
-            Recent Access Logs
+            Detection Logs
           </div>
           <div className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full flex gap-3">
              <button disabled={page === 0} onClick={() => setPage(page-1)} className="hover:text-indigo-600 disabled:opacity-50">PREV</button>
              <span>PAGE {page + 1}</span>
-             <button disabled={paginatedFaces.length < 50} onClick={() => setPage(page+1)} className="hover:text-indigo-600 disabled:opacity-50">NEXT</button>
+             <button disabled={paginatedFaces.length < 20} onClick={() => setPage(page+1)} className="hover:text-indigo-600 disabled:opacity-50">NEXT</button>
           </div>
         </div>
 
@@ -156,7 +156,21 @@ export default function FaceDetection() {
                     </td>
                     <td className="px-6 py-4">
                       {face.image ? (
-                        <img src={face.image} alt="Detection" className="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-sm" />
+                        <img 
+                           src={face.image} 
+                           alt="Detection" 
+                           className="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-sm cursor-pointer hover:scale-105 transition-transform" 
+                           onClick={() => {
+                             const viewer = document.createElement('div');
+                             viewer.className = 'fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4 cursor-pointer';
+                             viewer.onclick = () => viewer.remove();
+                             const img = document.createElement('img');
+                             img.src = face.image || '';
+                             img.className = 'max-w-full max-h-full object-contain rounded-xl shadow-2xl';
+                             viewer.appendChild(img);
+                             document.body.appendChild(viewer);
+                           }}
+                        />
                       ) : (
                         <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center">
                           <ScanFace className="w-5 h-5 text-slate-400" />

@@ -10,7 +10,7 @@ interface ModeSelectorProps {
 
 const MODES: { value: CameraMode; label: string; icon: any; colorClass: string; bgClass: string }[] = [
   { value: 'ALL', label: 'ALL', icon: Activity, colorClass: 'text-emerald-400', bgClass: 'bg-emerald-500/10' },
-  { value: 'FACE_OBJECT', label: 'FACE & OBJECT', icon: Shield, colorClass: 'text-purple-400', bgClass: 'bg-purple-500/10' },
+  { value: 'FACE & OBJECT', label: 'FACE & OBJECT', icon: Shield, colorClass: 'text-purple-400', bgClass: 'bg-purple-500/10' },
   { value: 'ANPR', label: 'ANPR', icon: ScanLine, colorClass: 'text-blue-400', bgClass: 'bg-blue-500/10' },
 ];
 

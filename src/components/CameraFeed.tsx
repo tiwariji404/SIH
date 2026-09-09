@@ -77,7 +77,8 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
                   type: 'frame', 
                   camera_id: camera.id, 
                   image: base64,
-                  zones: activeZonesForCam 
+                  zones: activeZonesForCam,
+                  camera_mode: camera.camera_mode || 'ALL'
                }));
             }
          }, 500); 
@@ -98,7 +99,7 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
 
   return (
     <div className={`relative overflow-hidden rounded-lg border bg-black flex flex-col ${isOffline ? 'border-red-500/30' : hasLive ? 'border-emerald-500/40' : 'border-white/10'} ${fullHeight ? 'h-full w-full' : 'h-full'}`}>
-      <div className={`relative flex-1 w-full ${fullHeight ? 'h-full' : compact ? 'h-40 min-h-[14rem]' : 'min-h-[14rem]'} overflow-hidden`}>
+      <div className={`relative flex-1 w-full aspect-video ${fullHeight ? 'h-full' : compact ? 'h-40 min-h-[14rem]' : 'min-h-[14rem]'} overflow-hidden`}>
         {isOffline ? (
           <div className="flex h-full w-full items-center justify-center bg-black">
             <div className="text-center">
@@ -157,7 +158,7 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
                 {camZones.map(zone => (
                   <polygon
                     key={zone.id}
-                    points={zone.coordinates.map(p => `${p.x},${p.y}`).join(' ')}
+                    points={zone.coordinates.map((p: { x: number; y: number }) => `${p.x},${p.y}`).join(' ')}
                     fill="rgba(239,68,68,0.1)"
                     stroke={zone.severity === 'CRITICAL' ? '#ef4444' : '#f97316'}
                     strokeWidth="0.5"
@@ -168,14 +169,13 @@ export default function CameraFeed({ camera, detections = [], showOverlay = true
             )}
 
             {/* Detection boxes */}
-            {showOverlay && camDetections.map(det => (
-              <DetectionBox key={det.id} det={det} night={isNight} />
-            ))}
+            <div className="absolute inset-0 pointer-events-none z-30">
+              {showOverlay && camDetections.map(det => (
+                <DetectionBox key={det.id} det={det} night={isNight} />
+              ))}
+            </div>
 
-            {/* Default simulated detection if no explicit detections */}
-            {showOverlay && camDetections.length === 0 && camera.status === 'ONLINE' && camera.scenario !== 'normal' && !hasLive && (
-              <DefaultDetection camera={camera} night={isNight} />
-            )}
+            {/* Default simulated detection if no explicit detections - removed for strict real system */}
 
             {/* Night vision tint */}
             {isNight && (
@@ -234,6 +234,7 @@ function DetectionBox({ det, night }: { det: Detection; night: boolean }) {
     vehicle: 'border-blue-400',
     face: 'border-purple-400',
     plate: 'border-amber-400',
+    animal: 'border-orange-400',
   };
   const color = colors[det.objectType] || 'border-accent-400';
   const labelBg: Record<string, string> = {
@@ -241,11 +242,12 @@ function DetectionBox({ det, night }: { det: Detection; night: boolean }) {
     vehicle: 'bg-blue-500/80',
     face: 'bg-purple-500/80',
     plate: 'bg-amber-500/80',
+    animal: 'bg-orange-500/80',
   };
 
   return (
     <div
-      className={`absolute border-2 ${color} rounded-sm pointer-events-none`}
+      className={`absolute border-2 ${color} rounded-sm pointer-events-none shadow-[0_0_10px_rgba(0,0,0,0.5)] z-40 transition-all duration-100 ease-linear`}
       style={{
         left: `${det.bbox.x}%`,
         top: `${det.bbox.y}%`,
@@ -253,8 +255,8 @@ function DetectionBox({ det, night }: { det: Detection; night: boolean }) {
         height: `${det.bbox.h}%`,
       }}
     >
-      <div className={`absolute -top-5 left-0 ${labelBg[det.objectType]} px-1.5 py-0.5 rounded-sm text-[9px] font-mono text-white whitespace-nowrap`}>
-        {det.label} | {det.trackingId} | {det.confidence}%
+      <div className={`absolute -top-6 left-[-2px] ${labelBg[det.objectType]} px-1.5 py-0.5 rounded-t text-[10px] font-bold text-white whitespace-nowrap shadow-md`}>
+        {det.label.toUpperCase()} {Math.round(det.confidence)}%
       </div>
       {det.objectType === 'person' && (
         <div className="absolute inset-0 flex items-center justify-center">
@@ -265,45 +267,3 @@ function DetectionBox({ det, night }: { det: Detection; night: boolean }) {
   );
 }
 
-function DefaultDetection({ camera, night }: { camera: Camera; night: boolean }) {
-  const isVehicle = camera.scenario === 'vehicle' || camera.scenario === 'anpr';
-  const isPerson = camera.scenario === 'intrusion' || camera.scenario === 'night' || camera.scenario === 'suspicious';
-
-  if (isVehicle) {
-    return (
-      <div className="absolute" style={{ left: '35%', top: '50%', width: '30%', height: '25%' }}>
-        <div className="absolute inset-0 border-2 border-blue-400 rounded-sm" />
-        <div className="absolute -top-5 left-0 bg-blue-500/80 px-1.5 py-0.5 rounded-sm text-[9px] font-mono text-white whitespace-nowrap">
-          CAR | V-022 | 95%
-        </div>
-        {camera.scenario === 'anpr' && (
-          <div className="absolute -bottom-6 left-0 bg-amber-500/80 px-1.5 py-0.5 rounded-sm text-[9px] font-mono text-white whitespace-nowrap">
-            CG04AB1234 | 96%
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (isPerson) {
-    return (
-      <div className="absolute" style={{ left: '40%', top: '30%', width: '18%', height: '40%' }}>
-        <div className={`absolute inset-0 border-2 ${night ? 'border-indigo-400' : 'border-accent-400'} rounded-sm`}>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className={`w-2 h-2 rounded-full ${night ? 'bg-indigo-300' : 'bg-accent-400'} animate-ping`} />
-          </div>
-        </div>
-        <div className={`absolute -top-5 left-0 ${night ? 'bg-indigo-500/80' : 'bg-accent-500/80'} px-1.5 py-0.5 rounded-sm text-[9px] font-mono text-white whitespace-nowrap`}>
-          PERSON | P-104 | 94%
-        </div>
-        {camera.scenario === 'suspicious' && (
-          <div className="absolute -bottom-6 left-0 bg-amber-500/80 px-1.5 py-0.5 rounded-sm text-[9px] font-mono text-white whitespace-nowrap">
-            LOITERING 73s
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return null;
-}

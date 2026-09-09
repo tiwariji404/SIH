@@ -5,7 +5,7 @@ export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type CameraStatus = 'ONLINE' | 'OFFLINE' | 'DEGRADED' | 'LIVE' | 'DISCONNECTED' | 'ERROR' | 'MAINTENANCE';
 export type CameraMode =
   | 'ALL'
-  | 'FACE_OBJECT'
+  | 'FACE & OBJECT'
   | 'ANPR';
 
 export type ScenarioType =
@@ -17,7 +17,7 @@ export type ScenarioType =
   | 'anpr'
   | 'camera_failure';
 
-export type ObjectType = 'person' | 'vehicle' | 'face' | 'plate';
+export type ObjectType = 'person' | 'vehicle' | 'face' | 'plate' | 'animal';
 
 export interface User {
   id: string;
@@ -114,6 +114,7 @@ export interface VehicleRecord {
   stateCode?: string;
   sharpness?: number;
   rawText?: string;
+  entryCount?: number;
   history?: { timestamp: string; cameraId: string; image?: string; confidence: number }[];
 }
 

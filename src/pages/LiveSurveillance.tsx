@@ -277,7 +277,7 @@ export default function LiveSurveillance() {
               All Cameras
             </button>
 
-            {/* Face Detection Entry/Exit Group */}
+            {/* Face & Object Detection Group */}
             <button
               onClick={() => setSelectedLiveCameraIds(['CAM-01'])}
               className={`glass-chip whitespace-nowrap flex items-center gap-1.5 ${selectedLiveCameraIds?.length === 1 && selectedLiveCameraIds.includes('CAM-01')
@@ -286,7 +286,7 @@ export default function LiveSurveillance() {
                 }`}
             >
               <span className={`status-dot ${selectedLiveCameraIds?.length === 1 && selectedLiveCameraIds.includes('CAM-01') ? 'bg-indigo-400' : 'bg-slate-500'}`} />
-              Face Detection (Entry/Exit)
+              Face & Object Detection
             </button>
 
             {/* ANPR Group */}

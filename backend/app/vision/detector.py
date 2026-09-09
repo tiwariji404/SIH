@@ -8,7 +8,7 @@ from ultralytics import YOLO
 from app.config import settings
 
 
-TARGET_CLASSES = {"person", "car", "motorcycle", "bus", "truck"}
+TARGET_CLASSES = {"person", "car", "motorcycle", "bus", "truck", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear"}
 
 
 @dataclass(slots=True)
@@ -52,7 +52,14 @@ class YoloTrackingDetector:
         detections: list[DetectionObservation] = []
         for index, box in enumerate(xyxy):
             object_class = str(self.model.names[int(class_ids[index])])
-            object_type = "person" if object_class == "person" else "vehicle"
+            
+            if object_class == "person":
+                object_type = "person"
+            elif object_class in {"car", "motorcycle", "bus", "truck"}:
+                object_type = "vehicle"
+            else:
+                object_type = "animal"
+                
             detections.append(
                 DetectionObservation(
                     raw_track_id=None if track_ids[index] is None else int(track_ids[index]),

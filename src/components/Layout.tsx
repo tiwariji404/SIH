@@ -48,7 +48,7 @@ interface NavItem {
 const NAV_ITEMS: Record<string, NavItem> = {
   overview: { id: 'overview', label: 'Dashboard Overview', icon: LayoutDashboard },
   fences: { id: 'fences', label: 'Virtual Fencing', icon: Shield },
-  anpr: { id: 'anpr', label: 'ANPR (Insert Capture)', icon: TrafficCone },
+  anpr: { id: 'anpr', label: 'ANPR Detection', icon: TrafficCone },
   live: { id: 'live', label: 'Live Surveillance', icon: Radio, accent: 'text-red-500' },
   events: { id: 'events', label: 'Event Log', icon: FileText },
   blockchain: { id: 'blockchain', label: 'Blockchain Ledger', icon: Database, accent: 'text-emerald-500' },

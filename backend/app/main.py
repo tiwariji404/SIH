@@ -203,7 +203,8 @@ async def websocket_endpoint(websocket: WebSocket):
             zones = payload.get("zones", [])
             force_watchlist = payload.get("force_watchlist", False)
             force_reid = payload.get("force_reid", False)
-            context = {"zones": zones, "force_watchlist": force_watchlist, "force_reid": force_reid}
+            camera_mode = payload.get("camera_mode", "ALL")
+            context = {"zones": zones, "force_watchlist": force_watchlist, "force_reid": force_reid, "camera_mode": camera_mode}
             success = worker_pool.enqueue(camera_id, frame, context)
             if not success:
                 # Frame dropped purposefully under severe backpressure -> Protect system stability.

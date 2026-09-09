@@ -55,7 +55,7 @@ class AutonomousSurveillancePipeline:
             return str(file_path), file_url, sha256
         return "", "", "0" * 64
 
-    def process_live_cctv_frame(self, camera_id: str, frame: np.ndarray) -> np.ndarray:
+    def process_live_cctv_frame(self, camera_id: str, frame: np.ndarray, context: dict = None) -> np.ndarray:
         """Processes a single live CCTV frame from any camera infrastructure and returns
         the tactical HUD annotated frame ready for display."""
         h, w = frame.shape[:2]
@@ -67,6 +67,12 @@ class AutonomousSurveillancePipeline:
         detections = self.detector.infer(frame)
         if not detections:
             return annotated
+
+        if context is None:
+            context = {}
+        camera_mode = context.get("camera_mode", "ALL")
+        run_face_object = camera_mode in ("ALL", "FACE & OBJECT", "FACE&OBJECT", "FACE_OBJECT")
+        run_anpr = camera_mode in ("ALL", "ANPR")
 
         with SessionLocal() as db:
             # Query active perimeter zones for this camera
@@ -80,7 +86,7 @@ class AutonomousSurveillancePipeline:
                 # -------------------------------------------------------------
                 # SCENARIO A: VEHICLE DETECTED -> RUN AUTO-ANPR & WATCHLIST
                 # -------------------------------------------------------------
-                if det.object_type == "vehicle":
+                if det.object_type == "vehicle" and run_anpr:
                     box_color = (255, 180, 0) # Cyan/Blue default for vehicles
                     tag_text = f"{det.object_class.upper()} [{conf_pct}%]"
                     
@@ -95,12 +101,21 @@ class AutonomousSurveillancePipeline:
                             state_code = anpr_service.get_state_code(norm_plate)
                             tag_text = f"{disp_plate} [{state_code or 'IN'}] {conf_pct}%"
 
+                            # Extract live image for persistence
+                            live_image_b64_veh = None
+                            try:
+                                import base64
+                                _, buffer = cv2.imencode('.jpg', vcrop)
+                                live_image_b64_veh = f"data:image/jpeg;base64,{base64.b64encode(buffer).decode('utf-8')}"
+                            except Exception:
+                                pass
+
                             # Identity & Tracking deduplication
                             id_manager = IdentityManager(db)
-                            veh_rec = id_manager.resolve_vehicle(tracking_id=track_id, plate_number=norm_plate)
+                            veh_rec, is_new = id_manager.resolve_vehicle(tracking_id=track_id, plate_number=norm_plate, live_image=live_image_b64_veh)
 
                             # Record Vehicle Log into Database & Broadcast
-                            v_dedupe_key = f"VEH:{camera_id}:{norm_plate}"
+                            v_dedupe_key = f"VEH:{camera_id}:{track_id}"
                             now_v = time.time()
                             if now_v - self._last_alert_time.get(v_dedupe_key, 0) > 15.0:
                                 self._last_alert_time[v_dedupe_key] = now_v
@@ -119,13 +134,21 @@ class AutonomousSurveillancePipeline:
                                                 "status": veh_rec.status,
                                                 "timestamp": timestamp_str,
                                                 "vehicle_type": det.object_class.upper(),
+                                                "image": veh_rec.representative_image,
+                                                "entry_count": veh_rec.entry_count
                                             }
                                         }))
                                 except Exception:
                                     pass
 
+                            # Resolve watchlist status
+                            wl_match = db.query(WatchlistRecord).filter(
+                                WatchlistRecord.plate_number == norm_plate
+                            ).first()
+
                             if veh_rec.status == "WATCHLIST":
-                                box_color = (0, 0, 240) # Bright Red
+                                box_color = (0, 0, 240)  # Bright Red
+                                wl_desc = wl_match.description if wl_match else "Watchlist match"
                                 tag_text = f"! WATCHLIST ! {disp_plate}"
 
                                 # Cooldown-controlled alert dispatch (once per 20 seconds)
@@ -133,17 +156,43 @@ class AutonomousSurveillancePipeline:
                                 now = time.time()
                                 if now - self._last_alert_time.get(dedupe_key, 0) > 20.0:
                                     self._last_alert_time[dedupe_key] = now
-                                    self._create_watchlist_alert(db, camera_id, disp_plate, wl_match.description, timestamp, frame)
+                                    self._create_watchlist_alert(db, camera_id, disp_plate, wl_desc, timestamp, frame)
 
                     # Draw Vehicle Box & Floating Tag
                     cv2.rectangle(annotated, (x1, y1), (x2, y2), box_color, 2)
                     cv2.rectangle(annotated, (x1, y1 - 20), (x1 + len(tag_text) * 9, y1), box_color, -1)
                     cv2.putText(annotated, tag_text, (x1 + 4, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 2)
 
+                    # Broadcast detection bbox to WebSocket for frontend overlay
+                    try:
+                        import asyncio as _asyncio
+                        _loop = _asyncio.get_event_loop()
+                        if _loop.is_running():
+                            _loop.create_task(manager.broadcast({
+                                "type": "detection",
+                                "data": {
+                                    "id": f"det-{det.raw_track_id or uuid.uuid4().hex[:8]}",
+                                    "cameraId": camera_id,
+                                    "objectType": "vehicle",
+                                    "trackingId": track_id,
+                                    "confidence": conf_pct,
+                                    "timestamp": timestamp_str,
+                                    "bbox": {
+                                        "x": round((x1 / max(w, 1)) * 100, 2),
+                                        "y": round((y1 / max(h, 1)) * 100, 2),
+                                        "width": round(((x2 - x1) / max(w, 1)) * 100, 2),
+                                        "height": round(((y2 - y1) / max(h, 1)) * 100, 2),
+                                    },
+                                    "label": det.object_class.upper()
+                                }
+                            }))
+                    except Exception:
+                        pass
+
                 # -------------------------------------------------------------
                 # SCENARIO B: PERSON DETECTED -> RUN SPATIAL ZONE & LOITERING
                 # -------------------------------------------------------------
-                elif det.object_type == "person":
+                elif det.object_type == "person" and run_face_object:
                     box_color = (0, 230, 100) # Green normal
                     person_foot = ((x1 + x2) // 2, y2)
                     tag_text = f"PERSON {track_id} [{conf_pct}%]"
@@ -168,28 +217,37 @@ class AutonomousSurveillancePipeline:
 
                     # Identity & Re-entry logic (IdentityManager)
                     id_manager = IdentityManager(db)
-                    person_identity, is_new_entry = id_manager.resolve_person(tracking_id=track_id, face_embedding=face_embedding, name="UNKNOWN")
+                    
+                    live_image_b64 = None
+                    if 'hcrop' in locals() and hcrop is not None and hcrop.size > 0:
+                        import base64
+                        _, buffer = cv2.imencode('.jpg', hcrop)
+                        live_image_b64 = f"data:image/jpeg;base64,{base64.b64encode(buffer).decode('utf-8')}"
+
+                    person_identity, is_new_entry = id_manager.resolve_person(
+                        tracking_id=track_id, 
+                        face_embedding=face_embedding, 
+                        name="UNKNOWN",
+                        live_image=live_image_b64
+                    )
                     entry_count = person_identity.entry_count
                     auth_status = person_identity.authorization_status
 
                     if person_identity.entry_count >= 1:
                          tag_text = f"PERSON {track_id} | ENTRIES: {entry_count} [{conf_pct}%]"
 
-                    # Evaluate zones (virtual fences) -> ENFORCE CAMERA-WIDE FENCING REQUIREMENT
+
+                    # Evaluate zones (virtual fences)
                     inside_restricted = False
                     violated_zone_name = None
 
-                    if not zones: # CAMERA-WIDE FENCING ACTIVE WHERE POLYS ABSENT
-                        inside_restricted = True
-                        violated_zone_name = "Camera-Wide Perimeter"
-                    else:
-                        for zone in zones:
-                            if zone.coordinates and isinstance(zone.coordinates, list):
-                                poly = [(int(p.get("x", 0) * w / 100), int(p.get("y", 0) * h / 100)) for p in zone.coordinates]
-                                if len(poly) >= 3 and point_in_polygon(person_foot, poly):
-                                    inside_restricted = True
-                                    violated_zone_name = zone.name
-                                    break
+                    for zone in zones:
+                        if zone.coordinates and isinstance(zone.coordinates, list):
+                            poly = [(int(p.get("x", 0) * w / 100), int(p.get("y", 0) * h / 100)) for p in zone.coordinates]
+                            if len(poly) >= 3 and point_in_polygon(person_foot, poly):
+                                inside_restricted = True
+                                violated_zone_name = zone.name
+                                break
 
                     is_loitering = dwell_sec > 10.0
                     is_night = self.risk_engine.is_night_time(timestamp)
@@ -211,6 +269,70 @@ class AutonomousSurveillancePipeline:
                     cv2.rectangle(annotated, (x1, y1), (x2, y2), box_color, 2)
                     cv2.rectangle(annotated, (x1, y1 - 20), (x1 + len(tag_text) * 9, y1), box_color, -1)
                     cv2.putText(annotated, tag_text, (x1 + 4, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 2)
+
+                    # Broadcast detection bbox to WebSocket for frontend overlay
+                    try:
+                        import asyncio as _asyncio
+                        _loop = _asyncio.get_event_loop()
+                        if _loop.is_running():
+                            _loop.create_task(manager.broadcast({
+                                "type": "detection",
+                                "data": {
+                                    "id": f"det-{det.raw_track_id or uuid.uuid4().hex[:8]}",
+                                    "cameraId": camera_id,
+                                    "objectType": "person",
+                                    "trackingId": track_id,
+                                    "confidence": conf_pct,
+                                    "timestamp": timestamp_str,
+                                    "bbox": {
+                                        "x": round((x1 / max(w, 1)) * 100, 2),
+                                        "y": round((y1 / max(h, 1)) * 100, 2),
+                                        "width": round(((x2 - x1) / max(w, 1)) * 100, 2),
+                                        "height": round(((y2 - y1) / max(h, 1)) * 100, 2),
+                                    },
+                                    "label": tag_text
+                                }
+                            }))
+                    except Exception:
+                        pass
+                
+                # -------------------------------------------------------------
+                # SCENARIO C: ANIMAL DETECTED
+                # -------------------------------------------------------------
+                elif det.object_type == "animal" and run_face_object:
+                    box_color = (0, 140, 255) # Orange (BGR)
+                    tag_text = f"{det.object_class.upper()} [{conf_pct}%]"
+                    
+                    # Draw Animal Box & Floating Tag
+                    cv2.rectangle(annotated, (x1, y1), (x2, y2), box_color, 2)
+                    cv2.rectangle(annotated, (x1, y1 - 20), (x1 + len(tag_text) * 9, y1), box_color, -1)
+                    cv2.putText(annotated, tag_text, (x1 + 4, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 2)
+
+                    # Broadcast detection bbox to WebSocket for frontend overlay
+                    try:
+                        import asyncio as _asyncio
+                        _loop = _asyncio.get_event_loop()
+                        if _loop.is_running():
+                            _loop.create_task(manager.broadcast({
+                                "type": "detection",
+                                "data": {
+                                    "id": f"det-{det.raw_track_id or uuid.uuid4().hex[:8]}",
+                                    "cameraId": camera_id,
+                                    "objectType": "animal",
+                                    "trackingId": track_id,
+                                    "confidence": conf_pct,
+                                    "timestamp": timestamp_str,
+                                    "bbox": {
+                                        "x": round((x1 / max(w, 1)) * 100, 2),
+                                        "y": round((y1 / max(h, 1)) * 100, 2),
+                                        "width": round(((x2 - x1) / max(w, 1)) * 100, 2),
+                                        "height": round(((y2 - y1) / max(h, 1)) * 100, 2),
+                                    },
+                                    "label": det.object_class.upper()
+                                }
+                            }))
+                    except Exception:
+                        pass
 
         # 3. Tactical HUD Watermark Bar
         cv2.rectangle(annotated, (0, 0), (w, 24), (20, 20, 20), -1)
